@@ -26,6 +26,68 @@ body, html {
     z-index: 9999;
 }
 
+#editor-ui {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+}
+
+#layer-toggles {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.layer-btn {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: 2px solid transparent;
+    padding: 8px 14px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.layer-btn:hover {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.layer-btn.active {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+#palette {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-start;
+}
+
+.tile-btn {
+    width: 64px;
+    height: 64px;
+    outline: 2px solid transparent; 
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.4); 
+    background-repeat: no-repeat;
+    transition: outline-color 0.1s;
+}
+
+.tile-btn:hover, .tile-btn.selected {
+    outline-color: #ffffff;
+    z-index: 1;
+}
+
+.eraser-btn {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
 #leaderboard-ui {
     position: fixed;
     top: 10px;
