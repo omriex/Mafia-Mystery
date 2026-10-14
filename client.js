@@ -31,6 +31,7 @@ const WORLD = {
                 arrowup: false, arrowleft: false, arrowdown: false, arrowright: false },
         mouseX: 0, mouseY: 0, isMouseDown: false
     },
+    EDITOR: { enabled: false, selectedTileGid: 1, selectedLayer: 'background' },
     SYSTEM: { viewScale: 1, assetsLoaded: 0, isReady: false, lastTime: performance.now() },
     INVENTORY:          [null, null, null, null, null],
     INVENTORY_SELECTED: 0,
@@ -43,7 +44,7 @@ const ME = {
     width: 45, height: 45,
     vx: 0, vy: 0,
     angle: 0, scale: 1, bopTimer: 0,
-    chatMessage: null, chatTimer: 0
+    chats: []
 };
 
 const tilesheetImg = new Image();
@@ -89,11 +90,15 @@ ws.onmessage = (event) => {
         ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
         ME.y = (WORLD.MAP.rows    * WORLD.MAP.tileSize) / 2;
 
+        if (isOwner) document.getElementById('editor-ui').style.display = 'flex';
+
         document.getElementById('loading-text').innerText = 'LOADING ASSETS...';
         loadImages();
 
     } else if (data.type === 'auth_ok') {
         isOwner = true;
+        document.getElementById('editor-ui').style.display = 'flex';
+        initEditorUI();
         updateLeaderboard();
 
     } else if (data.type === 'state') {
@@ -126,11 +131,19 @@ ws.onmessage = (event) => {
         if (data.players[myId]) {
             WORLD.INVENTORY          = data.players[myId].inventory;
             WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
-            ME.chatMessage           = data.players[myId].chatMessage;
-            ME.chatTimer             = data.players[myId].chatTimer;
+            ME.chats                 = data.players[myId].chats || [];
             if (data.players[myId].name) myName = data.players[myId].name;
             renderInventory();
             updateLeaderboard();
+        }
+
+    } else if (data.type === 'map_update') {
+        const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
+        if (layer) {
+            layer.data[data.row * WORLD.MAP.columns + data.col] = data.gid;
+            const cx = Math.floor((data.col * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+            const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+            renderChunk(cx, cy);
         }
     }
 };
@@ -335,6 +348,15 @@ function drawChatBubble(ctx, text, x, y) {
     ctx.fillText(text, x, y - bubbleH / 2 + 1);
 }
 
+function renderChatHistory(ctx, chats, x, bottomY) {
+    if (!chats || chats.length === 0) return;
+    let currentY = bottomY;
+    for (let i = 0; i < chats.length; i++) {
+        drawChatBubble(ctx, chats[i].text, x, currentY);
+        currentY -= 36;
+    }
+}
+
 function render() {
     if (!WORLD.SYSTEM.isReady) return;
 
@@ -401,10 +423,6 @@ function render() {
         const pLabel = p.name + (p.isOwner ? ' 👑' : '');
         ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
         ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
-
-        if (p.chatMessage && p.chatTimer > 0) {
-            drawChatBubble(ctx, p.chatMessage, pRX, pRY - sH / 2 - 40);
-        }
     }
 
     const pRenderX = ME.x - camX + ME.width  / 2;
@@ -428,10 +446,6 @@ function render() {
     ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
     ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
 
-    if (ME.chatMessage && ME.chatTimer > 0) {
-        drawChatBubble(ctx, ME.chatMessage, pRenderX, pRenderY - pScaledH / 2 - 40);
-    }
-
     if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
         ctx.save();
         ctx.translate((WORLD.NEAREST_ITEM.renderX ?? WORLD.NEAREST_ITEM.x) - camX, (WORLD.NEAREST_ITEM.renderY ?? WORLD.NEAREST_ITEM.y) - camY - 25);
@@ -448,6 +462,40 @@ function render() {
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
             ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+
+    if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
+        const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
+        const wY  = (WORLD.INPUTS.mouseY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
+        const col = Math.floor(wX / WORLD.MAP.tileSize);
+        const row = Math.floor(wY / WORLD.MAP.tileSize);
+
+        if (col >= 0 && col < WORLD.MAP.columns && row >= 0 && row < WORLD.MAP.rows) {
+            const drawX = col * WORLD.MAP.tileSize - camX;
+            const drawY = row * WORLD.MAP.tileSize - camY;
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            if (WORLD.EDITOR.selectedTileGid > 0) {
+                const tId = WORLD.EDITOR.selectedTileGid - 1;
+                ctx.drawImage(tilesheetImg,
+                    (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                    Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                    WORLD.MAP.tileSize, WORLD.MAP.tileSize,
+                    drawX, drawY, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+            } else {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(drawX, drawY, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+            }
+            ctx.restore();
+        }
+    }
+
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
+        const pRX = (p.renderX ?? p.x) - camX + p.width  / 2;
+        const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
+        renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
+    }
+    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
 
     ctx.restore();
 }
@@ -519,6 +567,7 @@ function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
         WORLD.MAP.tilesetCols = Math.floor(tilesheetImg.width / WORLD.MAP.tileSize);
+        initEditorUI();
         onAssetLoad();
     };
     tilesheetImg.src = 'assets/tilesheet.png';
@@ -540,12 +589,63 @@ function onAssetLoad() {
     }
 }
 
-function sendKick(targetId) {
-    ws.send(JSON.stringify({ type: 'kick', targetId }));
+function handleMapEdit(screenX, screenY) {
+    if (!isOwner) return;   
+    const worldX = (screenX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
+    const worldY = (screenY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
+    const col = Math.floor(worldX / WORLD.MAP.tileSize);
+    const row = Math.floor(worldY / WORLD.MAP.tileSize);
+    if (col >= 0 && col < WORLD.MAP.columns && row >= 0 && row < WORLD.MAP.rows)
+        ws.send(JSON.stringify({ type: 'edit', layer: WORLD.EDITOR.selectedLayer, col, row, gid: WORLD.EDITOR.selectedTileGid }));
 }
-function sendBan(targetId) {
-    ws.send(JSON.stringify({ type: 'ban', targetId }));
+
+function initEditorUI() {
+    const palette = document.getElementById('palette');
+    if (!palette || palette.children.length > 0) return;
+    const desiredTiles = [{ name: 'Grass', col: 0, row: 0 }, { name: 'Dirt', col: 1, row: 0 }, { name: 'Stone', col: 0, row: 1 }];
+
+    desiredTiles.forEach((tile, idx) => {
+        const btn = document.createElement('div');
+        btn.className = 'tile-btn' + (idx === 0 ? ' selected' : '');
+        btn.style.backgroundImage    = `url(${tilesheetImg.src})`;
+        btn.style.backgroundSize     = '512px 512px';
+        btn.style.backgroundPosition = `-${tile.col * WORLD.MAP.tileSize}px -${tile.row * WORLD.MAP.tileSize}px`;
+        btn.onclick = () => {
+            document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            WORLD.EDITOR.selectedTileGid = (tile.row * WORLD.MAP.tilesetCols) + tile.col + 1;
+        };
+        palette.appendChild(btn);
+    });
+
+    const eraser = document.createElement('div');
+    eraser.className = 'tile-btn eraser-btn';
+    eraser.onclick = () => {
+        document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('selected'));
+        eraser.classList.add('selected');
+        WORLD.EDITOR.selectedTileGid = 0;
+    };
+    palette.appendChild(eraser);
+
+    document.getElementById('editor-toggle-btn').addEventListener('click', function () {
+        WORLD.EDITOR.enabled = !WORLD.EDITOR.enabled;
+        const tools = document.getElementById('editor-tools');
+        if (WORLD.EDITOR.enabled) { this.innerText = 'Editor: ON';  this.classList.add('active');    tools.style.display = 'flex'; }
+        else                       { this.innerText = 'Editor: OFF'; this.classList.remove('active'); tools.style.display = 'none'; }
+    });
+
+    document.querySelectorAll('#editor-ui .layer-btn').forEach(btn => {
+        if (btn.id === 'editor-toggle-btn') return;
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#layer-toggles .layer-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            WORLD.EDITOR.selectedLayer = btn.dataset.layer;
+        });
+    });
 }
+
+function sendKick(targetId) { ws.send(JSON.stringify({ type: 'kick', targetId })); }
+function sendBan(targetId) { ws.send(JSON.stringify({ type: 'ban', targetId })); }
 
 function showAdminPanel(targetId, targetName, mouseX, mouseY) {
     const existing = document.getElementById('admin-panel');
@@ -729,6 +829,11 @@ window.addEventListener('keyup', e => {
 window.addEventListener('mousemove', e => {
     WORLD.INPUTS.mouseX = e.clientX;
     WORLD.INPUTS.mouseY = e.clientY;
+    
+    if (WORLD.INPUTS.isMouseDown && dragIndex === -1 && WORLD.EDITOR.enabled) {
+        handleMapEdit(e.clientX, e.clientY);
+    }
+
     if (dragIndex !== -1) {
         dragGhost.style.left = (e.clientX - 32) + 'px';
         dragGhost.style.top  = (e.clientY - 32) + 'px';
@@ -741,9 +846,10 @@ window.addEventListener('mousedown', e => {
             ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
         return;
     }
-    if (e.target.closest('#leaderboard-ui') || e.target.closest('#inventory-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#inventory-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
+        if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
     }
 });
 
