@@ -15,6 +15,13 @@
     <div id="loading-text" style="font-size: 16px; color: #888;">LOADING ASSETS...</div>
 </div>
 
+<div id="main-menu-ui">
+    <img src="assets/player.png" style="width: 96px; height: 96px; margin-bottom: 10px; image-rendering: pixelated;">
+    <div style="font-size: 40px; margin-bottom: 25px; color: white; font-weight: bold; text-shadow: 0px 4px 6px rgba(0,0,0,0.5);">Mafia Mystery</div>
+    <input type="text" id="username-input" maxlength="16" placeholder="Nickname" autocomplete="off">
+    <button id="play-btn">PLAY</button>
+</div>
+
 <canvas id="gameCanvas"></canvas>
 
 <div id="editor-ui" style="display: none;">
@@ -42,12 +49,17 @@
     </div>
 </div>
 
-<div id="inventory-ui">
-    <div class="inv-slot"></div>
-    <div class="inv-slot"></div>
-    <div class="inv-slot"></div>
-    <div class="inv-slot"></div>
-    <div class="inv-slot"></div>
+<div id="bottom-ui">
+    <div id="inventory-ui">
+        <div class="inv-slot"></div>
+        <div class="inv-slot"></div>
+        <div class="inv-slot"></div>
+        <div class="inv-slot"></div>
+        <div class="inv-slot"></div>
+    </div>
+    <div id="health-bar-bg">
+        <div id="health-bar-fill"></div>
+    </div>
 </div>
 
 <div id="tooltip-ui">
@@ -55,7 +67,7 @@
 </div>
 
 <div id="chat-ui">
-    <input type="text" id="chat-input" maxlength="80" placeholder="Type something..." autocomplete="off">
+    <input type="text" id="chat-input" maxlength="80" placeholder="Chat" autocomplete="off">
 </div>
 
 <script src="client.js"></script>
