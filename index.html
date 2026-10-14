@@ -17,6 +17,19 @@
 
 <canvas id="gameCanvas"></canvas>
 
+<div id="editor-ui" style="display: none;">
+    <button id="editor-toggle-btn" class="layer-btn" style="width: 190px;">Editor: OFF</button>
+    <div id="editor-tools" style="display: none; flex-direction: column; gap: 10px;">
+        <div id="layer-toggles">
+            <button class="layer-btn active" data-layer="background">Floor</button>
+            <button class="layer-btn" data-layer="floor2">Floor 2</button>
+            <button class="layer-btn" data-layer="walls">Wall</button>
+            <button class="layer-btn" data-layer="trees">Tree</button>
+        </div>
+        <div id="palette"></div>
+    </div>
+</div>
+
 <div id="leaderboard-ui">
     <div id="leaderboard-header">
         <span>LEADERBOARD</span>
