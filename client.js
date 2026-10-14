@@ -62,9 +62,11 @@ window.addEventListener('DOMContentLoaded', () => {
             connectToServer();
         });
     } else {
-        console.warn("⚠️ Play button not found! Your browser is loading an old cached version of index.html. Auto-connecting instead...");
+        console.warn("⚠️ Play button not found!");
         connectToServer();
     }
+
+    loadImages(); 
 });
 
 function connectToServer() {
