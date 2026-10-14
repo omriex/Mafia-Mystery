@@ -50,7 +50,6 @@ const dragGhost = document.createElement('div');
 dragGhost.id = 'drag-ghost';
 document.body.appendChild(dragGhost);
 
-
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     
@@ -62,11 +61,11 @@ window.addEventListener('DOMContentLoaded', () => {
             connectToServer();
         });
     } else {
-        console.warn("⚠️ Play button not found!");
+        console.warn("⚠️ Play button not found! Your browser is loading an old cached version of index.html. Auto-connecting instead...");
         connectToServer();
     }
-
-    loadImages(); 
+    
+    loadImages();
 });
 
 function connectToServer() {
@@ -110,6 +109,8 @@ function connectToServer() {
             WORLD.MAP.rows     = data.map.rows;
             WORLD.MAP.layers   = data.map.layers;
 
+            preRenderMap();
+
             ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
             ME.y = (WORLD.MAP.rows    * WORLD.MAP.tileSize) / 2;
 
@@ -117,6 +118,9 @@ function connectToServer() {
                 document.getElementById('editor-ui').style.display = 'flex';
                 initEditorUI();
             }
+
+            document.getElementById('leaderboard-ui').style.display = 'flex';
+            document.getElementById('bottom-ui').style.display = 'flex';
 
             WORLD.SYSTEM.lastTime = performance.now();
             WORLD.SYSTEM.isReady  = true;
@@ -602,7 +606,6 @@ function loadImages() {
 function onAssetLoad() {
     WORLD.SYSTEM.assetsLoaded++;
     if (WORLD.SYSTEM.assetsLoaded === 2) {
-        preRenderMap();
         document.getElementById('loading-screen').style.display = 'none';
         
         document.getElementById('main-menu-ui').style.display = 'flex';
