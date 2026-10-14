@@ -131,3 +131,31 @@ body, html {
     font-weight: bold;
     font-size: 13px;
 }
+
+#chat-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 12px 20px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    z-index: 2000;
+    display: none;
+}
+
+#chat-input {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    outline: none;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    width: 400px;
+    text-align: center;
+}
+
+#chat-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
