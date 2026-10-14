@@ -50,11 +50,21 @@ const dragGhost = document.createElement('div');
 dragGhost.id = 'drag-ghost';
 document.body.appendChild(dragGhost);
 
-document.getElementById('play-btn').addEventListener('click', () => {
-    const nameInp = document.getElementById('username-input').value.trim();
-    myName = nameInp || 'Player' + Math.floor(Math.random() * 1000);
-    document.getElementById('main-menu-ui').style.display = 'none';
-    connectToServer();
+
+window.addEventListener('DOMContentLoaded', () => {
+    const playBtn = document.getElementById('play-btn');
+    
+    if (playBtn) {
+        playBtn.addEventListener('click', () => {
+            const nameInp = document.getElementById('username-input').value.trim();
+            myName = nameInp || 'Player' + Math.floor(Math.random() * 1000);
+            document.getElementById('main-menu-ui').style.display = 'none';
+            connectToServer();
+        });
+    } else {
+        console.warn("⚠️ Play button not found! Your browser is loading an old cached version of index.html. Auto-connecting instead...");
+        connectToServer();
+    }
 });
 
 function connectToServer() {
