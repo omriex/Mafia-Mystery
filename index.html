@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mafia Mystery</title>
+    <link rel="icon" type="image/png" href="assets/player.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="loading-screen">
+    <img src="assets/player.png" style="width: 128px; height: 128px; margin-bottom: 20px; image-rendering: pixelated;">
+    <div style="font-size: 32px; margin-bottom: 10px;">Mafia Mystery</div>
+    <div id="loading-text" style="font-size: 16px; color: #888;">LOADING ASSETS...</div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="leaderboard-ui">
+    <div id="leaderboard-header">
+        <span>LEADERBOARD</span>
+        <span id="leaderboard-toggle">▼</span>
+    </div>
+    <div id="leaderboard-list">
+        <div class="leaderboard-entry">
+            <span style="color: #ffffff;">player</span>
+        </div>
+    </div>
+</div>
+
+<div id="inventory-ui">
+    <div class="inv-slot"></div>
+    <div class="inv-slot"></div>
+    <div class="inv-slot"></div>
+    <div class="inv-slot"></div>
+    <div class="inv-slot"></div>
+</div>
+
+<div id="tooltip-ui">
+    <div id="tooltip-header"></div>
+</div>
+
+<script src="client.js"></script>
+</body>
+</html>
