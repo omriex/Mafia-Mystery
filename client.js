@@ -1,14 +1,9 @@
 document.addEventListener('contextmenu', event => event.preventDefault());
 
-const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
-const _params = new URLSearchParams();
-if (_pageToken) _params.set('token', _pageToken);
-const _wsURL = 'wss://faster-conjoined-angling.ngrok-free.dev/?' + _params.toString();
-const ws = new WebSocket(_wsURL);
-
-let myId     = null;
-let myName   = 'Player???';      
-let isOwner  = false;          
+let ws           = null;
+let myId         = null;
+let myName       = 'Player???';      
+let isOwner      = false;          
 let serverPlayers = {};        
 let serverItems   = [];
 
@@ -55,101 +50,117 @@ const dragGhost = document.createElement('div');
 dragGhost.id = 'drag-ghost';
 document.body.appendChild(dragGhost);
 
-ws.onopen = () => {
-    console.log('[ws] connected');
-    if (_pageToken) ws.send(JSON.stringify({ type: 'auth', token: _pageToken }));
-};
-
-window.addEventListener('beforeunload', () => {
-    if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'leave' }));
-    }
+document.getElementById('play-btn').addEventListener('click', () => {
+    const nameInp = document.getElementById('username-input').value.trim();
+    myName = nameInp || 'Player' + Math.floor(Math.random() * 1000);
+    document.getElementById('main-menu-ui').style.display = 'none';
+    connectToServer();
 });
 
-ws.onclose = (e) => {
-    if (e.code === 4001) {
-        document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been kicked.</div>';
-    } else if (e.code === 4002 || e.code === 4003) {
-        document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been banned.</div>';
-    }
-};
+function connectToServer() {
+    const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
+    const _params = new URLSearchParams();
+    if (_pageToken) _params.set('token', _pageToken);
+    
+    const _wsURL = 'wss://faster-conjoined-angling.ngrok-free.dev/?' + _params.toString();
+    
+    ws = new WebSocket(_wsURL);
 
-ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+    ws.onopen = () => {
+        console.log('[ws] connected');
+        ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken }));
+    };
 
-    if (data.type === 'init') {
-        myId    = data.id;
-        isOwner = data.isOwner || false;
-        myName  = data.name || 'Player???';
-
-        WORLD.MAP.tileSize = data.map.tileSize;
-        WORLD.MAP.columns  = data.map.columns;
-        WORLD.MAP.rows     = data.map.rows;
-        WORLD.MAP.layers   = data.map.layers;
-
-        ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
-        ME.y = (WORLD.MAP.rows    * WORLD.MAP.tileSize) / 2;
-
-        if (isOwner) document.getElementById('editor-ui').style.display = 'flex';
-
-        document.getElementById('loading-text').innerText = 'LOADING ASSETS...';
-        loadImages();
-
-    } else if (data.type === 'auth_ok') {
-        isOwner = true;
-        document.getElementById('editor-ui').style.display = 'flex';
-        initEditorUI();
-        updateLeaderboard();
-
-    } else if (data.type === 'state') {
-        const next = {};
-        for (const id in data.players) {
-            if (parseInt(id) === myId) continue;
-            const incoming = data.players[id];
-            const existing = serverPlayers[id];
-            if (existing) {
-                Object.assign(existing, incoming);
-                next[id] = existing;
-            } else {
-                next[id] = { ...incoming, renderX: incoming.x, renderY: incoming.y, renderAngle: incoming.angle || 0 };
-            }
+    window.addEventListener('beforeunload', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'leave' }));
         }
-        serverPlayers = next;
+    });
 
-        const nextItems = [];
-        for (const incoming of data.items) {
-            const existing = serverItems.find(i => i.id === incoming.id);
-            if (existing) {
-                Object.assign(existing, incoming);
-                nextItems.push(existing);
-            } else {
-                nextItems.push({ ...incoming, renderX: incoming.x, renderY: incoming.y });
-            }
+    ws.onclose = (e) => {
+        if (e.code === 4001) {
+            document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been kicked.</div>';
+        } else if (e.code === 4002 || e.code === 4003) {
+            document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been banned.</div>';
         }
-        serverItems = nextItems;
+    };
 
-        if (data.players[myId]) {
-            WORLD.INVENTORY          = data.players[myId].inventory;
-            WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
-            ME.chats                 = data.players[myId].chats || [];
-            if (data.players[myId].name) myName = data.players[myId].name;
-            renderInventory();
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'init') {
+            myId    = data.id;
+            isOwner = data.isOwner || false;
+            myName  = data.name || myName;
+
+            WORLD.MAP.tileSize = data.map.tileSize;
+            WORLD.MAP.columns  = data.map.columns;
+            WORLD.MAP.rows     = data.map.rows;
+            WORLD.MAP.layers   = data.map.layers;
+
+            ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
+            ME.y = (WORLD.MAP.rows    * WORLD.MAP.tileSize) / 2;
+
+            if (isOwner) {
+                document.getElementById('editor-ui').style.display = 'flex';
+                initEditorUI();
+            }
+
+            WORLD.SYSTEM.lastTime = performance.now();
+            WORLD.SYSTEM.isReady  = true;
             updateLeaderboard();
-        }
+            requestAnimationFrame(gameLoop);
 
-    } else if (data.type === 'map_update') {
-        const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
-        if (layer) {
-            layer.data[data.row * WORLD.MAP.columns + data.col] = data.gid;
-            const cx = Math.floor((data.col * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
-            const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
-            renderChunk(cx, cy);
+        } else if (data.type === 'state') {
+            const next = {};
+            for (const id in data.players) {
+                if (parseInt(id) === myId) continue;
+                const incoming = data.players[id];
+                const existing = serverPlayers[id];
+                if (existing) {
+                    Object.assign(existing, incoming);
+                    next[id] = existing;
+                } else {
+                    next[id] = { ...incoming, renderX: incoming.x, renderY: incoming.y, renderAngle: incoming.angle || 0 };
+                }
+            }
+            serverPlayers = next;
+
+            const nextItems = [];
+            for (const incoming of data.items) {
+                const existing = serverItems.find(i => i.id === incoming.id);
+                if (existing) {
+                    Object.assign(existing, incoming);
+                    nextItems.push(existing);
+                } else {
+                    nextItems.push({ ...incoming, renderX: incoming.x, renderY: incoming.y });
+                }
+            }
+            serverItems = nextItems;
+
+            if (data.players[myId]) {
+                WORLD.INVENTORY          = data.players[myId].inventory;
+                WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
+                ME.chats                 = data.players[myId].chats || [];
+                if (data.players[myId].name) myName = data.players[myId].name;
+                renderInventory();
+                updateLeaderboard();
+            }
+
+        } else if (data.type === 'map_update') {
+            const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
+            if (layer) {
+                layer.data[data.row * WORLD.MAP.columns + data.col] = data.gid;
+                const cx = Math.floor((data.col * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+                const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+                renderChunk(cx, cy);
+            }
         }
-    }
-};
+    };
+}
 
 function sendPositionUpdate() {
-    if (!myId || ws.readyState !== WebSocket.OPEN) return;
+    if (!myId || !ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({
         type:  'position_update',
         x:     ME.x,
@@ -501,8 +512,8 @@ function render() {
 }
 
 function gameLoop(now) {
-    requestAnimationFrame(gameLoop);
     if (!WORLD.SYSTEM.isReady || !myId) return;
+    requestAnimationFrame(gameLoop);
 
     let dt = (now - WORLD.SYSTEM.lastTime) / 1000;
     WORLD.SYSTEM.lastTime = now;
@@ -567,7 +578,6 @@ function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
         WORLD.MAP.tilesetCols = Math.floor(tilesheetImg.width / WORLD.MAP.tileSize);
-        initEditorUI();
         onAssetLoad();
     };
     tilesheetImg.src = 'assets/tilesheet.png';
@@ -582,15 +592,15 @@ function onAssetLoad() {
     if (WORLD.SYSTEM.assetsLoaded === 2) {
         preRenderMap();
         document.getElementById('loading-screen').style.display = 'none';
+        
+        document.getElementById('main-menu-ui').style.display = 'flex';
+        
         resizeCanvas();
-        WORLD.SYSTEM.lastTime = performance.now();
-        WORLD.SYSTEM.isReady  = true;
-        requestAnimationFrame(gameLoop);
     }
 }
 
 function handleMapEdit(screenX, screenY) {
-    if (!isOwner) return;   
+    if (!isOwner || !ws) return;   
     const worldX = (screenX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
     const worldY = (screenY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
     const col = Math.floor(worldX / WORLD.MAP.tileSize);
@@ -644,8 +654,8 @@ function initEditorUI() {
     });
 }
 
-function sendKick(targetId) { ws.send(JSON.stringify({ type: 'kick', targetId })); }
-function sendBan(targetId) { ws.send(JSON.stringify({ type: 'ban', targetId })); }
+function sendKick(targetId) { if(ws) ws.send(JSON.stringify({ type: 'kick', targetId })); }
+function sendBan(targetId) { if(ws) ws.send(JSON.stringify({ type: 'ban', targetId })); }
 
 function showAdminPanel(targetId, targetName, mouseX, mouseY) {
     const existing = document.getElementById('admin-panel');
@@ -720,7 +730,6 @@ function updateLeaderboard() {
 function renderInventory() {
     document.querySelectorAll('.inv-slot').forEach((slot, i) => {
         slot.className = 'inv-slot' + (WORLD.INVENTORY_SELECTED === i ? ' selected' : '');
-        
         slot.style.backgroundImage = 'none'; 
 
         slot.onmouseenter = () => {
@@ -735,6 +744,7 @@ function renderInventory() {
         };
         slot.onmouseleave = () => document.getElementById('tooltip-ui').style.display = 'none';
         slot.onmousedown  = (e) => {
+            if (!ws) return;
             ws.send(JSON.stringify({ type: 'inv_select', index: i }));
             if (WORLD.INVENTORY[i]) {
                 document.getElementById('tooltip-ui').style.display = 'none';
@@ -773,6 +783,13 @@ window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
 
     if (e.key === 'Enter') {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            if (document.getElementById('main-menu-ui').style.display !== 'none') {
+                document.getElementById('play-btn').click();
+            }
+            return;
+        }
+
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
         
@@ -808,6 +825,8 @@ window.addEventListener('keydown', e => {
     if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
         if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = true;
         
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
         if (['1','2','3','4','5'].includes(key)) {
             ws.send(JSON.stringify({ type: 'inv_select', index: parseInt(key) - 1 }));
         } else if (key === 'g') {
@@ -842,11 +861,11 @@ window.addEventListener('mousemove', e => {
 
 window.addEventListener('mousedown', e => {
     if (e.button === 2) {
-        if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null))
+        if (ws && WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null))
             ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
         return;
     }
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#inventory-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#bottom-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -855,13 +874,13 @@ window.addEventListener('mousedown', e => {
 
 window.addEventListener('mouseup', e => {
     WORLD.INPUTS.isMouseDown = false;
-    if (dragIndex !== -1) {
+    if (dragIndex !== -1 && ws) {
         dragGhost.style.display = 'none';
         const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
         if (dropTarget && dropTarget.classList.contains('inv-slot')) {
             const dropIndex = Array.from(document.querySelectorAll('.inv-slot')).indexOf(dropTarget);
             ws.send(JSON.stringify({ type: 'inv_swap', from: dragIndex, to: dropIndex }));
-        } else if (!e.target.closest('#inventory-ui')) {
+        } else if (!e.target.closest('#bottom-ui')) {
             ws.send(JSON.stringify({ type: 'drop', index: dragIndex }));
         }
         dragIndex = -1;
