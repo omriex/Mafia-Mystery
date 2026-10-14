@@ -42,7 +42,8 @@ const ME = {
     x: 0, y: 0,
     width: 45, height: 45,
     vx: 0, vy: 0,
-    angle: 0, scale: 1, bopTimer: 0
+    angle: 0, scale: 1, bopTimer: 0,
+    chatMessage: null, chatTimer: 0
 };
 
 const tilesheetImg = new Image();
@@ -125,6 +126,8 @@ ws.onmessage = (event) => {
         if (data.players[myId]) {
             WORLD.INVENTORY          = data.players[myId].inventory;
             WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
+            ME.chatMessage           = data.players[myId].chatMessage;
+            ME.chatTimer             = data.players[myId].chatTimer;
             if (data.players[myId].name) myName = data.players[myId].name;
             renderInventory();
             updateLeaderboard();
@@ -304,6 +307,34 @@ function update(dt) {
     sendPositionUpdate();
 }
 
+function drawChatBubble(ctx, text, x, y) {
+    ctx.font = "bold 14px 'Segoe UI'";
+    const textWidth = ctx.measureText(text).width;
+    const bubbleW = textWidth + 24;
+    const bubbleH = 28;
+    
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(x - bubbleW / 2, y - bubbleH, bubbleW, bubbleH, 6);
+    } else {
+        ctx.rect(x - bubbleW / 2, y - bubbleH, bubbleW, bubbleH);
+    }
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(x - 6, y);
+    ctx.lineTo(x + 6, y);
+    ctx.lineTo(x, y + 6);
+    ctx.fill();
+    
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y - bubbleH / 2 + 1);
+}
+
 function render() {
     if (!WORLD.SYSTEM.isReady) return;
 
@@ -342,7 +373,6 @@ function render() {
         ctx.rotate(rot);
         ctx.scale(scale, scale);
         
-        // Placeholder for dropped item representation
         ctx.fillStyle = '#fff';
         ctx.fillRect(-10, -10, 20, 20);
 
@@ -371,6 +401,10 @@ function render() {
         const pLabel = p.name + (p.isOwner ? ' 👑' : '');
         ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
         ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+
+        if (p.chatMessage && p.chatTimer > 0) {
+            drawChatBubble(ctx, p.chatMessage, pRX, pRY - sH / 2 - 40);
+        }
     }
 
     const pRenderX = ME.x - camX + ME.width  / 2;
@@ -393,6 +427,10 @@ function render() {
     const myLabel = myName + (isOwner ? ' 👑' : '');
     ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
     ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
+
+    if (ME.chatMessage && ME.chatTimer > 0) {
+        drawChatBubble(ctx, ME.chatMessage, pRenderX, pRenderY - pScaledH / 2 - 40);
+    }
 
     if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
         ctx.save();
@@ -583,7 +621,7 @@ function renderInventory() {
     document.querySelectorAll('.inv-slot').forEach((slot, i) => {
         slot.className = 'inv-slot' + (WORLD.INVENTORY_SELECTED === i ? ' selected' : '');
         
-        slot.style.backgroundImage = 'none'; // Clear bg when no items exist
+        slot.style.backgroundImage = 'none'; 
 
         slot.onmouseenter = () => {
             if (dragIndex !== -1 || !WORLD.INVENTORY[i]) return;
@@ -633,9 +671,43 @@ window.addEventListener('keydown', preventZoom, { passive: false });
 
 window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
-    if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = true;
+
+    if (e.key === 'Enter') {
+        const chatUI = document.getElementById('chat-ui');
+        const chatInput = document.getElementById('chat-input');
+        
+        if (document.activeElement === chatInput) {
+            const msg = chatInput.value.trim();
+            if (msg.length > 0) {
+                ws.send(JSON.stringify({ type: 'chat', text: msg }));
+            }
+            chatInput.value = '';
+            chatUI.style.display = 'none';
+            chatInput.blur();
+        } else {
+            chatUI.style.display = 'block';
+            chatInput.focus();
+            for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
+        }
+        e.preventDefault();
+        return;
+    }
+
+    if (e.key === 'Escape') {
+        const chatUI = document.getElementById('chat-ui');
+        const chatInput = document.getElementById('chat-input');
+        if (document.activeElement === chatInput) {
+            chatInput.value = '';
+            chatUI.style.display = 'none';
+            chatInput.blur();
+            e.preventDefault();
+            return;
+        }
+    }
 
     if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+        if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = true;
+        
         if (['1','2','3','4','5'].includes(key)) {
             ws.send(JSON.stringify({ type: 'inv_select', index: parseInt(key) - 1 }));
         } else if (key === 'g') {
@@ -648,8 +720,10 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('keyup', e => {
-    const key = e.key.toLowerCase();
-    if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = false;
+    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+        const key = e.key.toLowerCase();
+        if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = false;
+    }
 });
 
 window.addEventListener('mousemove', e => {
