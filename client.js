@@ -82,7 +82,10 @@ function connectToServer() {
     // Explicitly bypass Ngrok browser warning for WebSocket requests
     _params.set('ngrok-skip-browser-warning', 'true');
     
-    const _wsHost = (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host;
+    const _ngrokURL = 'wss://faster-conjoined-angling.ngrok-free.app';
+    const _wsHost = window.location.hostname === 'localhost'
+        ? 'ws://localhost:8080'
+        : _ngrokURL;
     const _wsURL = _wsHost + '/?' + _params.toString();
     
     ws = new WebSocket(_wsURL);
