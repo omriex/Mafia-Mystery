@@ -70,44 +70,6 @@
     <input type="text" id="chat-input" maxlength="80" placeholder="Chat" autocomplete="off">
 </div>
 
-<!-- Mafia owner control panel — shown to owner in lobby -->
-<div id="mafia-owner-panel" style="display:none;
-    position:fixed;bottom:110px;left:10px;
-    background:rgba(0,0,0,0.88);border:2px solid rgba(255,255,255,0.15);
-    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-    z-index:2000;padding:12px 16px;min-width:200px;">
-    <div style="font-size:12px;letter-spacing:2px;color:#888;margin-bottom:10px;">MAFIA CONTROLS</div>
-    <button id="mafia-start-btn"
-        style="background:#ff8800;color:white;border:none;padding:10px 24px;
-               font-size:14px;font-weight:bold;cursor:pointer;width:100%;
-               font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin-bottom:6px;
-               opacity:0.5;">
-        START GAME
-    </button>
-    <div id="mafia-lobby-status" style="font-size:12px;color:#888;">0/6 players</div>
-</div>
-
 <script src="client.js"></script>
-
-<script>
-// Wire up start button after DOM + client.js are ready
-window.addEventListener('load', () => {
-    document.getElementById('mafia-start-btn').addEventListener('click', () => {
-        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
-            window.ws.send(JSON.stringify({ type: 'mafia_start' }));
-        }
-    });
-});
-
-// Show owner panel when init arrives and isOwner — client.js sets isOwner
-// We hook into the existing isOwner path via a MutationObserver on editor-ui visibility
-const _ownerObs = new MutationObserver(() => {
-    const editorUI = document.getElementById('editor-ui');
-    if (editorUI && editorUI.style.display !== 'none') {
-        document.getElementById('mafia-owner-panel').style.display = 'block';
-    }
-});
-_ownerObs.observe(document.getElementById('editor-ui'), { attributes: true, attributeFilter: ['style'] });
-</script>
 </body>
 </html>
