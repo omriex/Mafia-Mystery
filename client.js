@@ -742,7 +742,7 @@ function loadImages() {
         WORLD.MAP.tilesetCols = 1;
         onAssetLoad();
     };
-    tilesheetImg.src = 'assets/tilesheet_mafia_2.png';
+    tilesheetImg.src = 'assets/tilesheet.png';
 
     playerImg.crossOrigin = 'Anonymous';
     playerImg.onload = onAssetLoad;
