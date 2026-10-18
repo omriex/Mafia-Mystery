@@ -357,6 +357,48 @@ function resolvePlayerCollisionsLocal() {
     resolveCircleCollisions();
 }
 
+function resolveEntityCollisions() {
+    if (ME.isDead) return;
+    const scale  = ME.scale;
+    const radius = (ME.width * scale) / 2;
+    for (let iter = 0; iter < 2; iter++) {
+        let pX = ME.x + ME.width  / 2;
+        let pY = ME.y + ME.height / 2;
+        for (const ent of WORLD.ENTITIES) {
+            const nearX = pX < ent.x ? ent.x : (pX > ent.x + ent.w ? ent.x + ent.w : pX);
+            const nearY = pY < ent.y ? ent.y : (pY > ent.y + ent.h ? ent.y + ent.h : pY);
+            const dX   = pX - nearX;
+            const dY   = pY - nearY;
+            const dist = Math.sqrt(dX * dX + dY * dY);
+            if (dist < radius && dist > 0) {
+                const overlap = radius - dist;
+                const nx = dX / dist;
+                const ny = dY / dist;
+                pX += nx * overlap;
+                pY += ny * overlap;
+                const dot = ME.vx * nx + ME.vy * ny;
+                if (dot < 0) {
+                    ME.vx -= dot * nx;
+                    ME.vy -= dot * ny;
+                }
+            } else if (dist === 0) {
+                pY -= radius;
+            }
+        }
+        ME.x = pX - ME.width  / 2;
+        ME.y = pY - ME.height / 2;
+    }
+}
+
+function isOnHaybale(worldX, worldY) {
+    const treesLayer = WORLD.MAP.layers.find(l => l.name === 'trees');
+    if (!treesLayer) return false;
+    const col = Math.floor(worldX / WORLD.MAP.tileSize);
+    const row = Math.floor(worldY / WORLD.MAP.tileSize);
+    if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
+    return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
+}
+
 function update(dt) {
     const currentEquipped = WORLD.INVENTORY[WORLD.INVENTORY_SELECTED];
     WORLD.INVENTORY_LAST_EQUIPPED = currentEquipped;
@@ -388,6 +430,7 @@ function update(dt) {
     ME.y  += ME.vy * dt;
 
     for (let i = 0; i < 3; i++) resolveCircleCollisions();
+    for (let i = 0; i < 2; i++) resolveEntityCollisions();
     for (let i = 0; i < 2; i++) resolvePlayerCollisionsLocal();
 
     if (ME.x < 0) ME.x = 0;
@@ -576,15 +619,17 @@ function render() {
             ctx.restore();
         }
 
-        ctx.textAlign  = 'center';
-        ctx.lineJoin   = 'round';
-        ctx.lineWidth  = 3;
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.font       = "bold 13px 'Segoe UI'";
-        ctx.fillStyle  = '#ffffff';
-        const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
-        ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
-        ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
+            ctx.textAlign  = 'center';
+            ctx.lineJoin   = 'round';
+            ctx.lineWidth  = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.font       = "bold 13px 'Segoe UI'";
+            ctx.fillStyle  = '#ffffff';
+            const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
+            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
+            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+        }
     }
 
     const pRenderX = ME.x - camX + ME.width  / 2;
@@ -599,15 +644,17 @@ function render() {
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
     ctx.restore();
 
-    ctx.textAlign  = 'center';
-    ctx.lineJoin   = 'round';
-    ctx.lineWidth  = 3;
-    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-    ctx.font       = "bold 13px 'Segoe UI'";
-    ctx.fillStyle  = '#ffffff';
-    const myLabel = myName + (isOwner ? ' (Host)' : '');
-    ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
-    ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
+    if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
+        ctx.textAlign  = 'center';
+        ctx.lineJoin   = 'round';
+        ctx.lineWidth  = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.font       = "bold 13px 'Segoe UI'";
+        ctx.fillStyle  = '#ffffff';
+        const myLabel = myName + (isOwner ? ' (Host)' : '');
+        ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+        ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
+    }
 
     if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
         ctx.save();
