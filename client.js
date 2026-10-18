@@ -60,6 +60,98 @@ const dragGhost = document.createElement('div');
 dragGhost.id = 'drag-ghost';
 document.body.appendChild(dragGhost);
 
+let mafiaKillState = null;
+
+let targetPanelOpen = false;
+
+function buildTargetPanel() {
+    let panel = document.getElementById('target-panel');
+    if (panel) panel.remove();
+
+    panel = document.createElement('div');
+    panel.id = 'target-panel';
+    panel.style.cssText = [
+        'position:fixed',
+        'top:50%', 'left:50%',
+        'transform:translate(-50%,-50%)',
+        'background:rgba(0,0,0,0.88)',
+        'border:2px solid rgba(255,255,255,0.18)',
+        'border-radius:8px',
+        'min-width:220px',
+        'z-index:2500',
+        'display:flex',
+        'flex-direction:column',
+        'overflow:hidden',
+        'pointer-events:auto'
+    ].join(';');
+
+    const header = document.createElement('div');
+    header.style.cssText = 'background:rgba(0,0,0,0.6);color:white;padding:10px 16px;font-weight:bold;font-size:14px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.12);';
+    header.innerText = 'USE ABILITY';
+    panel.appendChild(header);
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'color:#aaa;font-size:11px;text-align:center;padding:6px 12px 2px;';
+    hint.innerText = 'Press T to close';
+    panel.appendChild(hint);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;padding:6px 0;';
+
+    const alive = Object.values(serverPlayers).filter(p => !p.isDead && p.id !== myId);
+    if (alive.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'color:#666;padding:10px 16px;font-size:13px;text-align:center;';
+        empty.innerText = 'No targets available';
+        list.appendChild(empty);
+    } else {
+        alive.forEach(p => {
+            const btn = document.createElement('button');
+            btn.style.cssText = [
+                'background:transparent',
+                'color:white',
+                'border:none',
+                'border-bottom:1px solid rgba(255,255,255,0.07)',
+                'padding:10px 18px',
+                'font-weight:bold',
+                'font-size:13px',
+                'cursor:pointer',
+                'text-align:left',
+                'font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif',
+                'transition:background 0.1s'
+            ].join(';');
+            btn.innerText = p.name;
+            btn.onmouseenter = () => btn.style.background = 'rgba(255,255,255,0.1)';
+            btn.onmouseleave = () => btn.style.background = 'transparent';
+            btn.onclick = () => {
+                const targetId = parseInt(p.id);
+                WORLD.CURRENT_TARGET = targetId;
+                ws.send(JSON.stringify({ type: 'action_target', targetId }));
+
+                if (myRole === 'Skinwalker' && !ME.isDead) {
+                    if (!mafiaKillState || mafiaKillState.targetId !== targetId) {
+                        mafiaKillState = { targetId, chaseTimer: 15, phase: 'chasing' };
+                        addChatLog('Target selected. You have 15 seconds to touch them!', true);
+                    }
+                }
+                closeTargetPanel();
+            };
+            list.appendChild(btn);
+        });
+    }
+
+    panel.appendChild(list);
+    document.body.appendChild(panel);
+    targetPanelOpen = true;
+}
+
+function closeTargetPanel() {
+    const panel = document.getElementById('target-panel');
+    if (panel) panel.remove();
+    targetPanelOpen = false;
+    for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     if (playBtn) {
@@ -196,14 +288,6 @@ function connectToServer() {
                 }
             }
 
-        } else if (data.type === 'teleport') {
-            ME.x  = data.x;
-            ME.y  = data.y;
-            ME.vx = 0;
-            ME.vy = 0;
-            WORLD.CAMERA.x = null;
-        } else if (data.type === 'player_left') {
-            delete serverPlayers[data.id];
         } else if (data.type === 'map_update') {
             const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
             if (layer) {
@@ -230,9 +314,35 @@ function connectToServer() {
             if(myRole === 'Celebrity') info = "If you die, the killer's name letter is revealed.";
             addChatLog(info, true);
 
+        } else if (data.type === 'teleport_warning') {
+            addChatLog(`⚠ You are being pulled into your house in ${data.seconds}s!`, true);
+
+        } else if (data.type === 'mafia_blocked') {
+            addChatLog('The house is sealed. Wait for the target to arrive.', true);
+
+        } else if (data.type === 'mafia_kill_result') {
+            if (data.success) {
+                addChatLog(`You eliminated ${data.targetName}. They will haunt these streets.`, true);
+                mafiaKillState = null;
+                WORLD.CURRENT_TARGET = null;
+            } else {
+                addChatLog(`${data.targetName} escaped you. No kill tonight.`, true);
+                mafiaKillState = null;
+                WORLD.CURRENT_TARGET = null;
+            }
+
+        } else if (data.type === 'being_hunted') {
+            addChatLog('🔴 You hear footsteps closing in...', true);
+
+        } else if (data.type === 'being_killed') {
+            handleBeingKilled(data.killerX, data.killerY);
+
         } else if (data.type === 'game_over') {
             myRole = null;
             ME.isDead = false;
+            mafiaKillState = null;
+            targetPanelOpen = false;
+            closeTargetPanel();
             document.getElementById('role-ui').style.display = 'none';
             addChatLog("The game has ended.", true);
 
@@ -365,48 +475,6 @@ function resolvePlayerCollisionsLocal() {
     resolveCircleCollisions();
 }
 
-function resolveEntityCollisions() {
-    if (ME.isDead) return;
-    const scale  = ME.scale;
-    const radius = (ME.width * scale) / 2;
-    for (let iter = 0; iter < 2; iter++) {
-        let pX = ME.x + ME.width  / 2;
-        let pY = ME.y + ME.height / 2;
-        for (const ent of WORLD.ENTITIES) {
-            const nearX = pX < ent.x ? ent.x : (pX > ent.x + ent.w ? ent.x + ent.w : pX);
-            const nearY = pY < ent.y ? ent.y : (pY > ent.y + ent.h ? ent.y + ent.h : pY);
-            const dX   = pX - nearX;
-            const dY   = pY - nearY;
-            const dist = Math.sqrt(dX * dX + dY * dY);
-            if (dist < radius && dist > 0) {
-                const overlap = radius - dist;
-                const nx = dX / dist;
-                const ny = dY / dist;
-                pX += nx * overlap;
-                pY += ny * overlap;
-                const dot = ME.vx * nx + ME.vy * ny;
-                if (dot < 0) {
-                    ME.vx -= dot * nx;
-                    ME.vy -= dot * ny;
-                }
-            } else if (dist === 0) {
-                pY -= radius;
-            }
-        }
-        ME.x = pX - ME.width  / 2;
-        ME.y = pY - ME.height / 2;
-    }
-}
-
-function isOnHaybale(worldX, worldY) {
-    const treesLayer = WORLD.MAP.layers.find(l => l.name === 'trees');
-    if (!treesLayer) return false;
-    const col = Math.floor(worldX / WORLD.MAP.tileSize);
-    const row = Math.floor(worldY / WORLD.MAP.tileSize);
-    if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
-    return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
-}
-
 function update(dt) {
     const currentEquipped = WORLD.INVENTORY[WORLD.INVENTORY_SELECTED];
     WORLD.INVENTORY_LAST_EQUIPPED = currentEquipped;
@@ -427,18 +495,38 @@ function update(dt) {
     ME.bopTimer = intentSprint ? ME.bopTimer + dt : 0;
     ME.scale    = 1 + (ME.bopTimer > 0 ? Math.sin(ME.bopTimer * 15) * 0.05 : 0);
 
+    if (beingKilledAnim) {
+        beingKilledAnim.timer -= dt;
+        beingKilledAnim.hpFrac = Math.max(0, beingKilledAnim.timer / 3.0);
+        ME.vx = beingKilledAnim.vx;
+        ME.vy = beingKilledAnim.vy;
+        beingKilledAnim.vx *= Math.pow(0.0001, dt);
+        beingKilledAnim.vy *= Math.pow(0.0001, dt);
+        const hpBar = document.getElementById('health-bar-fill');
+        if (hpBar) hpBar.style.width = (beingKilledAnim.hpFrac * 100) + '%';
+        if (beingKilledAnim.timer <= 0) {
+            beingKilledAnim = null;
+            const hpBar2 = document.getElementById('health-bar-fill');
+            if (hpBar2) hpBar2.style.width = '0%';
+        }
+    } else {
+        const hpBar = document.getElementById('health-bar-fill');
+        if (hpBar && !ME.isDead) hpBar.style.width = '100%';
+    }
+
     const friction = Math.pow(0.001, dt);
     const accel    = intentSprint ? 1866 : 1493;
 
-    ME.vx += inputX * accel * dt;
-    ME.vy += inputY * accel * dt;
+    if (!beingKilledAnim) {
+        ME.vx += inputX * accel * dt;
+        ME.vy += inputY * accel * dt;
+    }
     ME.vx *= friction;
     ME.vy *= friction;
     ME.x  += ME.vx * dt;
     ME.y  += ME.vy * dt;
 
     for (let i = 0; i < 3; i++) resolveCircleCollisions();
-    for (let i = 0; i < 2; i++) resolveEntityCollisions();
     for (let i = 0; i < 2; i++) resolvePlayerCollisionsLocal();
 
     if (ME.x < 0) ME.x = 0;
@@ -493,9 +581,59 @@ function update(dt) {
         nightAlpha = Math.min(0.6, nightAlpha + dt * 0.5);
     } else {
         nightAlpha = Math.max(0, nightAlpha - dt * 0.5);
+        if (mafiaKillState) mafiaKillState = null;
+    }
+
+    if (myRole === 'Skinwalker' && mafiaKillState && mafiaKillState.phase === 'chasing' && !ME.isDead) {
+        mafiaKillState.chaseTimer -= dt;
+
+        if (mafiaKillState.chaseTimer <= 0) {
+            mafiaKillState.phase = 'done';
+            ws.send(JSON.stringify({ type: 'mafia_chase_fail', targetId: mafiaKillState.targetId }));
+            addChatLog('Time ran out — your target escaped for tonight.', true);
+            mafiaKillState = null;
+            WORLD.CURRENT_TARGET = null;
+        } else {
+            const tgt = serverPlayers[mafiaKillState.targetId];
+            if (tgt && !tgt.isDead) {
+                const tR = (tgt.width * (tgt.scale || 1)) / 2;
+                const meR = (ME.width * ME.scale) / 2;
+                const tcx = (tgt.renderX ?? tgt.x) + tgt.width / 2;
+                const tcy = (tgt.renderY ?? tgt.y) + tgt.height / 2;
+                const mcx = ME.x + ME.width / 2;
+                const mcy = ME.y + ME.height / 2;
+                const touchDist = Math.hypot(tcx - mcx, tcy - mcy);
+                const touchThreshold = tR + meR + 4;
+
+                if (touchDist < touchThreshold) {
+                    mafiaKillState.phase = 'killing';
+                    ws.send(JSON.stringify({ type: 'mafia_touch', targetId: mafiaKillState.targetId }));
+                    addChatLog('Contact! Draining...', true);
+                }
+            }
+        }
     }
 
     sendPositionUpdate();
+}
+
+let beingKilledAnim = null;
+
+function startBeingKilledAnim(fromX, fromY) {
+    const dx = (ME.x + ME.width / 2) - fromX;
+    const dy = (ME.y + ME.height / 2) - fromY;
+    const dist = Math.hypot(dx, dy) || 1;
+    beingKilledAnim = {
+        timer: 3.0,
+        vx: (dx / dist) * 900,
+        vy: (dy / dist) * 900,
+        hpFrac: 1.0
+    };
+}
+
+function handleBeingKilled(killerX, killerY) {
+    startBeingKilledAnim(killerX, killerY);
+    addChatLog('💀 You\'ve been touched by the Mafia...', true);
 }
 
 function drawChatBubble(ctx, text, x, y) {
@@ -627,17 +765,15 @@ function render() {
             ctx.restore();
         }
 
-        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
-            ctx.textAlign  = 'center';
-            ctx.lineJoin   = 'round';
-            ctx.lineWidth  = 3;
-            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-            ctx.font       = "bold 13px 'Segoe UI'";
-            ctx.fillStyle  = '#ffffff';
-            const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
-            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
-            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
-        }
+        ctx.textAlign  = 'center';
+        ctx.lineJoin   = 'round';
+        ctx.lineWidth  = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+        ctx.font       = "bold 13px 'Segoe UI'";
+        ctx.fillStyle  = '#ffffff';
+        const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
+        ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
+        ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
     }
 
     const pRenderX = ME.x - camX + ME.width  / 2;
@@ -652,17 +788,15 @@ function render() {
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
     ctx.restore();
 
-    if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
-        ctx.textAlign  = 'center';
-        ctx.lineJoin   = 'round';
-        ctx.lineWidth  = 3;
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.font       = "bold 13px 'Segoe UI'";
-        ctx.fillStyle  = '#ffffff';
-        const myLabel = myName + (isOwner ? ' (Host)' : '');
-        ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
-        ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
-    }
+    ctx.textAlign  = 'center';
+    ctx.lineJoin   = 'round';
+    ctx.lineWidth  = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.font       = "bold 13px 'Segoe UI'";
+    ctx.fillStyle  = '#ffffff';
+    const myLabel = myName + (isOwner ? ' (Host)' : '');
+    ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+    ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
 
     if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
         ctx.save();
@@ -1144,6 +1278,11 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Escape') {
+        if (targetPanelOpen) {
+            closeTargetPanel();
+            e.preventDefault();
+            return;
+        }
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
         if (document.activeElement === chatInput) {
@@ -1161,25 +1300,11 @@ window.addEventListener('keydown', e => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         if (key === 't' && !e.repeat) {
-            let nearestDist = Infinity;
-            let targetId = null;
-            for (let id in serverPlayers) {
-                if (parseInt(id) === myId) continue;
-                let p = serverPlayers[id];
-                if (p.isDead) continue;
-                let px = p.renderX + p.width/2;
-                let py = p.renderY + p.height/2;
-                let mx = ME.x + ME.width/2;
-                let my = ME.y + ME.height/2;
-                let dist = Math.hypot(px - mx, py - my);
-                if (dist < 150 && dist < nearestDist) {
-                    nearestDist = dist;
-                    targetId = parseInt(id);
-                }
-            }
-            if (targetId) {
-                WORLD.CURRENT_TARGET = targetId;
-                ws.send(JSON.stringify({ type: 'action_target', targetId }));
+            if (targetPanelOpen) {
+                closeTargetPanel();
+            } else {
+                buildTargetPanel();
+                for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
             }
             return;
         }
