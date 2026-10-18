@@ -988,8 +988,8 @@ window.addEventListener('keydown', e => {
                 const nearHouse = getNearestDoor();
                 if (nearHouse) ws.send(JSON.stringify({ type: 'house_enter', houseId: nearHouse.id }));
             }
-        } else if (key === 'w' && !e.ctrlKey) {
-            // Open will editor (only when game is active)
+        } else if (key === 'tab') {
+            // Open will editor (Tab, not W — W is movement)
             if (MAFIA.phase && MAFIA.phase !== 'lobby') {
                 toggleWillEditor();
                 e.preventDefault();
@@ -1082,78 +1082,40 @@ function showRoleCard(role, team, flavor) {
     removeEl('mafia-role-card');
     const card = document.createElement('div');
     card.id = 'mafia-role-card';
-    card.style.cssText = `
-        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-        background:rgba(10,10,10,0.97);border:2px solid ${TEAM_COLORS[team]||'#fff'};
-        padding:32px 48px;z-index:8000;text-align:center;min-width:320px;
-        font-family:'Segoe UI',sans-serif;color:#fff;
-    `;
+    const tc = TEAM_COLORS[team]||'#fff';
+    card.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);
+        padding:28px 40px;z-index:8000;text-align:center;min-width:300px;
+        font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#fff;`;
     card.innerHTML = `
-        <div style="font-size:13px;letter-spacing:3px;color:${TEAM_COLORS[team]};font-weight:bold;margin-bottom:8px;">${team.toUpperCase()}</div>
-        <div style="font-size:36px;font-weight:bold;color:${ROLE_COLORS[role]||'#fff'};margin-bottom:12px;">${role}</div>
-        <div style="font-size:14px;color:#aaa;max-width:260px;line-height:1.6;">${flavor || ROLE_FLAVOR[role] || ''}</div>
-        <button onclick="document.getElementById('mafia-role-card').remove()"
-            style="margin-top:24px;background:${TEAM_COLORS[team]};color:#fff;border:none;padding:10px 32px;
-                   font-weight:bold;font-size:15px;cursor:pointer;font-family:'Segoe UI',sans-serif;">
-            GOT IT
-        </button>
-    `;
+        <div style="font-size:11px;letter-spacing:3px;color:${tc};font-weight:bold;margin-bottom:6px;">${team.toUpperCase()}</div>
+        <div style="font-size:32px;font-weight:bold;color:#fff;margin-bottom:10px;">${role}</div>
+        <div style="font-size:13px;color:#888;max-width:240px;line-height:1.6;margin:0 auto;">${ROLE_FLAVOR[role]||''}</div>
+        <div style="font-size:11px;color:#555;margin-top:6px;">TAB = will &nbsp; T = ability &nbsp; V = vote</div>
+        <button onclick="removeEl('mafia-role-card')"
+            style="margin-top:20px;background:#ff8800;color:#fff;border:none;padding:10px 32px;
+                   font-weight:bold;font-size:13px;cursor:pointer;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+            OK
+        </button>`;
     document.body.appendChild(card);
-    // Auto-close after 10s
-    setTimeout(() => card.remove(), 10000);
+    setTimeout(() => removeEl('mafia-role-card'), 12000);
 }
 
 function renderPhaseUI(phase, announcements) {
-    removeEl('mafia-phase-banner');
-    const banner = document.createElement('div');
-    banner.id = 'mafia-phase-banner';
-    const isNight = phase === 'night';
-    banner.style.cssText = `
-        position:fixed;top:0;left:0;right:0;
-        background:${isNight ? 'rgba(5,5,30,0.92)' : 'rgba(30,20,5,0.88)'};
-        color:${isNight ? '#aac4ff' : '#ffe082'};
-        font-family:'Segoe UI',sans-serif;font-weight:bold;
-        font-size:14px;padding:8px 16px;z-index:3000;
-        display:flex;justify-content:space-between;align-items:flex-start;
-        border-bottom:2px solid ${isNight ? '#334' : '#554'};
-        flex-wrap:wrap;gap:6px;
-    `;
-
-    let phaseLabel = '';
-    if (phase === 'night')  phaseLabel = `🌙 Night ${MAFIA.phaseNum}`;
-    if (phase === 'day')    phaseLabel = `☀️  Day ${MAFIA.phaseNum}`;
-    if (phase === 'lobby')  phaseLabel = `⏳ Waiting for players (6 minimum)`;
-    if (phase === 'ended')  phaseLabel = `🏁 Game Over — ${MAFIA.winner || '?'} wins!`;
-
-    const announcementHtml = announcements.map(a =>
-        `<div style="color:#ffcccc;font-size:13px;font-weight:normal;">• ${a}</div>`
-    ).join('');
-
-    const keybindHint = MAFIA.alive && phase === 'night'
-        ? '<span style="color:#888;font-size:12px;">[T] ability &nbsp;[W] will' + (MAFIA.myTeam==='Mafia'?' &nbsp;[B] break-in':'') + '</span>'
-        : MAFIA.alive && phase === 'day'
-        ? '<span style="color:#888;font-size:12px;">[V] vote &nbsp;[W] will</span>'
-        : '';
-
-    banner.innerHTML = `
-        <div>
-            <div style="font-size:16px;">${phaseLabel}</div>
-            ${announcementHtml}
-        </div>
-        <div style="text-align:right;">
-            ${MAFIA.myRole ? `<span style="color:${ROLE_COLORS[MAFIA.myRole]||'#fff'};font-size:13px;">Role: ${MAFIA.myRole}</span>` : ''}
-            <br>${keybindHint}
-        </div>
-    `;
-    document.body.appendChild(banner);
-
-    // Guilt death check
-    if (phase === 'night' && MAFIA.guilt) {
-        showSystemMsg('💀 The guilt consumes you. You die tonight.');
+    if (announcements && announcements.length) {
+        removeEl('mafia-announce');
+        const el = document.createElement('div');
+        el.id = 'mafia-announce';
+        el.style.cssText = 'position:fixed;top:36px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.88);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;padding:10px 18px;z-index:3000;min-width:240px;max-width:380px;';
+        el.innerHTML = announcements.map(a => `<div style="font-size:13px;font-weight:bold;color:#fff;margin-bottom:2px;">${a}</div>`).join('');
+        document.body.appendChild(el);
+        setTimeout(() => removeEl('mafia-announce'), 6000);
     }
-    if (phase === 'ended' && MAFIA.winner) {
-        showWinScreen(MAFIA.winner);
-    }
+    if (phase === 'night' && MAFIA.guilt) showSystemMsg('The guilt consumes you. You will die tonight.');
+    if (phase === 'ended' && MAFIA.winner) showWinScreen(MAFIA.winner);
+    if (MAFIA.myTeam === 'Mafia' && phase === 'night') renderMafiaChat();
+    renderMafiaPlayerList();
+    renderVoteUI();
 }
 
 function renderMafiaPlayerList() {
@@ -1161,23 +1123,14 @@ function renderMafiaPlayerList() {
     if (!MAFIA.phase || MAFIA.phase === 'lobby') return;
     const panel = document.createElement('div');
     panel.id = 'mafia-player-list';
-    panel.style.cssText = `
-        position:fixed;bottom:100px;right:10px;
-        background:rgba(0,0,0,0.82);border:1px solid rgba(255,255,255,0.12);
-        font-family:'Segoe UI',sans-serif;z-index:2000;min-width:180px;
-        max-height:320px;overflow-y:auto;
-    `;
-    let html = `<div style="padding:7px 12px;font-size:12px;letter-spacing:2px;color:#888;border-bottom:1px solid rgba(255,255,255,0.08);">PLAYERS</div>`;
+    panel.style.cssText = 'position:fixed;bottom:100px;right:10px;background:rgba(0,0,0,0.6);border:2px solid transparent;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:2000;min-width:180px;max-height:320px;overflow-y:auto;';
+    let html = '<div style="padding:7px 12px;font-size:12px;letter-spacing:2px;color:#888;border-bottom:1px solid rgba(255,255,255,0.08);">PLAYERS</div>';
     for (const id in MAFIA.players) {
         const p = MAFIA.players[id];
         const dead = !p.alive;
-        const roleStr = dead && p.role ? ` <span style="color:${ROLE_COLORS[p.role]||'#aaa'};font-size:11px;">[${p.role}]</span>` : '';
-        const willBtn = dead && p.will
-            ? ` <button onclick="showWillPopup(${id})" style="background:none;border:none;color:#ffe082;cursor:pointer;font-size:11px;padding:0 4px;">📜</button>`
-            : '';
-        html += `<div style="padding:5px 12px;font-size:13px;font-weight:bold;color:${dead?'#555':'#fff'};">
-            ${dead ? '☠ ' : ''}${p.name}${roleStr}${willBtn}
-        </div>`;
+        const roleStr = dead && p.role ? ` <span style="color:#888;font-size:11px;">[${p.role}]</span>` : '';
+        const willBtn = dead && p.will ? ` <button onclick="showWillPopup(${id})" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:0 4px;font-family:\'Segoe UI\',sans-serif;">WILL</button>` : '';
+        html += `<div style="padding:5px 12px;font-size:13px;font-weight:bold;color:${dead?'#444':'#fff'};">${dead?'[dead] ':''}${p.name}${roleStr}${willBtn}</div>`;
     }
     panel.innerHTML = html;
     document.body.appendChild(panel);
@@ -1188,37 +1141,24 @@ function renderVoteUI() {
     if (MAFIA.phase !== 'day' || !MAFIA.alive) return;
     const panel = document.createElement('div');
     panel.id = 'mafia-vote-ui';
-    panel.style.cssText = `
-        position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
-        background:rgba(10,5,0,0.93);border:2px solid #e65100;
-        font-family:'Segoe UI',sans-serif;z-index:2500;padding:12px 20px;min-width:300px;
-    `;
-    let html = `<div style="font-size:13px;color:#ff8f00;font-weight:bold;letter-spacing:2px;margin-bottom:10px;">☀️ VOTE TO ELIMINATE</div>`;
+    panel.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.88);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:2500;padding:12px 20px;min-width:280px;';
+    let html = '<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:10px;">VOTE TO ELIMINATE</div>';
     const alive = Object.values(MAFIA.players).filter(p => p.alive && p.id !== myId);
     for (const p of alive) {
-        const voteCount = Object.values(MAFIA.votes).filter(v => v === p.id).length;
-        const isMyVote  = MAFIA.votes[myId] === p.id;
+        const cnt = Object.values(MAFIA.votes).filter(v => v === p.id).length;
+        const mine = MAFIA.votes[myId] === p.id;
         html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:13px;font-weight:bold;color:${isMyVote?'#ffe082':'#fff'};">
-                ${isMyVote ? '▶ ' : ''}${p.name} <span style="color:#888;font-size:11px;">(${voteCount} vote${voteCount!==1?'s':''})</span>
-            </span>
-            <button onclick="castVote(${p.id})"
-                style="background:${isMyVote?'#bf360c':'#3e2723'};color:#fff;border:none;
-                       padding:4px 12px;font-weight:bold;cursor:pointer;font-size:12px;
-                       font-family:'Segoe UI',sans-serif;">
-                ${isMyVote ? 'UNVOTE' : 'VOTE'}
-            </button>
+            <span style="font-size:13px;font-weight:bold;color:#fff;">${mine?'> ':''}${p.name} <span style="color:#555;font-size:11px;">(${cnt})</span></span>
+            <button onclick="castVote(${p.id})" style="background:${mine?'rgba(255,255,255,0.2)':'transparent'};color:#fff;border:2px solid rgba(255,255,255,0.15);padding:3px 10px;font-weight:bold;cursor:pointer;font-size:12px;font-family:\'Segoe UI\',sans-serif;">${mine?'UNVOTE':'VOTE'}</button>
         </div>`;
     }
-    html += `<div style="font-size:11px;color:#555;margin-top:8px;">Majority vote eliminates a player.</div>`;
     panel.innerHTML = html;
     document.body.appendChild(panel);
 }
 
 function castVote(targetId) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const already = MAFIA.votes[myId] === targetId;
-    ws.send(JSON.stringify({ type: 'mafia_vote', targetId: already ? null : targetId }));
+    ws.send(JSON.stringify({ type: 'mafia_vote', targetId: MAFIA.votes[myId] === targetId ? null : targetId }));
 }
 
 function openNightAbilityUI() {
@@ -1226,47 +1166,18 @@ function openNightAbilityUI() {
     removeEl('mafia-ability-ui');
     const panel = document.createElement('div');
     panel.id = 'mafia-ability-ui';
-    panel.style.cssText = `
-        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-        background:rgba(5,5,20,0.97);border:2px solid ${ROLE_COLORS[MAFIA.myRole]||'#fff'};
-        font-family:'Segoe UI',sans-serif;z-index:4000;padding:24px 32px;min-width:280px;
-    `;
-
-    const abilityName = {
-        Investigator: 'INVESTIGATE',
-        Tracker:      'TRACK',
-        Doctor:       'PROTECT',
-        Archer:       'GUARD',
-        Escort:       'ROLEBLOCK',
-        Vigilante:    'SHOOT',
-        Skinwalker:   'SKINWALK',
-        Celebrity:    null
-    }[MAFIA.myRole];
-
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:4000;padding:20px 28px;min-width:260px;';
+    const abilityName = {Investigator:'INVESTIGATE',Tracker:'TRACK',Doctor:'PROTECT',Archer:'GUARD',Escort:'ROLEBLOCK',Vigilante:'SHOOT',Skinwalker:'SKINWALK',Celebrity:null}[MAFIA.myRole];
     if (!abilityName) { panel.remove(); return; }
-
     const alive = Object.values(MAFIA.players).filter(p => p.alive && p.id !== myId);
-    let html = `
-        <div style="font-size:13px;color:${ROLE_COLORS[MAFIA.myRole]||'#fff'};font-weight:bold;letter-spacing:2px;margin-bottom:12px;">
-            🌙 ${abilityName}
-        </div>
-    `;
+    let html = `<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:12px;">${abilityName}</div>`;
     for (const p of alive) {
         html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:14px;font-weight:bold;color:#fff;">${p.name}</span>
-            <button onclick="useAbility(${p.id})"
-                style="background:${ROLE_COLORS[MAFIA.myRole]||'#333'};color:#000;border:none;
-                       padding:5px 14px;font-weight:bold;cursor:pointer;font-size:12px;
-                       font-family:'Segoe UI',sans-serif;">
-                SELECT
-            </button>
+            <span style="font-size:13px;font-weight:bold;color:#fff;">${p.name}</span>
+            <button onclick="useAbility(${p.id})" style="background:#ff8800;color:#fff;border:none;padding:4px 12px;font-weight:bold;cursor:pointer;font-size:12px;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;">SELECT</button>
         </div>`;
     }
-    html += `<button onclick="document.getElementById('mafia-ability-ui').remove()"
-        style="margin-top:10px;background:transparent;color:#555;border:1px solid #333;
-               padding:6px 16px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
-        CANCEL
-    </button>`;
+    html += `<button onclick="removeEl('mafia-ability-ui')" style="margin-top:8px;background:transparent;color:#555;border:2px solid rgba(255,255,255,0.1);padding:5px 14px;cursor:pointer;font-family:\'Segoe UI\',sans-serif;width:100%;">CANCEL</button>`;
     panel.innerHTML = html;
     document.body.appendChild(panel);
 }
@@ -1274,10 +1185,9 @@ function openNightAbilityUI() {
 function useAbility(targetId) {
     if (!ws || ws.readyState !== WebSocket.OPEN || MAFIA.abilityUsed) return;
     ws.send(JSON.stringify({ type: 'mafia_ability', role: MAFIA.myRole, targetId }));
-    MAFIA.abilityUsed   = true;
-    MAFIA.abilityTarget = targetId;
+    MAFIA.abilityUsed = true;
     removeEl('mafia-ability-ui');
-    showSystemMsg(`✔ Ability used on ${MAFIA.players[targetId]?.name || '?'}.`);
+    showSystemMsg('Ability used on ' + (MAFIA.players[targetId]?.name || '?') + '.');
 }
 
 function openVoteUI() { renderVoteUI(); }
@@ -1286,33 +1196,17 @@ function openBreakInUI() {
     removeEl('mafia-breakin-ui');
     const panel = document.createElement('div');
     panel.id = 'mafia-breakin-ui';
-    panel.style.cssText = `
-        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-        background:rgba(20,0,0,0.97);border:2px solid #e53935;
-        font-family:'Segoe UI',sans-serif;z-index:4000;padding:24px 32px;min-width:280px;
-    `;
-    let html = `<div style="font-size:13px;color:#ef9a9a;font-weight:bold;letter-spacing:2px;margin-bottom:12px;">🔴 BREAK INTO HOUSE</div>`;
-    // List occupied houses (server sends who's inside via mafia_players with houseId field)
-    const occupiedHouses = HOUSES.list.filter(h => h.occupants && h.occupants.length > 0);
-    if (occupiedHouses.length === 0) {
-        html += `<div style="color:#666;font-size:13px;">No occupied houses nearby.</div>`;
-    } else {
-        for (const h of occupiedHouses) {
-            html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <span style="font-size:13px;color:#fff;">House #${h.id} (${h.occupants.map(id=>MAFIA.players[id]?.name||'?').join(', ')})</span>
-                <button onclick="sendBreakIn(${h.id})"
-                    style="background:#b71c1c;color:#fff;border:none;padding:5px 12px;
-                           font-weight:bold;cursor:pointer;font-size:12px;font-family:'Segoe UI',sans-serif;">
-                    BREAK IN
-                </button>
-            </div>`;
-        }
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:4000;padding:20px 28px;min-width:260px;';
+    let html = '<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:12px;">BREAK INTO HOUSE</div>';
+    const occ = HOUSES.list.filter(h => h.occupants && h.occupants.length > 0);
+    if (!occ.length) html += '<div style="color:#555;font-size:13px;">No occupied houses.</div>';
+    else for (const h of occ) {
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:13px;color:#fff;">House ${h.id} (${h.occupants.map(id=>MAFIA.players[id]?.name||'?').join(', ')})</span>
+            <button onclick="sendBreakIn(${h.id})" style="background:#ff8800;color:#fff;border:none;padding:4px 10px;font-weight:bold;cursor:pointer;font-size:12px;font-family:\'Segoe UI\',sans-serif;">BREAK IN</button>
+        </div>`;
     }
-    html += `<button onclick="document.getElementById('mafia-breakin-ui').remove()"
-        style="margin-top:10px;background:transparent;color:#555;border:1px solid #333;
-               padding:6px 16px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
-        CANCEL
-    </button>`;
+    html += `<button onclick="removeEl('mafia-breakin-ui')" style="margin-top:8px;background:transparent;color:#555;border:2px solid rgba(255,255,255,0.1);padding:5px 14px;cursor:pointer;font-family:\'Segoe UI\',sans-serif;width:100%;">CANCEL</button>`;
     panel.innerHTML = html;
     document.body.appendChild(panel);
 }
@@ -1324,36 +1218,17 @@ function sendBreakIn(houseId) {
 }
 
 function toggleWillEditor() {
-    if (document.getElementById('mafia-will-editor')) {
-        removeEl('mafia-will-editor'); return;
-    }
+    if (document.getElementById('mafia-will-editor')) { removeEl('mafia-will-editor'); return; }
     const panel = document.createElement('div');
     panel.id = 'mafia-will-editor';
-    panel.style.cssText = `
-        position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
-        background:rgba(10,10,10,0.96);border:2px solid #ffe082;
-        font-family:'Segoe UI',sans-serif;z-index:3500;padding:16px 20px;min-width:360px;
-    `;
-    panel.innerHTML = `
-        <div style="font-size:12px;color:#ffe082;font-weight:bold;letter-spacing:2px;margin-bottom:8px;">📜 MY WILL</div>
-        <textarea id="will-textarea" maxlength="500"
-            style="width:100%;height:100px;background:#111;color:#fff;border:1px solid #444;
-                   padding:8px;font-family:'Segoe UI',sans-serif;font-size:13px;
-                   resize:vertical;box-sizing:border-box;outline:none;">${MAFIA.myWill}</textarea>
+    panel.style.cssText = 'position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:3500;padding:14px 18px;min-width:340px;';
+    panel.innerHTML = `<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:8px;">MY WILL</div>
+        <textarea id="will-textarea" maxlength="500" style="width:100%;height:90px;background:rgba(0,0,0,0.6);color:#fff;border:2px solid rgba(255,255,255,0.15);padding:8px;font-family:\'Segoe UI\',sans-serif;font-size:13px;resize:none;box-sizing:border-box;outline:none;">${MAFIA.myWill}</textarea>
         <div style="display:flex;gap:8px;margin-top:8px;">
-            <button onclick="saveWill()"
-                style="background:#f9a825;color:#000;border:none;padding:7px 20px;
-                       font-weight:bold;cursor:pointer;font-size:13px;font-family:'Segoe UI',sans-serif;flex:1;">
-                SAVE
-            </button>
-            <button onclick="document.getElementById('mafia-will-editor').remove()"
-                style="background:transparent;color:#888;border:1px solid #333;padding:7px 16px;
-                       cursor:pointer;font-family:'Segoe UI',sans-serif;flex:1;">
-                CLOSE
-            </button>
+            <button onclick="saveWill()" style="background:#ff8800;color:#fff;border:none;padding:7px 20px;font-weight:bold;cursor:pointer;font-size:13px;font-family:\'Segoe UI\',Tahoma,sans-serif;flex:1;">SAVE</button>
+            <button onclick="removeEl('mafia-will-editor')" style="background:transparent;color:#888;border:2px solid rgba(255,255,255,0.1);padding:7px 16px;cursor:pointer;font-family:\'Segoe UI\',sans-serif;flex:1;">CLOSE</button>
         </div>
-        <div style="font-size:11px;color:#555;margin-top:6px;">Revealed to town when you die.</div>
-    `;
+        <div style="font-size:11px;color:#555;margin-top:5px;">Revealed when you die. TAB to toggle.</div>`;
     document.body.appendChild(panel);
     document.getElementById('will-textarea').focus();
 }
@@ -1362,9 +1237,8 @@ function saveWill() {
     const ta = document.getElementById('will-textarea');
     if (!ta) return;
     MAFIA.myWill = ta.value;
-    if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: 'mafia_will', text: MAFIA.myWill }));
-    showSystemMsg('📜 Will saved.');
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'mafia_will', text: MAFIA.myWill }));
+    showSystemMsg('Will saved.');
     removeEl('mafia-will-editor');
 }
 
@@ -1374,80 +1248,43 @@ function showWillPopup(playerId) {
     removeEl('mafia-will-popup');
     const panel = document.createElement('div');
     panel.id = 'mafia-will-popup';
-    panel.style.cssText = `
-        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-        background:rgba(10,8,0,0.97);border:2px solid #ffe082;
-        font-family:'Segoe UI',sans-serif;z-index:5000;padding:24px 28px;min-width:300px;max-width:400px;
-    `;
-    panel.innerHTML = `
-        <div style="font-size:13px;color:#ffe082;font-weight:bold;margin-bottom:6px;">📜 ${p.name}'s Last Will</div>
-        <div style="font-size:13px;color:#ccc;white-space:pre-wrap;line-height:1.6;min-height:60px;">${p.will || '<span style="color:#555">No will was written.</span>'}</div>
-        <button onclick="document.getElementById('mafia-will-popup').remove()"
-            style="margin-top:16px;background:transparent;color:#888;border:1px solid #333;
-                   padding:6px 20px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
-            CLOSE
-        </button>
-    `;
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:5000;padding:20px 24px;min-width:280px;max-width:380px;';
+    panel.innerHTML = `<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:6px;">${p.name.toUpperCase()} — LAST WILL</div>
+        <div style="font-size:13px;color:#fff;white-space:pre-wrap;line-height:1.6;min-height:50px;">${p.will||'<span style="color:#444">No will written.</span>'}</div>
+        <button onclick="removeEl('mafia-will-popup')" style="margin-top:14px;background:transparent;color:#888;border:2px solid rgba(255,255,255,0.1);padding:6px 20px;cursor:pointer;font-family:\'Segoe UI\',sans-serif;width:100%;">CLOSE</button>`;
     document.body.appendChild(panel);
 }
 
 function showDeathAnnouncement(data) {
-    // data: { name, role, will, reason, celebrity }
     removeEl('mafia-death-announce');
     const el = document.createElement('div');
     el.id = 'mafia-death-announce';
-    el.style.cssText = `
-        position:fixed;top:60px;left:50%;transform:translateX(-50%);
-        background:rgba(10,0,0,0.96);border:2px solid #b71c1c;
-        font-family:'Segoe UI',sans-serif;z-index:4500;padding:20px 28px;min-width:320px;text-align:center;
-    `;
-    let html = `
-        <div style="font-size:13px;color:#ef9a9a;font-weight:bold;letter-spacing:2px;margin-bottom:6px;">☠ DEATH</div>
-        <div style="font-size:20px;font-weight:bold;color:#fff;margin-bottom:4px;">${data.name}</div>
-        <div style="font-size:13px;color:${ROLE_COLORS[data.role]||'#aaa'};margin-bottom:4px;">${data.role}</div>
-        <div style="font-size:12px;color:#777;margin-bottom:8px;">${data.reason || ''}</div>
-    `;
-    if (data.will) {
-        html += `<div style="font-size:12px;color:#ffe082;margin-bottom:4px;">📜 Last Will:</div>
-                 <div style="font-size:12px;color:#ccc;white-space:pre-wrap;text-align:left;max-height:80px;overflow-y:auto;margin-bottom:8px;">${data.will}</div>`;
-    }
-    if (data.celebrity) {
-        html += `<div style="font-size:13px;color:#ffe082;">⭐ Celebrity Clue: The killer's name contains the letter <strong>"${data.celebrity.letter}"</strong></div>`;
-    }
-    html += `<button onclick="document.getElementById('mafia-death-announce').remove()"
-        style="margin-top:12px;background:transparent;color:#888;border:1px solid #333;
-               padding:6px 20px;cursor:pointer;font-family:'Segoe UI',sans-serif;">
-        OK
-    </button>`;
+    el.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.92);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:4500;padding:18px 24px;min-width:300px;text-align:center;';
+    let html = `<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:6px;">DEATH</div>
+        <div style="font-size:20px;font-weight:bold;color:#fff;margin-bottom:2px;">${data.name}</div>
+        <div style="font-size:13px;color:#888;margin-bottom:4px;">${data.role}</div>
+        <div style="font-size:12px;color:#555;margin-bottom:8px;">${data.reason||''}</div>`;
+    if (data.will) html += `<div style="font-size:11px;letter-spacing:2px;color:#888;margin-bottom:4px;">LAST WILL</div><div style="font-size:12px;color:#ccc;white-space:pre-wrap;text-align:left;max-height:70px;overflow-y:auto;margin-bottom:8px;">${data.will}</div>`;
+    if (data.celebrity) html += `<div style="font-size:12px;color:#fff;margin-bottom:8px;">Celebrity clue: killer's name contains "<strong>${data.celebrity.letter}</strong>"</div>`;
+    html += `<button onclick="removeEl('mafia-death-announce')" style="background:transparent;color:#888;border:2px solid rgba(255,255,255,0.1);padding:5px 20px;cursor:pointer;font-family:\'Segoe UI\',sans-serif;">OK</button>`;
     el.innerHTML = html;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 15000);
+    setTimeout(() => removeEl('mafia-death-announce'), 14000);
 }
 
-function showNightResult(text) {
-    showSystemMsg(`🔍 ${text}`);
-}
+function showNightResult(text) { showSystemMsg(text); }
 
 function renderMafiaChat() {
     removeEl('mafia-chat-panel');
     if (MAFIA.myTeam !== 'Mafia' || MAFIA.phase !== 'night') return;
     const panel = document.createElement('div');
     panel.id = 'mafia-chat-panel';
-    panel.style.cssText = `
-        position:fixed;bottom:110px;right:10px;
-        background:rgba(20,0,0,0.92);border:1px solid #b71c1c;
-        font-family:'Segoe UI',sans-serif;z-index:2000;width:240px;max-height:180px;
-        overflow-y:auto;padding:8px 12px;
-    `;
-    let html = `<div style="font-size:11px;color:#e53935;letter-spacing:2px;font-weight:bold;margin-bottom:6px;">🔴 MAFIA CHAT</div>`;
+    panel.style.cssText = 'position:fixed;bottom:110px;right:10px;background:rgba(0,0,0,0.88);border:2px solid rgba(255,255,255,0.15);font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;z-index:2000;width:220px;max-height:160px;overflow-y:auto;padding:8px 12px;';
+    let html = '<div style="font-size:11px;letter-spacing:2px;color:#888;font-weight:bold;margin-bottom:6px;">MAFIA CHAT</div>';
     for (const msg of MAFIA.mafiaChat.slice(-20)) {
-        html += `<div style="font-size:12px;margin-bottom:3px;"><span style="color:#ef9a9a;font-weight:bold;">${msg.from}:</span> <span style="color:#ffcccc;">${msg.text}</span></div>`;
+        html += `<div style="font-size:12px;margin-bottom:2px;"><span style="color:#fff;font-weight:bold;">${msg.from}:</span> <span style="color:#ccc;">${msg.text}</span></div>`;
     }
-    html += `<input id="mafia-chat-input" maxlength="80" placeholder="Mafia chat..."
-        style="width:100%;background:#1a0000;color:#fff;border:1px solid #b71c1c;
-               padding:4px 8px;font-size:12px;font-family:'Segoe UI',sans-serif;
-               box-sizing:border-box;margin-top:6px;outline:none;"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){sendMafiaChat(this.value.trim());this.value='';event.stopPropagation();}">`;
+    html += `<input id="mafia-chat-input" maxlength="80" placeholder="Type..." style="width:100%;background:rgba(0,0,0,0.6);color:#fff;border:2px solid rgba(255,255,255,0.15);padding:4px 8px;font-size:12px;font-family:\'Segoe UI\',sans-serif;box-sizing:border-box;margin-top:6px;outline:none;" onkeydown="if(event.key==='Enter'&&this.value.trim()){sendMafiaChat(this.value.trim());this.value='';event.stopPropagation();}">`;
     panel.innerHTML = html;
     document.body.appendChild(panel);
     panel.scrollTop = panel.scrollHeight;
@@ -1462,34 +1299,18 @@ function showWinScreen(winner) {
     removeEl('mafia-win-screen');
     const el = document.createElement('div');
     el.id = 'mafia-win-screen';
-    el.style.cssText = `
-        position:fixed;top:0;left:0;right:0;bottom:0;
-        background:rgba(0,0,0,0.88);
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        z-index:9500;font-family:'Segoe UI',sans-serif;color:#fff;text-align:center;
-    `;
-    const color = winner === 'Town' ? '#4caf50' : winner === 'Mafia' ? '#e53935' : '#ff9800';
-    el.innerHTML = `
-        <div style="font-size:16px;letter-spacing:4px;color:#888;margin-bottom:10px;">GAME OVER</div>
-        <div style="font-size:52px;font-weight:bold;color:${color};margin-bottom:8px;">${winner}</div>
-        <div style="font-size:20px;color:#aaa;margin-bottom:32px;">wins!</div>
-        <button onclick="document.getElementById('mafia-win-screen').remove()"
-            style="background:${color};color:#fff;border:none;padding:12px 40px;
-                   font-size:18px;font-weight:bold;cursor:pointer;font-family:'Segoe UI',sans-serif;">
-            CONTINUE
-        </button>
-    `;
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9500;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;color:#fff;text-align:center;';
+    const col = {Town:'#4caf50',Mafia:'#e53935',Neutral:'#ff9800'}[winner]||'#fff';
+    el.innerHTML = `<div style="font-size:13px;letter-spacing:4px;color:#888;margin-bottom:8px;">GAME OVER</div>
+        <div style="font-size:48px;font-weight:bold;color:${col};margin-bottom:6px;">${winner.toUpperCase()}</div>
+        <div style="font-size:16px;color:#888;margin-bottom:28px;">WINS</div>
+        <button onclick="removeEl('mafia-win-screen')" style="background:#ff8800;color:#fff;border:none;padding:12px 40px;font-size:16px;font-weight:bold;cursor:pointer;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;">CONTINUE</button>`;
     document.body.appendChild(el);
 }
 
 function showSystemMsg(text) {
     const el = document.createElement('div');
-    el.style.cssText = `
-        position:fixed;top:60px;left:50%;transform:translateX(-50%);
-        background:rgba(0,0,0,0.88);border:1px solid rgba(255,255,255,0.15);
-        color:#fff;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:bold;
-        padding:10px 20px;z-index:4000;pointer-events:none;white-space:nowrap;
-    `;
+    el.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.88);border:2px solid rgba(255,255,255,0.15);color:#fff;font-family:\'Segoe UI\',Tahoma,Geneva,Verdana,sans-serif;font-size:13px;font-weight:bold;padding:8px 18px;z-index:4000;pointer-events:none;white-space:nowrap;';
     el.textContent = text;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 3500);
@@ -1570,10 +1391,77 @@ function getNearestDoor() {
     return best;
 }
 
-// Hook interior rendering into the main render loop — draw interior over world when inside
+// ── night darkness overlay + role HUD drawn on canvas ────────────────────────
 const _origRender = render;
 render = function() {
     _origRender();
+
+    // ── Night darkness overlay ────────────────────────────────────────────────
+    if (MAFIA.phase === 'night') {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 30, 0.55)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
+
+    // ── House door markers (drawn on canvas as small world indicators) ─────────
+    if (HOUSES.list.length && !INTERIOR.active) {
+        ctx.save();
+        ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+        const camX = Math.round(WORLD.CAMERA.x), camY = Math.round(WORLD.CAMERA.y);
+        const ts = WORLD.MAP.tileSize;
+        for (const h of HOUSES.list) {
+            const sx = h.doorCol * ts + ts/2 - camX;
+            const sy = h.doorRow * ts + ts/2 - camY;
+            if (sx < -ts || sx > WORLD.CAMERA.width + ts) continue;
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(sx - 20, sy - 10, 40, 20);
+            ctx.fillStyle = '#fff';
+            ctx.font = "bold 11px 'Segoe UI'";
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('[F] ENTER', sx, sy);
+        }
+        ctx.restore();
+    }
+
+    // ── Role HUD (bottom-left, matches game's native UI style) ───────────────
+    if (MAFIA.myRole && MAFIA.phase && MAFIA.phase !== 'lobby') {
+        ctx.save();
+        const roleColor = { Investigator:'#4fc3f7', Tracker:'#81d4fa', Doctor:'#a5d6a7',
+            Archer:'#c8e6c9', Escort:'#f48fb1', Vigilante:'#ef9a9a',
+            Skinwalker:'#ce93d8', Celebrity:'#ffe082' }[MAFIA.myRole] || '#fff';
+        const teamColor = { Town:'#4caf50', Mafia:'#e53935', Neutral:'#ff9800' }[MAFIA.myTeam] || '#fff';
+        const bx = 10, by = canvas.height - 160;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(bx, by, 160, 52);
+        ctx.font = "bold 11px 'Segoe UI'"; ctx.textBaseline = 'top';
+        ctx.fillStyle = teamColor; ctx.textAlign = 'left';
+        ctx.fillText(MAFIA.myTeam.toUpperCase(), bx + 10, by + 8);
+        ctx.font = "bold 15px 'Segoe UI'";
+        ctx.fillStyle = roleColor;
+        ctx.fillText(MAFIA.myRole, bx + 10, by + 24);
+        if (!MAFIA.alive) {
+            ctx.fillStyle = '#555'; ctx.font = "bold 11px 'Segoe UI'";
+            ctx.fillText('DEAD', bx + 10, by + 42);
+        }
+        ctx.restore();
+    }
+
+    // ── Phase timer HUD (top-center, native style) ────────────────────────────
+    if (MAFIA.phase === 'night' || MAFIA.phase === 'day') {
+        ctx.save();
+        const label = MAFIA.phase === 'night' ? `NIGHT ${MAFIA.phaseNum}` : `DAY ${MAFIA.phaseNum}`;
+        const col   = MAFIA.phase === 'night' ? '#aac4ff' : '#ffe082';
+        ctx.font = "bold 13px 'Segoe UI'";
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(canvas.width/2 - tw/2 - 12, 0, tw + 24, 26);
+        ctx.fillStyle = col;
+        ctx.fillText(label, canvas.width/2, 6);
+        ctx.restore();
+    }
+
     if (INTERIOR.active && INTERIOR.chunks.length) {
         const camX = Math.round(WORLD.CAMERA.x), camY = Math.round(WORLD.CAMERA.y);
         const cs   = WORLD.MAP.chunkSize;
