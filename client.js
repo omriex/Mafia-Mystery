@@ -42,6 +42,37 @@ const ME = {
     chats: []
 };
 
+// ─── MAFIA GAME STATE ────────────────────────────────────────────────────────
+const MAFIA = {
+    phase:       null,   // null | 'lobby' | 'night' | 'day' | 'ended'
+    phaseNum:    0,
+    myRole:      null,   // 'Investigator' | 'Tracker' | 'Doctor' | 'Archer' | 'Escort' | 'Vigilante' | 'Skinwalker' | 'Celebrity' | null
+    myTeam:      null,   // 'Town' | 'Mafia' | 'Neutral'
+    alive:       true,
+    myWill:      '',
+    abilityUsed: false,
+    abilityTarget: null,
+    nightResults: [],   // strings shown at start of day
+    voteTarget:  null,
+    votes:       {},    // playerId -> targetId
+    players:     {},    // id -> { name, alive, role (revealed on death), will (revealed on death) }
+    mafiaChat:   [],    // for skinwalker / mafia: shared night chat msgs
+    celebrity:   null,  // { killerId, letter } revealed on death
+    guilt:       false, // vigilante guilt flag
+    winner:      null,
+    showWill:    false,
+    showRole:    false,
+    abilityLog:  [],    // tracker log: [ {night, visited} ]
+    skinwalkedRole: null, // what skinwalker transformed into this night
+};
+
+// ─── HOUSE / INTERIOR STATE ──────────────────────────────────────────────────
+const HOUSES = {
+    list:       [],   // [ { id, doorCol, doorRow, interiorMap: {layers,columns,rows} } ]
+    myHouseId:  null, // null = outdoors
+    breakTarget: null // house id mafia is breaking into
+};
+
 const tilesheetImg = new Image();
 const playerImg    = new Image();
 
@@ -171,6 +202,90 @@ function connectToServer() {
                 const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
                 renderChunk(cx, cy);
             }
+
+        // ── MAFIA MESSAGES ──────────────────────────────────────────────────
+        } else if (data.type === 'mafia_role') {
+            // Server tells you your role at game start
+            MAFIA.myRole  = data.role;
+            MAFIA.myTeam  = data.team;
+            MAFIA.alive   = true;
+            MAFIA.guilt   = false;
+            MAFIA.abilityUsed = false;
+            MAFIA.abilityLog  = [];
+            showRoleCard(data.role, data.team, data.flavor);
+
+        } else if (data.type === 'mafia_phase') {
+            // { phase: 'night'|'day'|'lobby'|'ended', phaseNum, announcements: [], votes: {}, winner }
+            MAFIA.phase    = data.phase;
+            MAFIA.phaseNum = data.phaseNum || 0;
+            MAFIA.votes    = data.votes || {};
+            MAFIA.abilityUsed   = false;
+            MAFIA.abilityTarget = null;
+            MAFIA.voteTarget    = null;
+            if (data.winner) MAFIA.winner = data.winner;
+            renderPhaseUI(data.phase, data.announcements || []);
+
+        } else if (data.type === 'mafia_players') {
+            // Full player list with alive status, revealed roles/wills
+            for (const p of data.players) {
+                MAFIA.players[p.id] = p;
+            }
+            renderMafiaPlayerList();
+            renderVoteUI();
+
+        } else if (data.type === 'mafia_votes') {
+            MAFIA.votes = data.votes || {};
+            renderVoteUI();
+
+        } else if (data.type === 'mafia_result') {
+            // Night ability result for YOU
+            // data.result = string describing what you found/did
+            showNightResult(data.result);
+            if (data.trackerLog) MAFIA.abilityLog = data.trackerLog;
+
+        } else if (data.type === 'mafia_death') {
+            // { id, name, role, will, reason, celebrity }
+            if (parseInt(data.id) === myId) {
+                MAFIA.alive = false;
+                if (data.guilt) MAFIA.guilt = true;
+            }
+            if (MAFIA.players[data.id]) {
+                MAFIA.players[data.id].alive = false;
+                MAFIA.players[data.id].role  = data.role;
+                MAFIA.players[data.id].will  = data.will;
+            }
+            showDeathAnnouncement(data);
+            renderMafiaPlayerList();
+
+        } else if (data.type === 'mafia_will_ack') {
+            // Server confirmed will saved — silent
+
+        } else if (data.type === 'mafia_chat') {
+            // Mafia-team night chat  { from, text }
+            MAFIA.mafiaChat.push({ from: data.from, text: data.text });
+            renderMafiaChat();
+
+        } else if (data.type === 'mafia_guilt') {
+            // Vigilante killed innocent — you get guilt
+            MAFIA.guilt = true;
+            showSystemMsg('⚠ You feel guilty... you shot an innocent. You will die tomorrow night.');
+
+        // ── HOUSE / INTERIOR MESSAGES ────────────────────────────────────────
+        } else if (data.type === 'house_list') {
+            HOUSES.list = data.houses || [];
+
+        } else if (data.type === 'house_enter') {
+            // { houseId, interiorMap: { layers, columns, rows, tileSize } }
+            HOUSES.myHouseId = data.houseId;
+            loadInteriorMap(data.interiorMap);
+
+        } else if (data.type === 'house_exit') {
+            HOUSES.myHouseId = null;
+            unloadInteriorMap();
+
+        } else if (data.type === 'house_break') {
+            // Mafia broke in — show notification
+            showSystemMsg('💥 The door splinters open!');
         }
     };
 }
@@ -849,6 +964,29 @@ window.addEventListener('keydown', e => {
         } else if (key === 'e') {
             if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null))
                 ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
+        } else if (key === 'f') {
+            // Enter / exit house
+            if (HOUSES.myHouseId !== null) {
+                ws.send(JSON.stringify({ type: 'house_exit' }));
+            } else {
+                const nearHouse = getNearestDoor();
+                if (nearHouse) ws.send(JSON.stringify({ type: 'house_enter', houseId: nearHouse.id }));
+            }
+        } else if (key === 'w' && !e.ctrlKey) {
+            // Open will editor (only when game is active)
+            if (MAFIA.phase && MAFIA.phase !== 'lobby') {
+                toggleWillEditor();
+                e.preventDefault();
+            }
+        } else if (key === 't' && MAFIA.phase === 'night' && MAFIA.alive && !MAFIA.abilityUsed) {
+            // Night ability — open target picker
+            openNightAbilityUI();
+        } else if (key === 'v' && MAFIA.phase === 'day' && MAFIA.alive) {
+            // Voting — open vote picker
+            openVoteUI();
+        } else if (key === 'b' && MAFIA.myTeam === 'Mafia' && MAFIA.phase === 'night') {
+            // Mafia break-in
+            openBreakInUI();
         }
     }
 });
@@ -901,6 +1039,575 @@ window.addEventListener('mouseup', e => {
         dragIndex = -1;
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAFIA UI SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ROLE_COLORS = {
+    Investigator: '#4fc3f7', Tracker: '#81d4fa', Doctor: '#a5d6a7',
+    Archer: '#c8e6c9', Escort: '#f48fb1', Vigilante: '#ef9a9a',
+    Skinwalker: '#ce93d8', Celebrity: '#ffe082'
+};
+const TEAM_COLORS = { Town: '#4caf50', Mafia: '#e53935', Neutral: '#ff9800' };
+
+const ROLE_FLAVOR = {
+    Investigator: 'Investigate a player each night to narrow down their role.',
+    Tracker:      'Track a player to see who they visit.',
+    Doctor:       'Choose someone to protect from death each night.',
+    Archer:       'Guard a player — injure anyone who visits them with harmful intent.',
+    Escort:       'Roleblock a player, preventing their night action.',
+    Vigilante:    'Shoot someone you suspect is evil. Guilt kills you if you are wrong.',
+    Skinwalker:   'Transform into another role, stealing it and blocking its real holder.',
+    Celebrity:    'When you die, a random letter from your killer\'s name is revealed.'
+};
+
+function showRoleCard(role, team, flavor) {
+    removeEl('mafia-role-card');
+    const card = document.createElement('div');
+    card.id = 'mafia-role-card';
+    card.style.cssText = `
+        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(10,10,10,0.97);border:2px solid ${TEAM_COLORS[team]||'#fff'};
+        padding:32px 48px;z-index:8000;text-align:center;min-width:320px;
+        font-family:'Segoe UI',sans-serif;color:#fff;
+    `;
+    card.innerHTML = `
+        <div style="font-size:13px;letter-spacing:3px;color:${TEAM_COLORS[team]};font-weight:bold;margin-bottom:8px;">${team.toUpperCase()}</div>
+        <div style="font-size:36px;font-weight:bold;color:${ROLE_COLORS[role]||'#fff'};margin-bottom:12px;">${role}</div>
+        <div style="font-size:14px;color:#aaa;max-width:260px;line-height:1.6;">${flavor || ROLE_FLAVOR[role] || ''}</div>
+        <button onclick="document.getElementById('mafia-role-card').remove()"
+            style="margin-top:24px;background:${TEAM_COLORS[team]};color:#fff;border:none;padding:10px 32px;
+                   font-weight:bold;font-size:15px;cursor:pointer;font-family:'Segoe UI',sans-serif;">
+            GOT IT
+        </button>
+    `;
+    document.body.appendChild(card);
+    // Auto-close after 10s
+    setTimeout(() => card.remove(), 10000);
+}
+
+function renderPhaseUI(phase, announcements) {
+    removeEl('mafia-phase-banner');
+    const banner = document.createElement('div');
+    banner.id = 'mafia-phase-banner';
+    const isNight = phase === 'night';
+    banner.style.cssText = `
+        position:fixed;top:0;left:0;right:0;
+        background:${isNight ? 'rgba(5,5,30,0.92)' : 'rgba(30,20,5,0.88)'};
+        color:${isNight ? '#aac4ff' : '#ffe082'};
+        font-family:'Segoe UI',sans-serif;font-weight:bold;
+        font-size:14px;padding:8px 16px;z-index:3000;
+        display:flex;justify-content:space-between;align-items:flex-start;
+        border-bottom:2px solid ${isNight ? '#334' : '#554'};
+        flex-wrap:wrap;gap:6px;
+    `;
+
+    let phaseLabel = '';
+    if (phase === 'night')  phaseLabel = `🌙 Night ${MAFIA.phaseNum}`;
+    if (phase === 'day')    phaseLabel = `☀️  Day ${MAFIA.phaseNum}`;
+    if (phase === 'lobby')  phaseLabel = `⏳ Waiting for players (6 minimum)`;
+    if (phase === 'ended')  phaseLabel = `🏁 Game Over — ${MAFIA.winner || '?'} wins!`;
+
+    const announcementHtml = announcements.map(a =>
+        `<div style="color:#ffcccc;font-size:13px;font-weight:normal;">• ${a}</div>`
+    ).join('');
+
+    const keybindHint = MAFIA.alive && phase === 'night'
+        ? '<span style="color:#888;font-size:12px;">[T] ability &nbsp;[W] will' + (MAFIA.myTeam==='Mafia'?' &nbsp;[B] break-in':'') + '</span>'
+        : MAFIA.alive && phase === 'day'
+        ? '<span style="color:#888;font-size:12px;">[V] vote &nbsp;[W] will</span>'
+        : '';
+
+    banner.innerHTML = `
+        <div>
+            <div style="font-size:16px;">${phaseLabel}</div>
+            ${announcementHtml}
+        </div>
+        <div style="text-align:right;">
+            ${MAFIA.myRole ? `<span style="color:${ROLE_COLORS[MAFIA.myRole]||'#fff'};font-size:13px;">Role: ${MAFIA.myRole}</span>` : ''}
+            <br>${keybindHint}
+        </div>
+    `;
+    document.body.appendChild(banner);
+
+    // Guilt death check
+    if (phase === 'night' && MAFIA.guilt) {
+        showSystemMsg('💀 The guilt consumes you. You die tonight.');
+    }
+    if (phase === 'ended' && MAFIA.winner) {
+        showWinScreen(MAFIA.winner);
+    }
+}
+
+function renderMafiaPlayerList() {
+    removeEl('mafia-player-list');
+    if (!MAFIA.phase || MAFIA.phase === 'lobby') return;
+    const panel = document.createElement('div');
+    panel.id = 'mafia-player-list';
+    panel.style.cssText = `
+        position:fixed;bottom:100px;right:10px;
+        background:rgba(0,0,0,0.82);border:1px solid rgba(255,255,255,0.12);
+        font-family:'Segoe UI',sans-serif;z-index:2000;min-width:180px;
+        max-height:320px;overflow-y:auto;
+    `;
+    let html = `<div style="padding:7px 12px;font-size:12px;letter-spacing:2px;color:#888;border-bottom:1px solid rgba(255,255,255,0.08);">PLAYERS</div>`;
+    for (const id in MAFIA.players) {
+        const p = MAFIA.players[id];
+        const dead = !p.alive;
+        const roleStr = dead && p.role ? ` <span style="color:${ROLE_COLORS[p.role]||'#aaa'};font-size:11px;">[${p.role}]</span>` : '';
+        const willBtn = dead && p.will
+            ? ` <button onclick="showWillPopup(${id})" style="background:none;border:none;color:#ffe082;cursor:pointer;font-size:11px;padding:0 4px;">📜</button>`
+            : '';
+        html += `<div style="padding:5px 12px;font-size:13px;font-weight:bold;color:${dead?'#555':'#fff'};">
+            ${dead ? '☠ ' : ''}${p.name}${roleStr}${willBtn}
+        </div>`;
+    }
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+}
+
+function renderVoteUI() {
+    removeEl('mafia-vote-ui');
+    if (MAFIA.phase !== 'day' || !MAFIA.alive) return;
+    const panel = document.createElement('div');
+    panel.id = 'mafia-vote-ui';
+    panel.style.cssText = `
+        position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+        background:rgba(10,5,0,0.93);border:2px solid #e65100;
+        font-family:'Segoe UI',sans-serif;z-index:2500;padding:12px 20px;min-width:300px;
+    `;
+    let html = `<div style="font-size:13px;color:#ff8f00;font-weight:bold;letter-spacing:2px;margin-bottom:10px;">☀️ VOTE TO ELIMINATE</div>`;
+    const alive = Object.values(MAFIA.players).filter(p => p.alive && p.id !== myId);
+    for (const p of alive) {
+        const voteCount = Object.values(MAFIA.votes).filter(v => v === p.id).length;
+        const isMyVote  = MAFIA.votes[myId] === p.id;
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:bold;color:${isMyVote?'#ffe082':'#fff'};">
+                ${isMyVote ? '▶ ' : ''}${p.name} <span style="color:#888;font-size:11px;">(${voteCount} vote${voteCount!==1?'s':''})</span>
+            </span>
+            <button onclick="castVote(${p.id})"
+                style="background:${isMyVote?'#bf360c':'#3e2723'};color:#fff;border:none;
+                       padding:4px 12px;font-weight:bold;cursor:pointer;font-size:12px;
+                       font-family:'Segoe UI',sans-serif;">
+                ${isMyVote ? 'UNVOTE' : 'VOTE'}
+            </button>
+        </div>`;
+    }
+    html += `<div style="font-size:11px;color:#555;margin-top:8px;">Majority vote eliminates a player.</div>`;
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+}
+
+function castVote(targetId) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const already = MAFIA.votes[myId] === targetId;
+    ws.send(JSON.stringify({ type: 'mafia_vote', targetId: already ? null : targetId }));
+}
+
+function openNightAbilityUI() {
+    if (MAFIA.abilityUsed || MAFIA.phase !== 'night' || !MAFIA.alive) return;
+    removeEl('mafia-ability-ui');
+    const panel = document.createElement('div');
+    panel.id = 'mafia-ability-ui';
+    panel.style.cssText = `
+        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(5,5,20,0.97);border:2px solid ${ROLE_COLORS[MAFIA.myRole]||'#fff'};
+        font-family:'Segoe UI',sans-serif;z-index:4000;padding:24px 32px;min-width:280px;
+    `;
+
+    const abilityName = {
+        Investigator: 'INVESTIGATE',
+        Tracker:      'TRACK',
+        Doctor:       'PROTECT',
+        Archer:       'GUARD',
+        Escort:       'ROLEBLOCK',
+        Vigilante:    'SHOOT',
+        Skinwalker:   'SKINWALK',
+        Celebrity:    null
+    }[MAFIA.myRole];
+
+    if (!abilityName) { panel.remove(); return; }
+
+    const alive = Object.values(MAFIA.players).filter(p => p.alive && p.id !== myId);
+    let html = `
+        <div style="font-size:13px;color:${ROLE_COLORS[MAFIA.myRole]||'#fff'};font-weight:bold;letter-spacing:2px;margin-bottom:12px;">
+            🌙 ${abilityName}
+        </div>
+    `;
+    for (const p of alive) {
+        html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-size:14px;font-weight:bold;color:#fff;">${p.name}</span>
+            <button onclick="useAbility(${p.id})"
+                style="background:${ROLE_COLORS[MAFIA.myRole]||'#333'};color:#000;border:none;
+                       padding:5px 14px;font-weight:bold;cursor:pointer;font-size:12px;
+                       font-family:'Segoe UI',sans-serif;">
+                SELECT
+            </button>
+        </div>`;
+    }
+    html += `<button onclick="document.getElementById('mafia-ability-ui').remove()"
+        style="margin-top:10px;background:transparent;color:#555;border:1px solid #333;
+               padding:6px 16px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
+        CANCEL
+    </button>`;
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+}
+
+function useAbility(targetId) {
+    if (!ws || ws.readyState !== WebSocket.OPEN || MAFIA.abilityUsed) return;
+    ws.send(JSON.stringify({ type: 'mafia_ability', role: MAFIA.myRole, targetId }));
+    MAFIA.abilityUsed   = true;
+    MAFIA.abilityTarget = targetId;
+    removeEl('mafia-ability-ui');
+    showSystemMsg(`✔ Ability used on ${MAFIA.players[targetId]?.name || '?'}.`);
+}
+
+function openVoteUI() { renderVoteUI(); }
+
+function openBreakInUI() {
+    removeEl('mafia-breakin-ui');
+    const panel = document.createElement('div');
+    panel.id = 'mafia-breakin-ui';
+    panel.style.cssText = `
+        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(20,0,0,0.97);border:2px solid #e53935;
+        font-family:'Segoe UI',sans-serif;z-index:4000;padding:24px 32px;min-width:280px;
+    `;
+    let html = `<div style="font-size:13px;color:#ef9a9a;font-weight:bold;letter-spacing:2px;margin-bottom:12px;">🔴 BREAK INTO HOUSE</div>`;
+    // List occupied houses (server sends who's inside via mafia_players with houseId field)
+    const occupiedHouses = HOUSES.list.filter(h => h.occupants && h.occupants.length > 0);
+    if (occupiedHouses.length === 0) {
+        html += `<div style="color:#666;font-size:13px;">No occupied houses nearby.</div>`;
+    } else {
+        for (const h of occupiedHouses) {
+            html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span style="font-size:13px;color:#fff;">House #${h.id} (${h.occupants.map(id=>MAFIA.players[id]?.name||'?').join(', ')})</span>
+                <button onclick="sendBreakIn(${h.id})"
+                    style="background:#b71c1c;color:#fff;border:none;padding:5px 12px;
+                           font-weight:bold;cursor:pointer;font-size:12px;font-family:'Segoe UI',sans-serif;">
+                    BREAK IN
+                </button>
+            </div>`;
+        }
+    }
+    html += `<button onclick="document.getElementById('mafia-breakin-ui').remove()"
+        style="margin-top:10px;background:transparent;color:#555;border:1px solid #333;
+               padding:6px 16px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
+        CANCEL
+    </button>`;
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+}
+
+function sendBreakIn(houseId) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'house_break', houseId }));
+    removeEl('mafia-breakin-ui');
+}
+
+function toggleWillEditor() {
+    if (document.getElementById('mafia-will-editor')) {
+        removeEl('mafia-will-editor'); return;
+    }
+    const panel = document.createElement('div');
+    panel.id = 'mafia-will-editor';
+    panel.style.cssText = `
+        position:fixed;bottom:110px;left:50%;transform:translateX(-50%);
+        background:rgba(10,10,10,0.96);border:2px solid #ffe082;
+        font-family:'Segoe UI',sans-serif;z-index:3500;padding:16px 20px;min-width:360px;
+    `;
+    panel.innerHTML = `
+        <div style="font-size:12px;color:#ffe082;font-weight:bold;letter-spacing:2px;margin-bottom:8px;">📜 MY WILL</div>
+        <textarea id="will-textarea" maxlength="500"
+            style="width:100%;height:100px;background:#111;color:#fff;border:1px solid #444;
+                   padding:8px;font-family:'Segoe UI',sans-serif;font-size:13px;
+                   resize:vertical;box-sizing:border-box;outline:none;">${MAFIA.myWill}</textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+            <button onclick="saveWill()"
+                style="background:#f9a825;color:#000;border:none;padding:7px 20px;
+                       font-weight:bold;cursor:pointer;font-size:13px;font-family:'Segoe UI',sans-serif;flex:1;">
+                SAVE
+            </button>
+            <button onclick="document.getElementById('mafia-will-editor').remove()"
+                style="background:transparent;color:#888;border:1px solid #333;padding:7px 16px;
+                       cursor:pointer;font-family:'Segoe UI',sans-serif;flex:1;">
+                CLOSE
+            </button>
+        </div>
+        <div style="font-size:11px;color:#555;margin-top:6px;">Revealed to town when you die.</div>
+    `;
+    document.body.appendChild(panel);
+    document.getElementById('will-textarea').focus();
+}
+
+function saveWill() {
+    const ta = document.getElementById('will-textarea');
+    if (!ta) return;
+    MAFIA.myWill = ta.value;
+    if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: 'mafia_will', text: MAFIA.myWill }));
+    showSystemMsg('📜 Will saved.');
+    removeEl('mafia-will-editor');
+}
+
+function showWillPopup(playerId) {
+    const p = MAFIA.players[playerId];
+    if (!p) return;
+    removeEl('mafia-will-popup');
+    const panel = document.createElement('div');
+    panel.id = 'mafia-will-popup';
+    panel.style.cssText = `
+        position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(10,8,0,0.97);border:2px solid #ffe082;
+        font-family:'Segoe UI',sans-serif;z-index:5000;padding:24px 28px;min-width:300px;max-width:400px;
+    `;
+    panel.innerHTML = `
+        <div style="font-size:13px;color:#ffe082;font-weight:bold;margin-bottom:6px;">📜 ${p.name}'s Last Will</div>
+        <div style="font-size:13px;color:#ccc;white-space:pre-wrap;line-height:1.6;min-height:60px;">${p.will || '<span style="color:#555">No will was written.</span>'}</div>
+        <button onclick="document.getElementById('mafia-will-popup').remove()"
+            style="margin-top:16px;background:transparent;color:#888;border:1px solid #333;
+                   padding:6px 20px;cursor:pointer;font-family:'Segoe UI',sans-serif;width:100%;">
+            CLOSE
+        </button>
+    `;
+    document.body.appendChild(panel);
+}
+
+function showDeathAnnouncement(data) {
+    // data: { name, role, will, reason, celebrity }
+    removeEl('mafia-death-announce');
+    const el = document.createElement('div');
+    el.id = 'mafia-death-announce';
+    el.style.cssText = `
+        position:fixed;top:60px;left:50%;transform:translateX(-50%);
+        background:rgba(10,0,0,0.96);border:2px solid #b71c1c;
+        font-family:'Segoe UI',sans-serif;z-index:4500;padding:20px 28px;min-width:320px;text-align:center;
+    `;
+    let html = `
+        <div style="font-size:13px;color:#ef9a9a;font-weight:bold;letter-spacing:2px;margin-bottom:6px;">☠ DEATH</div>
+        <div style="font-size:20px;font-weight:bold;color:#fff;margin-bottom:4px;">${data.name}</div>
+        <div style="font-size:13px;color:${ROLE_COLORS[data.role]||'#aaa'};margin-bottom:4px;">${data.role}</div>
+        <div style="font-size:12px;color:#777;margin-bottom:8px;">${data.reason || ''}</div>
+    `;
+    if (data.will) {
+        html += `<div style="font-size:12px;color:#ffe082;margin-bottom:4px;">📜 Last Will:</div>
+                 <div style="font-size:12px;color:#ccc;white-space:pre-wrap;text-align:left;max-height:80px;overflow-y:auto;margin-bottom:8px;">${data.will}</div>`;
+    }
+    if (data.celebrity) {
+        html += `<div style="font-size:13px;color:#ffe082;">⭐ Celebrity Clue: The killer's name contains the letter <strong>"${data.celebrity.letter}"</strong></div>`;
+    }
+    html += `<button onclick="document.getElementById('mafia-death-announce').remove()"
+        style="margin-top:12px;background:transparent;color:#888;border:1px solid #333;
+               padding:6px 20px;cursor:pointer;font-family:'Segoe UI',sans-serif;">
+        OK
+    </button>`;
+    el.innerHTML = html;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 15000);
+}
+
+function showNightResult(text) {
+    showSystemMsg(`🔍 ${text}`);
+}
+
+function renderMafiaChat() {
+    removeEl('mafia-chat-panel');
+    if (MAFIA.myTeam !== 'Mafia' || MAFIA.phase !== 'night') return;
+    const panel = document.createElement('div');
+    panel.id = 'mafia-chat-panel';
+    panel.style.cssText = `
+        position:fixed;bottom:110px;right:10px;
+        background:rgba(20,0,0,0.92);border:1px solid #b71c1c;
+        font-family:'Segoe UI',sans-serif;z-index:2000;width:240px;max-height:180px;
+        overflow-y:auto;padding:8px 12px;
+    `;
+    let html = `<div style="font-size:11px;color:#e53935;letter-spacing:2px;font-weight:bold;margin-bottom:6px;">🔴 MAFIA CHAT</div>`;
+    for (const msg of MAFIA.mafiaChat.slice(-20)) {
+        html += `<div style="font-size:12px;margin-bottom:3px;"><span style="color:#ef9a9a;font-weight:bold;">${msg.from}:</span> <span style="color:#ffcccc;">${msg.text}</span></div>`;
+    }
+    html += `<input id="mafia-chat-input" maxlength="80" placeholder="Mafia chat..."
+        style="width:100%;background:#1a0000;color:#fff;border:1px solid #b71c1c;
+               padding:4px 8px;font-size:12px;font-family:'Segoe UI',sans-serif;
+               box-sizing:border-box;margin-top:6px;outline:none;"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){sendMafiaChat(this.value.trim());this.value='';event.stopPropagation();}">`;
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+    panel.scrollTop = panel.scrollHeight;
+}
+
+function sendMafiaChat(text) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'mafia_chat', text }));
+}
+
+function showWinScreen(winner) {
+    removeEl('mafia-win-screen');
+    const el = document.createElement('div');
+    el.id = 'mafia-win-screen';
+    el.style.cssText = `
+        position:fixed;top:0;left:0;right:0;bottom:0;
+        background:rgba(0,0,0,0.88);
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        z-index:9500;font-family:'Segoe UI',sans-serif;color:#fff;text-align:center;
+    `;
+    const color = winner === 'Town' ? '#4caf50' : winner === 'Mafia' ? '#e53935' : '#ff9800';
+    el.innerHTML = `
+        <div style="font-size:16px;letter-spacing:4px;color:#888;margin-bottom:10px;">GAME OVER</div>
+        <div style="font-size:52px;font-weight:bold;color:${color};margin-bottom:8px;">${winner}</div>
+        <div style="font-size:20px;color:#aaa;margin-bottom:32px;">wins!</div>
+        <button onclick="document.getElementById('mafia-win-screen').remove()"
+            style="background:${color};color:#fff;border:none;padding:12px 40px;
+                   font-size:18px;font-weight:bold;cursor:pointer;font-family:'Segoe UI',sans-serif;">
+            CONTINUE
+        </button>
+    `;
+    document.body.appendChild(el);
+}
+
+function showSystemMsg(text) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+        position:fixed;top:60px;left:50%;transform:translateX(-50%);
+        background:rgba(0,0,0,0.88);border:1px solid rgba(255,255,255,0.15);
+        color:#fff;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:bold;
+        padding:10px 20px;z-index:4000;pointer-events:none;white-space:nowrap;
+    `;
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+function removeEl(id) { const e = document.getElementById(id); if (e) e.remove(); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOUSE / INTERIOR SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Interior map is a separate layer set drawn instead of the world map when inside.
+const INTERIOR = { active: false, layers: [], columns: 0, rows: 0, chunks: [] };
+
+function loadInteriorMap(mapData) {
+    INTERIOR.active  = true;
+    INTERIOR.layers  = mapData.layers;
+    INTERIOR.columns = mapData.columns;
+    INTERIOR.rows    = mapData.rows;
+    // Re-use same chunk system, just different layer data
+    const ts   = WORLD.MAP.tileSize;
+    const cs   = WORLD.MAP.chunkSize;
+    const numCX = Math.ceil((mapData.columns * ts) / cs);
+    const numCY = Math.ceil((mapData.rows    * ts) / cs);
+    INTERIOR.chunks = [];
+    for (let cy = 0; cy < numCY; cy++) {
+        INTERIOR.chunks[cy] = [];
+        for (let cx = 0; cx < numCX; cx++) {
+            const c = document.createElement('canvas');
+            c.width = c.height = cs;
+            const cCtx = c.getContext('2d', { alpha: true });
+            cCtx.imageSmoothingEnabled = false;
+            renderInteriorChunk(cCtx, cx, cy, mapData);
+            INTERIOR.chunks[cy][cx] = c;
+        }
+    }
+    showSystemMsg('🏠 Entered house. [F] to exit.');
+}
+
+function renderInteriorChunk(cCtx, cx, cy, mapData) {
+    const ts = WORLD.MAP.tileSize, cs = WORLD.MAP.chunkSize;
+    cCtx.clearRect(0, 0, cs, cs);
+    const startCol = Math.floor((cx * cs) / ts), endCol = Math.ceil(((cx+1)*cs)/ts);
+    const startRow = Math.floor((cy * cs) / ts), endRow = Math.ceil(((cy+1)*cs)/ts);
+    for (const layer of mapData.layers) {
+        for (let r = Math.max(0, startRow); r < Math.min(mapData.rows, endRow); r++) {
+            for (let c = Math.max(0, startCol); c < Math.min(mapData.columns, endCol); c++) {
+                const gid = layer.data[r * mapData.columns + c];
+                if (!gid) continue;
+                const tId = gid - 1;
+                cCtx.drawImage(tilesheetImg,
+                    (tId % WORLD.MAP.tilesetCols) * ts,
+                    Math.floor(tId / WORLD.MAP.tilesetCols) * ts,
+                    ts, ts,
+                    (c * ts) - (cx * cs), (r * ts) - (cy * cs),
+                    ts + 0.5, ts + 0.5);
+            }
+        }
+    }
+}
+
+function unloadInteriorMap() {
+    INTERIOR.active = false;
+    INTERIOR.chunks = [];
+    showSystemMsg('🚪 Exited house.');
+}
+
+function getNearestDoor() {
+    if (!HOUSES.list.length) return null;
+    let best = null, bestDist = Infinity;
+    const px = ME.x + ME.width / 2, py = ME.y + ME.height / 2;
+    for (const h of HOUSES.list) {
+        const dx = (h.doorCol * WORLD.MAP.tileSize + WORLD.MAP.tileSize / 2) - px;
+        const dy = (h.doorRow * WORLD.MAP.tileSize + WORLD.MAP.tileSize / 2) - py;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 96 && dist < bestDist) { bestDist = dist; best = h; }
+    }
+    return best;
+}
+
+// Hook interior rendering into the main render loop — draw interior over world when inside
+const _origRender = render;
+render = function() {
+    _origRender();
+    if (INTERIOR.active && INTERIOR.chunks.length) {
+        const camX = Math.round(WORLD.CAMERA.x), camY = Math.round(WORLD.CAMERA.y);
+        const cs   = WORLD.MAP.chunkSize;
+        ctx.save();
+        ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+        // Dim the world behind
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(camX > 0 ? -camX : 0, camY > 0 ? -camY : 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
+        // Draw interior chunks
+        for (let cy = 0; cy < INTERIOR.chunks.length; cy++) {
+            for (let cx = 0; cx < INTERIOR.chunks[cy].length; cx++) {
+                ctx.drawImage(INTERIOR.chunks[cy][cx], cx*cs - camX, cy*cs - camY, cs+0.5, cs+0.5);
+            }
+        }
+        ctx.restore();
+        // [F] hint near door
+        if (getNearestDoor() || HOUSES.myHouseId !== null) {
+            ctx.save();
+            ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(WORLD.CAMERA.width/2 - 40, WORLD.CAMERA.height - 80, 80, 26);
+            ctx.fillStyle = '#fff';
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('[F] EXIT', WORLD.CAMERA.width/2, WORLD.CAMERA.height - 67);
+            ctx.restore();
+        }
+    } else {
+        // Show [F] enter hint when near a door outdoors
+        if (getNearestDoor()) {
+            ctx.save();
+            ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(WORLD.CAMERA.width/2 - 40, WORLD.CAMERA.height - 80, 80, 26);
+            ctx.fillStyle = '#fff';
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('[F] ENTER', WORLD.CAMERA.width/2, WORLD.CAMERA.height - 67);
+            ctx.restore();
+        }
+    }
+};
+
+// Expose globals for onclick handlers
+window.castVote     = castVote;
+window.useAbility   = useAbility;
+window.saveWill     = saveWill;
+window.showWillPopup= showWillPopup;
+window.sendBreakIn  = sendBreakIn;
+window.sendMafiaChat= sendMafiaChat;
 
 document.getElementById('leaderboard-header').addEventListener('click', () => {
     const list   = document.getElementById('leaderboard-list');
