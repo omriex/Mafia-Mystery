@@ -6,6 +6,9 @@ let myName       = 'Player???';
 let isOwner      = false;          
 let serverPlayers = {};        
 let serverItems   = [];
+let myRole       = null;
+
+let nightAlpha = 0;
 
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d', { alpha: false });
@@ -31,7 +34,10 @@ const WORLD = {
     INVENTORY:          [null, null, null, null, null],
     INVENTORY_SELECTED: 0,
     INVENTORY_LAST_EQUIPPED: null,
-    NEAREST_ITEM: null
+    NEAREST_ITEM: null,
+    GAME_STATE: 'LOBBY',
+    LAST_STATE: 'LOBBY',
+    CURRENT_TARGET: null
 };
 
 const ME = {
@@ -39,7 +45,8 @@ const ME = {
     width: 45, height: 45,
     vx: 0, vy: 0,
     angle: 0, scale: 1, bopTimer: 0,
-    chats: []
+    chats: [],
+    isDead: false
 };
 
 const tilesheetImg = new Image();
@@ -52,19 +59,18 @@ document.body.appendChild(dragGhost);
 
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
-    
     if (playBtn) {
         playBtn.addEventListener('click', () => {
             const nameInp = document.getElementById('username-input').value.trim();
             myName = nameInp || 'Player' + Math.floor(Math.random() * 1000);
             document.getElementById('main-menu-ui').style.display = 'none';
+            document.getElementById('chat-log-ui').style.display = 'flex';
             connectToServer();
         });
     } else {
         console.warn("⚠️ Play button not found! Your browser is loading an old cached version of index.html. Auto-connecting instead...");
         connectToServer();
     }
-    
     loadImages();
 });
 
@@ -74,7 +80,6 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
     
     const _wsURL = 'wss://faster-conjoined-angling.ngrok-free.dev/?' + _params.toString();
-    
     ws = new WebSocket(_wsURL);
 
     ws.onopen = () => {
@@ -158,9 +163,24 @@ function connectToServer() {
                 WORLD.INVENTORY          = data.players[myId].inventory;
                 WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
                 ME.chats                 = data.players[myId].chats || [];
+                ME.isDead                = data.players[myId].isDead;
                 if (data.players[myId].name) myName = data.players[myId].name;
                 renderInventory();
                 updateLeaderboard();
+            }
+            
+            if (data.game) {
+                WORLD.GAME_STATE = data.game.state;
+                if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
+                    if (WORLD.GAME_STATE !== 'NIGHT') WORLD.CURRENT_TARGET = null;
+                    WORLD.LAST_STATE = WORLD.GAME_STATE;
+                }
+                const pUi = document.getElementById('phase-ui');
+                if (pUi) {
+                    pUi.style.display = 'block';
+                    document.getElementById('phase-name').innerText = data.game.state.replace('_', ' ');
+                    document.getElementById('phase-timer').innerText = data.game.timer + 's';
+                }
             }
 
         } else if (data.type === 'map_update') {
@@ -171,8 +191,50 @@ function connectToServer() {
                 const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
                 renderChunk(cx, cy);
             }
+        } else if (data.type === 'role_assign') {
+            myRole = data.role;
+            ME.isDead = false;
+            document.getElementById('role-ui').style.display = 'block';
+            document.getElementById('my-role-name').innerText = myRole;
+            addChatLog(`Game started! Your role is: ${myRole}`, true);
+            
+            let info = "";
+            if(myRole === 'Investigator') info = "Investigate (T) to narrow down roles.";
+            if(myRole === 'Tracker') info = "Track (T) to see who someone visits.";
+            if(myRole === 'Doctor') info = "Heal (T) to protect someone from death.";
+            if(myRole === 'Archer') info = "Watch (T) to shoot harmful visitors.";
+            if(myRole === 'Escort') info = "Roleblock (T) to stop someone's action.";
+            if(myRole === 'Vigilante') info = "Shoot (T) to kill. Don't shoot townies!";
+            if(myRole === 'Skinwalker') info = "Kill (T) your target. Use /transform [Role] to block a role.";
+            if(myRole === 'Celebrity') info = "If you die, the killer's name letter is revealed.";
+            addChatLog(info, true);
+
+        } else if (data.type === 'game_over') {
+            myRole = null;
+            ME.isDead = false;
+            document.getElementById('role-ui').style.display = 'none';
+            addChatLog("The game has ended.", true);
+
+        } else if (data.type === 'chat_log') {
+            addChatLog(`${data.sender}: ${data.text}`);
+        } else if (data.type === 'sys_chat') {
+            addChatLog(data.text, true);
         }
     };
+}
+
+function addChatLog(text, isSys = false) {
+    const container = document.getElementById('chat-log-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-log-line' + (isSys ? ' sys-msg' : '');
+    div.innerText = text;
+    container.appendChild(div);
+    const ui = document.getElementById('chat-log-ui');
+    ui.scrollTop = ui.scrollHeight;
+    
+    if (container.childElementCount > 35) {
+        container.removeChild(container.firstChild);
+    }
 }
 
 function sendPositionUpdate() {
@@ -189,6 +251,8 @@ function sendPositionUpdate() {
 }
 
 function resolveCircleCollisions() {
+    if (ME.isDead) return;
+    
     const scale  = ME.scale;
     const radius = (ME.width * scale) / 2;
     let pX = ME.x + ME.width  / 2;
@@ -230,12 +294,16 @@ function resolveCircleCollisions() {
 }
 
 function resolvePlayerCollisionsLocal() {
+    if (ME.isDead) return;
+    
     const meR  = (ME.width * ME.scale) / 2;
     const mecx = ME.x + ME.width  / 2;
     const mecy = ME.y + ME.height / 2;
 
     for (const id in serverPlayers) {
         const p  = serverPlayers[id];
+        if (p.isDead) continue;
+        
         const pR = (p.width * (p.scale || 1)) / 2;
         const minDist = meR + pR;
 
@@ -343,6 +411,12 @@ function update(dt) {
         while (diff >  Math.PI) diff -= Math.PI * 2;
         p.renderAngle += diff * 0.3;
     }
+    
+    if (WORLD.GAME_STATE === 'NIGHT') {
+        nightAlpha = Math.min(0.6, nightAlpha + dt * 0.5);
+    } else {
+        nightAlpha = Math.max(0, nightAlpha - dt * 0.5);
+    }
 
     sendPositionUpdate();
 }
@@ -438,8 +512,19 @@ function render() {
         ctx.save();
         ctx.translate(pRX, pRY);
         ctx.rotate(p.renderAngle ?? 0);
+        if (p.isDead) ctx.globalAlpha = 0.3;
         ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
         ctx.restore();
+        
+        if (WORLD.CURRENT_TARGET === parseInt(id)) {
+            ctx.save();
+            ctx.translate(pRX, pRY);
+            ctx.rotate(p.renderAngle ?? 0);
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(-sW / 2 - 2, -sH / 2 - 2, sW + 4, sH + 4);
+            ctx.restore();
+        }
 
         ctx.textAlign  = 'center';
         ctx.lineJoin   = 'round';
@@ -447,7 +532,7 @@ function render() {
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.font       = "bold 13px 'Segoe UI'";
         ctx.fillStyle  = '#ffffff';
-        const pLabel = p.name + (p.isOwner ? ' 👑' : '');
+        const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
         ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
         ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
     }
@@ -460,6 +545,7 @@ function render() {
     ctx.save();
     ctx.translate(pRenderX, pRenderY);
     ctx.rotate(ME.angle);
+    if (ME.isDead) ctx.globalAlpha = 0.3;
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
     ctx.restore();
 
@@ -469,7 +555,7 @@ function render() {
     ctx.strokeStyle = 'rgba(0,0,0,0.85)';
     ctx.font       = "bold 13px 'Segoe UI'";
     ctx.fillStyle  = '#ffffff';
-    const myLabel = myName + (isOwner ? ' 👑' : '');
+    const myLabel = myName + (isOwner ? ' (Host)' : '');
     ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
     ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
 
@@ -523,6 +609,11 @@ function render() {
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
     renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
+    
+    if (nightAlpha > 0) {
+        ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
+        ctx.fillRect(0, 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
+    }
 
     ctx.restore();
 }
@@ -607,9 +698,7 @@ function onAssetLoad() {
     WORLD.SYSTEM.assetsLoaded++;
     if (WORLD.SYSTEM.assetsLoaded === 2) {
         document.getElementById('loading-screen').style.display = 'none';
-        
         document.getElementById('main-menu-ui').style.display = 'flex';
-        
         resizeCanvas();
     }
 }
@@ -627,18 +716,24 @@ function handleMapEdit(screenX, screenY) {
 function initEditorUI() {
     const palette = document.getElementById('palette');
     if (!palette || palette.children.length > 0) return;
-    const desiredTiles = [{ name: 'Grass', col: 0, row: 0 }, { name: 'Dirt', col: 1, row: 0 }, { name: 'Stone', col: 0, row: 1 }];
+    
+    const desiredTiles = [
+        { name: 'Grass', gid: 1, bgPos: '0px 0px' },
+        { name: 'Dirt', gid: 2, bgPos: '-64px 0px' },
+        { name: 'Stone', gid: 3, bgPos: '0px -64px' },
+        { name: 'Door', gid: 4, bgPos: '-64px -64px' }
+    ];
 
     desiredTiles.forEach((tile, idx) => {
         const btn = document.createElement('div');
         btn.className = 'tile-btn' + (idx === 0 ? ' selected' : '');
         btn.style.backgroundImage    = `url(${tilesheetImg.src})`;
         btn.style.backgroundSize     = '512px 512px';
-        btn.style.backgroundPosition = `-${tile.col * WORLD.MAP.tileSize}px -${tile.row * WORLD.MAP.tileSize}px`;
+        btn.style.backgroundPosition = tile.bgPos;
         btn.onclick = () => {
             document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
-            WORLD.EDITOR.selectedTileGid = (tile.row * WORLD.MAP.tilesetCols) + tile.col + 1;
+            WORLD.EDITOR.selectedTileGid = tile.gid;
         };
         palette.appendChild(btn);
     });
@@ -658,9 +753,16 @@ function initEditorUI() {
         if (WORLD.EDITOR.enabled) { this.innerText = 'Editor: ON';  this.classList.add('active');    tools.style.display = 'flex'; }
         else                       { this.innerText = 'Editor: OFF'; this.classList.remove('active'); tools.style.display = 'none'; }
     });
+    
+    const startBtn = document.getElementById('start-game-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', () => {
+            if (ws) ws.send(JSON.stringify({ type: 'start_game' }));
+        });
+    }
 
     document.querySelectorAll('#editor-ui .layer-btn').forEach(btn => {
-        if (btn.id === 'editor-toggle-btn') return;
+        if (btn.id === 'editor-toggle-btn' || btn.id === 'start-game-btn') return;
         btn.addEventListener('click', () => {
             document.querySelectorAll('#layer-toggles .layer-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -723,12 +825,12 @@ function updateLeaderboard() {
     
     const selfDiv = document.createElement('div');
     selfDiv.className = 'leaderboard-entry';
-    selfDiv.innerHTML = `<span>${myName}${isOwner ? ' 👑' : ''}</span>`;
+    selfDiv.innerHTML = `<span>${myName}${isOwner ? ' (Host)' : ''}</span>`;
     list.appendChild(selfDiv);
     for (const id in serverPlayers) {
         const div = document.createElement('div');
         div.className = 'leaderboard-entry';
-        const entryName = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' 👑' : '');
+        const entryName = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' (Host)' : '');
         div.innerHTML = `<span>${entryName}</span>`;
         if (isOwner && !serverPlayers[id].isOwner) {
             div.style.cursor = 'context-menu';
@@ -796,6 +898,22 @@ window.addEventListener('keydown', preventZoom, { passive: false });
 
 window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    
+    if (key === 'tab') {
+        e.preventDefault();
+        const willUI = document.getElementById('will-ui');
+        const willInput = document.getElementById('will-input');
+        if (willUI.style.display === 'flex') {
+            willUI.style.display = 'none';
+            if (ws) ws.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            willInput.blur();
+        } else {
+            willUI.style.display = 'flex';
+            willInput.focus();
+            for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
+        }
+        return;
+    }
 
     if (e.key === 'Enter') {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -837,24 +955,51 @@ window.addEventListener('keydown', e => {
         }
     }
 
-    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = true;
         
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        if (key === 't' && !e.repeat) {
+            let nearestDist = Infinity;
+            let targetId = null;
+            for (let id in serverPlayers) {
+                if (parseInt(id) === myId) continue;
+                let p = serverPlayers[id];
+                if (p.isDead) continue;
+                let px = p.renderX + p.width/2;
+                let py = p.renderY + p.height/2;
+                let mx = ME.x + ME.width/2;
+                let my = ME.y + ME.height/2;
+                let dist = Math.hypot(px - mx, py - my);
+                if (dist < 150 && dist < nearestDist) {
+                    nearestDist = dist;
+                    targetId = parseInt(id);
+                }
+            }
+            if (targetId) {
+                WORLD.CURRENT_TARGET = targetId;
+                ws.send(JSON.stringify({ type: 'action_target', targetId }));
+            }
+            return;
+        }
 
         if (['1','2','3','4','5'].includes(key)) {
             ws.send(JSON.stringify({ type: 'inv_select', index: parseInt(key) - 1 }));
         } else if (key === 'g') {
             ws.send(JSON.stringify({ type: 'drop', index: WORLD.INVENTORY_SELECTED }));
         } else if (key === 'e') {
-            if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null))
+            if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
                 ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
+            } else {
+                ws.send(JSON.stringify({ type: 'interact' }));
+            }
         }
     }
 });
 
 window.addEventListener('keyup', e => {
-    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+    if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         const key = e.key.toLowerCase();
         if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = false;
     }
@@ -880,7 +1025,7 @@ window.addEventListener('mousedown', e => {
             ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
         return;
     }
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#bottom-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#bottom-ui') || e.target.closest('#chat-log-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
