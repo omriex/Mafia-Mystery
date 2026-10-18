@@ -185,7 +185,19 @@ body, html {
     color: #ffffff;
     font-weight: bold;
     font-size: 13px;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#leaderboard-list {
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    gap: 2px;
 }
 
 #bottom-ui {
