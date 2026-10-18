@@ -79,7 +79,11 @@ function connectToServer() {
     const _params = new URLSearchParams();
     if (_pageToken) _params.set('token', _pageToken);
     
+    // Explicitly bypass Ngrok browser warning for WebSocket requests
+    _params.set('ngrok-skip-browser-warning', 'true');
+    
     const _wsURL = 'wss://faster-conjoined-angling.ngrok-free.dev/?' + _params.toString();
+    
     ws = new WebSocket(_wsURL);
 
     ws.onopen = () => {
@@ -687,10 +691,19 @@ function loadImages() {
         WORLD.MAP.tilesetCols = Math.floor(tilesheetImg.width / WORLD.MAP.tileSize);
         onAssetLoad();
     };
+    tilesheetImg.onerror = () => {
+        console.warn("Missing tilesheet.png! Using fallback.");
+        WORLD.MAP.tilesetCols = 1;
+        onAssetLoad();
+    };
     tilesheetImg.src = 'assets/tilesheet.png';
 
     playerImg.crossOrigin = 'Anonymous';
     playerImg.onload = onAssetLoad;
+    playerImg.onerror = () => {
+        console.warn("Missing player.png! Using fallback.");
+        onAssetLoad();
+    };
     playerImg.src = 'assets/player.png';
 }
 
