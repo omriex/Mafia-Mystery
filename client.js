@@ -196,6 +196,14 @@ function connectToServer() {
                 }
             }
 
+        } else if (data.type === 'teleport') {
+            ME.x  = data.x;
+            ME.y  = data.y;
+            ME.vx = 0;
+            ME.vy = 0;
+            WORLD.CAMERA.x = null;
+        } else if (data.type === 'player_left') {
+            delete serverPlayers[data.id];
         } else if (data.type === 'map_update') {
             const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
             if (layer) {
