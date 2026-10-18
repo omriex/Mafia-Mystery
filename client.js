@@ -37,7 +37,8 @@ const WORLD = {
     NEAREST_ITEM: null,
     GAME_STATE: 'LOBBY',
     LAST_STATE: 'LOBBY',
-    CURRENT_TARGET: null
+    CURRENT_TARGET: null,
+    ENTITIES: []
 };
 
 const ME = {
@@ -52,6 +53,7 @@ const ME = {
 const tilesheetImg = new Image();
 const playerImg    = new Image();
 const centerImg    = new Image();
+const tableImg     = new Image();
 
 let dragIndex = -1;
 const dragGhost = document.createElement('div');
@@ -121,6 +123,7 @@ function connectToServer() {
             WORLD.MAP.columns  = data.map.columns;
             WORLD.MAP.rows     = data.map.rows;
             WORLD.MAP.layers   = data.map.layers;
+            if (data.entities) WORLD.ENTITIES = data.entities;
 
             preRenderMap();
 
@@ -177,6 +180,8 @@ function connectToServer() {
                 updateLeaderboard();
             }
             
+            if (data.entities) WORLD.ENTITIES = data.entities;
+
             if (data.game) {
                 WORLD.GAME_STATE = data.game.state;
                 if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
@@ -508,6 +513,21 @@ function render() {
         ctx.drawImage(centerImg, imgX, imgY, imgSize, imgSize);
     }
 
+    if (tableImg.complete && tableImg.naturalWidth > 0) {
+        WORLD.ENTITIES.forEach(ent => {
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            if (ent.w >= ent.h) {
+                ctx.drawImage(tableImg, ent.x - camX, ent.y - camY, ent.w, ent.h);
+            } else {
+                ctx.translate(ent.x - camX + ent.w / 2, ent.y - camY + ent.h / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.drawImage(tableImg, -ent.h / 2, -ent.w / 2, ent.h, ent.w);
+            }
+            ctx.restore();
+        });
+    }
+
     serverItems.forEach(item => {
         ctx.save();
         ctx.translate((item.renderX ?? item.x) - camX, (item.renderY ?? item.y) - camY);
@@ -714,7 +734,7 @@ function renderChunk(cx, cy) {
 function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
-        WORLD.MAP.tilesetCols = 2;
+        WORLD.MAP.tilesetCols = 3;
         onAssetLoad();
     };
     tilesheetImg.onerror = () => {
@@ -722,7 +742,7 @@ function loadImages() {
         WORLD.MAP.tilesetCols = 1;
         onAssetLoad();
     };
-    tilesheetImg.src = 'assets/tilesheet.png';
+    tilesheetImg.src = 'assets/tilesheet_mafia_2.png';
 
     playerImg.crossOrigin = 'Anonymous';
     playerImg.onload = onAssetLoad;
@@ -739,11 +759,16 @@ function loadImages() {
         onAssetLoad();
     };
     centerImg.src = 'assets/center.png';
+
+    tableImg.crossOrigin = 'Anonymous';
+    tableImg.onload = onAssetLoad;
+    tableImg.onerror = () => { console.warn("Missing table.png!"); onAssetLoad(); };
+    tableImg.src = 'assets/table.png';
 }
 
 function onAssetLoad() {
     WORLD.SYSTEM.assetsLoaded++;
-    if (WORLD.SYSTEM.assetsLoaded === 3) {
+    if (WORLD.SYSTEM.assetsLoaded === 4) {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('main-menu-ui').style.display = 'flex';
         resizeCanvas();
