@@ -293,3 +293,71 @@ body, html {
 #chat-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
 }
+
+#chat-log-ui {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: 350px;
+    height: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: auto;
+    z-index: 1500;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.chat-log-line {
+    background-color: transparent;
+    color: white;
+    padding: 2px 0;
+    margin-top: 2px;
+    font-weight: bold;
+    font-size: 14px;
+    word-wrap: break-word;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.sys-msg { 
+    color: #ffeb3b; 
+}
+
+#will-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    width: 400px;
+    height: 300px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#will-header {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+#will-input {
+    flex: 1;
+    background: transparent;
+    color: white;
+    border: none;
+    padding: 10px;
+    resize: none;
+    outline: none;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 16px;
+}
