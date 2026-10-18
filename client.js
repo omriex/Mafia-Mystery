@@ -691,7 +691,7 @@ function renderChunk(cx, cy) {
 function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
-        WORLD.MAP.tilesetCols = Math.floor(tilesheetImg.width / WORLD.MAP.tileSize);
+        WORLD.MAP.tilesetCols = 2;
         onAssetLoad();
     };
     tilesheetImg.onerror = () => {
@@ -732,34 +732,107 @@ function handleMapEdit(screenX, screenY) {
 function initEditorUI() {
     const palette = document.getElementById('palette');
     if (!palette || palette.children.length > 0) return;
-    
-    const desiredTiles = [
-        { name: 'Grass', gid: 1, bgPos: '0px 0px' },
-        { name: 'Dirt', gid: 2, bgPos: '-64px 0px' },
-        { name: 'Stone', gid: 3, bgPos: '0px -64px' },
-        { name: 'Door', gid: 4, bgPos: '-64px -64px' }
-    ];
 
-    desiredTiles.forEach((tile, idx) => {
-        const btn = document.createElement('div');
-        btn.className = 'tile-btn' + (idx === 0 ? ' selected' : '');
-        btn.style.backgroundImage    = `url(${tilesheetImg.src})`;
-        btn.style.backgroundSize     = '512px 512px';
-        btn.style.backgroundPosition = tile.bgPos;
-        btn.onclick = () => {
-            document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            WORLD.EDITOR.selectedTileGid = tile.gid;
-        };
-        palette.appendChild(btn);
+    const TILE = 64;
+    const tsImg = tilesheetImg;
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:relative;overflow:hidden;width:192px;height:160px;border:2px solid #555;background:#222;cursor:grab;flex-shrink:0;';
+
+    const tsCanvas = document.createElement('canvas');
+    tsCanvas.width  = 192;
+    tsCanvas.height = 160;
+    tsCanvas.style.cssText = 'display:block;image-rendering:pixelated;';
+    wrapper.appendChild(tsCanvas);
+
+    const highlight = document.createElement('div');
+    highlight.style.cssText = 'position:absolute;width:64px;height:64px;border:3px solid #ff0;box-sizing:border-box;pointer-events:none;left:0;top:0;';
+    wrapper.appendChild(highlight);
+
+    let tsOffX = 0, tsOffY = 0;
+    let dragging = false, dragSX = 0, dragSY = 0, dragOX = 0, dragOY = 0;
+
+    function drawTilesheet() {
+        const tCtx = tsCanvas.getContext('2d');
+        tCtx.clearRect(0, 0, tsCanvas.width, tsCanvas.height);
+        tCtx.imageSmoothingEnabled = false;
+        if (tsImg.complete && tsImg.naturalWidth > 0) {
+            tCtx.drawImage(tsImg, tsOffX, tsOffY, tsCanvas.width, tsCanvas.height, 0, 0, tsCanvas.width, tsCanvas.height);
+        }
+        tCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+        tCtx.lineWidth = 1;
+        const startCol = Math.floor(tsOffX / TILE);
+        const startRow = Math.floor(tsOffY / TILE);
+        for (let c = startCol; c <= startCol + Math.ceil(tsCanvas.width / TILE) + 1; c++) {
+            const x = c * TILE - tsOffX;
+            tCtx.beginPath(); tCtx.moveTo(x, 0); tCtx.lineTo(x, tsCanvas.height); tCtx.stroke();
+        }
+        for (let r = startRow; r <= startRow + Math.ceil(tsCanvas.height / TILE) + 1; r++) {
+            const y = r * TILE - tsOffY;
+            tCtx.beginPath(); tCtx.moveTo(0, y); tCtx.lineTo(tsCanvas.width, y); tCtx.stroke();
+        }
+    }
+
+    function updateHighlight() {
+        const tsCols = Math.max(1, Math.ceil(tsImg.naturalWidth / TILE));
+        const gid = WORLD.EDITOR.selectedTileGid;
+        if (gid <= 0) { highlight.style.display = 'none'; return; }
+        const tileIdx = gid - 1;
+        const tCol = tileIdx % tsCols;
+        const tRow = Math.floor(tileIdx / tsCols);
+        const sx = tCol * TILE - tsOffX;
+        const sy = tRow * TILE - tsOffY;
+        highlight.style.display = 'block';
+        highlight.style.left = sx + 'px';
+        highlight.style.top  = sy + 'px';
+    }
+
+    tsImg.onload = () => { drawTilesheet(); updateHighlight(); };
+    if (tsImg.complete && tsImg.naturalWidth > 0) { drawTilesheet(); updateHighlight(); }
+
+    wrapper.addEventListener('mousedown', e => {
+        if (e.button === 0) {
+            dragging = true;
+            dragSX = e.clientX; dragSY = e.clientY;
+            dragOX = tsOffX;    dragOY = tsOffY;
+            wrapper.style.cursor = 'grabbing';
+            e.stopPropagation();
+        }
     });
+    window.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        const dx = dragSX - e.clientX;
+        const dy = dragSY - e.clientY;
+        const maxX = Math.max(0, tsImg.naturalWidth  - tsCanvas.width);
+        const maxY = Math.max(0, tsImg.naturalHeight - tsCanvas.height);
+        tsOffX = Math.max(0, Math.min(maxX, dragOX + dx));
+        tsOffY = Math.max(0, Math.min(maxY, dragOY + dy));
+        drawTilesheet(); updateHighlight();
+    });
+    window.addEventListener('mouseup', e => {
+        if (dragging) { dragging = false; wrapper.style.cursor = 'grab'; }
+    });
+    
+    wrapper.addEventListener('click', e => {
+        const rect = wrapper.getBoundingClientRect();
+        const mx = e.clientX - rect.left + tsOffX;
+        const my = e.clientY - rect.top  + tsOffY;
+        const tsCols = Math.max(1, Math.ceil(tsImg.naturalWidth / TILE));
+        const col = Math.floor(mx / TILE);
+        const row = Math.floor(my / TILE);
+        const gid = row * tsCols + col + 1;
+        WORLD.EDITOR.selectedTileGid = gid;
+        updateHighlight();
+    });
+
+    palette.appendChild(wrapper);
 
     const eraser = document.createElement('div');
     eraser.className = 'tile-btn eraser-btn';
+    eraser.title = 'Eraser (gid 0)';
     eraser.onclick = () => {
-        document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('selected'));
-        eraser.classList.add('selected');
         WORLD.EDITOR.selectedTileGid = 0;
+        highlight.style.display = 'none';
     };
     palette.appendChild(eraser);
 
