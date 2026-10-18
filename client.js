@@ -107,6 +107,7 @@ function connectToServer() {
     const _wsURL = 'wss://faster-conjoined-angling.ngrok-free.dev/?' + _params.toString();
     
     ws = new WebSocket(_wsURL);
+    window.ws = ws;
 
     ws.onopen = () => {
         console.log('[ws] connected');
@@ -204,6 +205,21 @@ function connectToServer() {
             }
 
         // ── MAFIA MESSAGES ──────────────────────────────────────────────────
+        } else if (data.type === 'player_count') {
+            const statusEl = document.getElementById('mafia-lobby-status');
+            const startBtn = document.getElementById('mafia-start-btn');
+            if (statusEl) {
+                if (data.count >= 6) {
+                    statusEl.textContent = `${data.count} players — ready to start!`;
+                    statusEl.style.color = '#4caf50';
+                    if (startBtn) startBtn.style.opacity = '1';
+                } else {
+                    statusEl.textContent = `${data.count}/6 players — need ${6 - data.count} more`;
+                    statusEl.style.color = '#888';
+                    if (startBtn) startBtn.style.opacity = '0.5';
+                }
+            }
+
         } else if (data.type === 'mafia_role') {
             // Server tells you your role at game start
             MAFIA.myRole  = data.role;
