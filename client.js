@@ -259,45 +259,57 @@ function sendPositionUpdate() {
 
 function resolveCircleCollisions() {
     if (ME.isDead) return;
-    
-    const scale  = ME.scale;
-    const radius = (ME.width * scale) / 2;
-    let pX = ME.x + ME.width  / 2;
-    let pY = ME.y + ME.height / 2;
 
     const wallLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) return;
 
-    const left   = Math.floor((pX - radius) / WORLD.MAP.tileSize);
-    const right  = Math.floor((pX + radius) / WORLD.MAP.tileSize);
-    const top    = Math.floor((pY - radius) / WORLD.MAP.tileSize);
-    const bottom = Math.floor((pY + radius) / WORLD.MAP.tileSize);
+    const scale  = ME.scale;
+    const radius = (ME.width * scale) / 2;
 
-    for (let r = top; r <= bottom; r++) {
-        for (let c = left; c <= right; c++) {
-            if (c < 0 || c >= WORLD.MAP.columns || r < 0 || r >= WORLD.MAP.rows) continue;
-            if (wallLayer.data[r * WORLD.MAP.columns + c] === 0) continue;
+    for (let iter = 0; iter < 3; iter++) {
+        let pX = ME.x + ME.width  / 2;
+        let pY = ME.y + ME.height / 2;
 
-            const tileX = c * WORLD.MAP.tileSize;
-            const tileY = r * WORLD.MAP.tileSize;
+        const left   = Math.floor((pX - radius) / WORLD.MAP.tileSize);
+        const right  = Math.floor((pX + radius) / WORLD.MAP.tileSize);
+        const top    = Math.floor((pY - radius) / WORLD.MAP.tileSize);
+        const bottom = Math.floor((pY + radius) / WORLD.MAP.tileSize);
 
-            let testX = pX < tileX ? tileX : (pX > tileX + WORLD.MAP.tileSize ? tileX + WORLD.MAP.tileSize : pX);
-            let testY = pY < tileY ? tileY : (pY > tileY + WORLD.MAP.tileSize ? tileY + WORLD.MAP.tileSize : pY);
+        for (let r = top; r <= bottom; r++) {
+            for (let c = left; c <= right; c++) {
+                if (c < 0 || c >= WORLD.MAP.columns || r < 0 || r >= WORLD.MAP.rows) continue;
+                if (wallLayer.data[r * WORLD.MAP.columns + c] === 0) continue;
 
-            const dX   = pX - testX;
-            const dY   = pY - testY;
-            const dist = Math.sqrt(dX * dX + dY * dY);
+                const tileX = c * WORLD.MAP.tileSize;
+                const tileY = r * WORLD.MAP.tileSize;
 
-            if (dist > 0 && dist < radius) {
-                const overlap = radius - dist;
-                pX += (dX / dist) * overlap;
-                pY += (dY / dist) * overlap;
+                const testX = pX < tileX ? tileX : (pX > tileX + WORLD.MAP.tileSize ? tileX + WORLD.MAP.tileSize : pX);
+                const testY = pY < tileY ? tileY : (pY > tileY + WORLD.MAP.tileSize ? tileY + WORLD.MAP.tileSize : pY);
+
+                const dX   = pX - testX;
+                const dY   = pY - testY;
+                const dist = Math.sqrt(dX * dX + dY * dY);
+
+                if (dist < radius) {
+                    if (dist === 0) {
+                        pY -= radius;
+                    } else {
+                        const overlap = radius - dist;
+                        pX += (dX / dist) * overlap;
+                        pY += (dY / dist) * overlap;
+                        const dot = ME.vx * (dX / dist) + ME.vy * (dY / dist);
+                        if (dot < 0) {
+                            ME.vx -= dot * (dX / dist);
+                            ME.vy -= dot * (dY / dist);
+                        }
+                    }
+                }
             }
         }
-    }
 
-    ME.x = pX - ME.width  / 2;
-    ME.y = pY - ME.height / 2;
+        ME.x = pX - ME.width  / 2;
+        ME.y = pY - ME.height / 2;
+    }
 }
 
 function resolvePlayerCollisionsLocal() {
@@ -336,6 +348,7 @@ function resolvePlayerCollisionsLocal() {
             }
         }
     }
+    resolveCircleCollisions();
 }
 
 function update(dt) {
@@ -812,7 +825,7 @@ function initEditorUI() {
     window.addEventListener('mouseup', e => {
         if (dragging) { dragging = false; wrapper.style.cursor = 'grab'; }
     });
-    
+
     wrapper.addEventListener('click', e => {
         const rect = wrapper.getBoundingClientRect();
         const mx = e.clientX - rect.left + tsOffX;
