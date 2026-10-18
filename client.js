@@ -79,7 +79,6 @@ function connectToServer() {
     const _params = new URLSearchParams();
     if (_pageToken) _params.set('token', _pageToken);
     
-    // Explicitly bypass Ngrok browser warning for WebSocket requests
     _params.set('ngrok-skip-browser-warning', 'true');
     
     const _ngrokURL = 'wss://measured-ontario-low-gcc.trycloudflare.com';
