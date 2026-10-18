@@ -51,6 +51,7 @@ const ME = {
 
 const tilesheetImg = new Image();
 const playerImg    = new Image();
+const centerImg    = new Image();
 
 let dragIndex = -1;
 const dragGhost = document.createElement('div');
@@ -266,6 +267,7 @@ function resolveCircleCollisions() {
     const scale  = ME.scale;
     const radius = (ME.width * scale) / 2;
 
+    // run 3 iterations so corner cases get fully ejected instead of tunneling
     for (let iter = 0; iter < 3; iter++) {
         let pX = ME.x + ME.width  / 2;
         let pY = ME.y + ME.height / 2;
@@ -292,11 +294,13 @@ function resolveCircleCollisions() {
 
                 if (dist < radius) {
                     if (dist === 0) {
+                        // fully inside tile — eject upward as fallback
                         pY -= radius;
                     } else {
                         const overlap = radius - dist;
                         pX += (dX / dist) * overlap;
                         pY += (dY / dist) * overlap;
+                        // kill velocity into the wall
                         const dot = ME.vx * (dX / dist) + ME.vy * (dY / dist);
                         if (dot < 0) {
                             ME.vx -= dot * (dX / dist);
@@ -348,6 +352,7 @@ function resolvePlayerCollisionsLocal() {
             }
         }
     }
+    // re-resolve walls after player push so we never get shoved into geometry
     resolveCircleCollisions();
 }
 
@@ -497,6 +502,16 @@ function render() {
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
             ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+
+    // center.png — 8x8 tiles, dead center of map, above floor below players
+    if (centerImg.complete && centerImg.naturalWidth > 0) {
+        const TILE    = WORLD.MAP.tileSize;
+        const imgSize = TILE * 8;
+        const imgX    = (WORLD.MAP.columns / 2) * TILE - imgSize / 2 - camX;
+        const imgY    = (WORLD.MAP.rows    / 2) * TILE - imgSize / 2 - camY;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(centerImg, imgX, imgY, imgSize, imgSize);
+    }
 
     serverItems.forEach(item => {
         ctx.save();
@@ -704,7 +719,7 @@ function renderChunk(cx, cy) {
 function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
-        WORLD.MAP.tilesetCols = 2;
+        WORLD.MAP.tilesetCols = 2; // tilesheet has 2 columns of actual tiles
         onAssetLoad();
     };
     tilesheetImg.onerror = () => {
@@ -721,11 +736,19 @@ function loadImages() {
         onAssetLoad();
     };
     playerImg.src = 'assets/player.png';
+
+    centerImg.crossOrigin = 'Anonymous';
+    centerImg.onload = onAssetLoad;
+    centerImg.onerror = () => {
+        console.warn("Missing center.png! Skipping.");
+        onAssetLoad();
+    };
+    centerImg.src = 'assets/center.png';
 }
 
 function onAssetLoad() {
     WORLD.SYSTEM.assetsLoaded++;
-    if (WORLD.SYSTEM.assetsLoaded === 2) {
+    if (WORLD.SYSTEM.assetsLoaded === 3) {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('main-menu-ui').style.display = 'flex';
         resizeCanvas();
@@ -746,6 +769,7 @@ function initEditorUI() {
     const palette = document.getElementById('palette');
     if (!palette || palette.children.length > 0) return;
 
+    // --- Tilesheet canvas picker ---
     const TILE = 64;
     const tsImg = tilesheetImg;
 
@@ -758,6 +782,7 @@ function initEditorUI() {
     tsCanvas.style.cssText = 'display:block;image-rendering:pixelated;';
     wrapper.appendChild(tsCanvas);
 
+    // highlight overlay
     const highlight = document.createElement('div');
     highlight.style.cssText = 'position:absolute;width:64px;height:64px;border:3px solid #ff0;box-sizing:border-box;pointer-events:none;left:0;top:0;';
     wrapper.appendChild(highlight);
@@ -772,6 +797,7 @@ function initEditorUI() {
         if (tsImg.complete && tsImg.naturalWidth > 0) {
             tCtx.drawImage(tsImg, tsOffX, tsOffY, tsCanvas.width, tsCanvas.height, 0, 0, tsCanvas.width, tsCanvas.height);
         }
+        // draw grid
         tCtx.strokeStyle = 'rgba(255,255,255,0.15)';
         tCtx.lineWidth = 1;
         const startCol = Math.floor(tsOffX / TILE);
@@ -803,6 +829,7 @@ function initEditorUI() {
     tsImg.onload = () => { drawTilesheet(); updateHighlight(); };
     if (tsImg.complete && tsImg.naturalWidth > 0) { drawTilesheet(); updateHighlight(); }
 
+    // drag to pan
     wrapper.addEventListener('mousedown', e => {
         if (e.button === 0) {
             dragging = true;
@@ -826,6 +853,7 @@ function initEditorUI() {
         if (dragging) { dragging = false; wrapper.style.cursor = 'grab'; }
     });
 
+    // click to select tile
     wrapper.addEventListener('click', e => {
         const rect = wrapper.getBoundingClientRect();
         const mx = e.clientX - rect.left + tsOffX;
@@ -840,6 +868,7 @@ function initEditorUI() {
 
     palette.appendChild(wrapper);
 
+    // eraser button
     const eraser = document.createElement('div');
     eraser.className = 'tile-btn eraser-btn';
     eraser.title = 'Eraser (gid 0)';
