@@ -185,19 +185,7 @@ body, html {
     color: #ffffff;
     font-weight: bold;
     font-size: 13px;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-#leaderboard-list {
-    background-color: rgba(0, 0, 0, 0.8);
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: 10px 14px;
-    gap: 2px;
+    margin-bottom: 2px;
 }
 
 #bottom-ui {
@@ -304,29 +292,4 @@ body, html {
 
 #chat-input::placeholder {
     color: rgba(255, 255, 255, 0.4);
-}
-/* ── MAFIA GAME STYLES ─────────────────────────────────────────────────────── */
-
-#mafia-phase-banner {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-#mafia-player-list::-webkit-scrollbar { width: 4px; }
-#mafia-player-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
-
-#mafia-will-editor textarea:focus { border-color: #ffe082 !important; }
-
-#mafia-chat-panel::-webkit-scrollbar { width: 3px; }
-#mafia-chat-panel::-webkit-scrollbar-thumb { background: rgba(255,0,0,0.3); }
-
-#mafia-death-announce { animation: slideDown 0.3s ease; }
-@keyframes slideDown {
-    from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
-    to   { transform: translateX(-50%) translateY(0);     opacity: 1; }
-}
-
-#mafia-win-screen { animation: fadeIn 0.5s ease; }
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
 }
