@@ -26,6 +26,7 @@
 
 <div id="editor-ui" style="display: none;">
     <button id="editor-toggle-btn" class="layer-btn" style="width: 190px;">Editor: OFF</button>
+    <button id="start-game-btn" class="layer-btn" style="width: 190px; background-color: #ff4444; margin-top: 5px;">Start Mafia</button>
     <div id="editor-tools" style="display: none; flex-direction: column; gap: 10px;">
         <div id="layer-toggles">
             <button class="layer-btn active" data-layer="background">Floor</button>
@@ -60,6 +61,24 @@
     <div id="health-bar-bg">
         <div id="health-bar-fill"></div>
     </div>
+</div>
+
+<div id="phase-ui" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; font-size: 20px; font-weight: bold; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); z-index: 1000; text-align: center; pointer-events: none;">
+    <div id="phase-name">LOBBY</div>
+    <div id="phase-timer" style="font-size: 14px; color: #aaa;">0s</div>
+</div>
+
+<div id="role-ui" style="display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; z-index: 1000;">
+    Role: <span id="my-role-name" style="color: #ffcc00;">None</span>
+</div>
+
+<div id="chat-log-ui" style="display: none;">
+    <div id="chat-log-messages" style="display: flex; flex-direction: column; gap: 4px;"></div>
+</div>
+
+<div id="will-ui">
+    <div id="will-header">Your Last Will (TAB to toggle)</div>
+    <textarea id="will-input" maxlength="400" placeholder="I am the Doctor..."></textarea>
 </div>
 
 <div id="tooltip-ui">
