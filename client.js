@@ -433,6 +433,16 @@ function isOnHaybale(worldX, worldY) {
     return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
 }
 
+function isPlayerInsideHouse() {
+    const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
+    if (!floorLayer) return false;
+    const col = Math.floor((ME.x + ME.width  / 2) / WORLD.MAP.tileSize);
+    const row = Math.floor((ME.y + ME.height / 2) / WORLD.MAP.tileSize);
+    if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
+    const gid = floorLayer.data[row * WORLD.MAP.columns + col];
+    return gid === 2 || gid === 4;
+}
+
 function computeShadowVisibility() {
     const MAP    = WORLD.MAP;
     const S      = WORLD.SHADOW;
@@ -444,6 +454,8 @@ function computeShadowVisibility() {
     const ox = ME.x + ME.width  / 2;
     const oy = ME.y + ME.height / 2;
 
+    if (!isPlayerInsideHouse()) { S.polygon = null; return; }
+
     const wallLayer = MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) { S.polygon = null; return; }
 
@@ -452,9 +464,16 @@ function computeShadowVisibility() {
     const startR = Math.max(0, Math.floor((oy - R) / TILE));
     const endR   = Math.min(rows - 1, Math.ceil((oy + R) / TILE));
 
+    const floorLayer = MAP.layers.find(l => l.name === 'floor2');
+
     const isWall = (c, r) => {
         if (c < 0 || c >= cols || r < 0 || r >= rows) return true;
-        return wallLayer.data[r * cols + c] !== 0;
+        if (wallLayer.data[r * cols + c] !== 0) return true;
+        if (floorLayer) {
+            const fgid = floorLayer.data[r * cols + c];
+            if (fgid !== 2 && fgid !== 4) return true;
+        }
+        return false;
     };
 
     const angles = [];
@@ -535,6 +554,34 @@ function computeShadowVisibility() {
     S.polygon = verts.length >= 6 ? new Float32Array(verts) : null;
 }
 
+function buildInteriorClipPath(ctx, camX, camY) {
+    const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
+    if (!floorLayer) return false;
+    const TILE = WORLD.MAP.tileSize;
+    const cols = WORLD.MAP.columns;
+    const rows = WORLD.MAP.rows;
+
+    const c0 = Math.max(0, Math.floor(camX / TILE));
+    const c1 = Math.min(cols - 1, Math.ceil((camX + WORLD.CAMERA.width)  / TILE));
+    const r0 = Math.max(0, Math.floor(camY / TILE));
+    const r1 = Math.min(rows - 1, Math.ceil((camY + WORLD.CAMERA.height) / TILE));
+
+    ctx.beginPath();
+    let hasTiles = false;
+    for (let r = r0; r <= r1; r++) {
+        for (let c = c0; c <= c1; c++) {
+            const gid = floorLayer.data[r * cols + c];
+            if (gid === 2 || gid === 4) {
+                const sx = c * TILE - camX;
+                const sy = r * TILE - camY;
+                ctx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+                hasTiles = true;
+            }
+        }
+    }
+    return hasTiles;
+}
+
 function drawShadowOverlay(ctx, camX, camY) {
     const S = WORLD.SHADOW;
     if (!S.polygon || S.polygon.length < 6) return;
@@ -551,8 +598,10 @@ function drawShadowOverlay(ctx, camX, camY) {
 
     bufCtx.clearRect(0, 0, W, H);
 
+    const hasTiles = buildInteriorClipPath(bufCtx, camX, camY);
+    if (!hasTiles) return;
     bufCtx.fillStyle = 'rgba(0,0,0,0.97)';
-    bufCtx.fillRect(0, 0, W, H);
+    bufCtx.fill();
 
     bufCtx.globalCompositeOperation = 'destination-out';
     bufCtx.beginPath();
