@@ -169,8 +169,10 @@ function connectToServer() {
             if (data.game) {
                 WORLD.GAME_STATE = data.game.state;
                 if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
-                    if (WORLD.GAME_STATE !== 'NIGHT') {
+                    if (WORLD.GAME_STATE === 'DAY_REVEAL') {
                         WORLD.CURRENT_TARGET = null;
+                    }
+                    if (WORLD.GAME_STATE === 'NIGHT') {
                         document.getElementById('target-chooser-ui').style.display = 'none';
                     }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
@@ -229,7 +231,7 @@ function connectToServer() {
             if(myRole === 'Archer') info = "Watch (T) to shoot harmful visitors.";
             if(myRole === 'Escort') info = "Roleblock (T) to stop someone's action.";
             if(myRole === 'Vigilante') info = "Shoot (T) to kill. Don't shoot townies!";
-            if(myRole === 'Skinwalker') info = "Kill (T) your target. Use /transform [Role] to block a role.";
+            if(myRole === 'Skinwalker') info = "Target (T) someone during day to kill them at night.";
             if(myRole === 'Celebrity') info = "If you die, the killer's name letter is revealed.";
             addChatLog(info, true);
 
@@ -867,19 +869,20 @@ function render() {
         
         ctx.restore();
 
-        if (!p.isDark && !isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
+        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
             ctx.textAlign  = 'center';
             ctx.lineJoin   = 'round';
             ctx.lineWidth  = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font       = "bold 13px 'Segoe UI'";
             ctx.fillStyle  = '#ffffff';
-            const pLabel = p.name + (p.isOwner ? ' (Host)' : '');
+            const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' (Host)' : ''));
             ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
             ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
         }
     }
 
+    const amIDark = WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !ME.isDead;
     const pRenderX = ME.x - camX + ME.width  / 2;
     const pRenderY = ME.y - camY + ME.height / 2;
     const pScaledW = ME.width  * ME.scale;
@@ -889,7 +892,9 @@ function render() {
     ctx.translate(pRenderX, pRenderY);
     ctx.rotate(ME.angle);
     if (ME.isDead) ctx.globalAlpha = 0.3;
+    if (amIDark) ctx.filter = 'brightness(0)';
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    if (amIDark) ctx.filter = 'none';
     ctx.restore();
 
     if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
@@ -899,7 +904,7 @@ function render() {
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.font       = "bold 13px 'Segoe UI'";
         ctx.fillStyle  = '#ffffff';
-        const myLabel = myName + (isOwner ? ' (Host)' : '');
+        const myLabel = amIDark ? '???' : (myName + (isOwner ? ' (Host)' : ''));
         ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
         ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
     }
@@ -1310,11 +1315,6 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Enter') {
-        if (WORLD.GAME_STATE === 'NIGHT') {
-            e.preventDefault();
-            return;
-        }
-
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             if (document.getElementById('main-menu-ui').style.display !== 'none') {
                 document.getElementById('play-btn').click();
@@ -1360,7 +1360,7 @@ window.addEventListener('keydown', e => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         if (key === 't' && !e.repeat) {
-            if (ME.isDead) return;
+            if (ME.isDead || WORLD.GAME_STATE === 'NIGHT' || WORLD.GAME_STATE === 'LOBBY') return;
             const ui = document.getElementById('target-chooser-ui');
             if (ui.style.display === 'flex') {
                 ui.style.display = 'none';
