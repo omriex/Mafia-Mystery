@@ -50,7 +50,7 @@
     </div>
 </div>
 
-<div id="bottom-ui">
+<div id="bottom-ui" style="display: none;">
     <div id="health-bar-bg">
         <div id="health-bar-fill"></div>
     </div>
@@ -65,10 +65,10 @@
     Role: <span id="my-role-name" style="color: #ffcc00;">None</span>
 </div>
 
-<div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #555; border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
-    <div style="color: white; font-weight: bold; text-align: center; font-size: 18px; margin-bottom: 10px;">Select Target</div>
+<div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
+    <div style="color: white; font-weight: bold; text-align: center; font-size: 16px; margin-bottom: 5px;">Select Target</div>
     <div id="target-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 300px; overflow-y: auto;"></div>
-    <button id="close-target-btn" class="layer-btn" style="margin-top: 10px; background-color: #ff4444;">Close</button>
+    <button id="close-target-btn" class="layer-btn" style="margin-top: 10px; background-color: #ff4444; border-color: #ff4444;">Close</button>
 </div>
 
 <div id="chat-log-ui" style="display: none;">
