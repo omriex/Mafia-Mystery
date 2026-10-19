@@ -37,7 +37,13 @@ const WORLD = {
     GAME_STATE: 'LOBBY',
     LAST_STATE: 'LOBBY',
     CURRENT_TARGET: null,
-    ENTITIES: []
+    ENTITIES: [],
+    SHADOW: {
+        visible: null,
+        dirtyFrame: -1,
+        frame: 0,
+        RADIUS: 12
+    }
 };
 
 const ME = {
@@ -149,7 +155,14 @@ function connectToServer() {
                 const incoming = data.players[id];
                 const existing = serverPlayers[id];
                 if (existing) {
+                    const dx = incoming.x - existing.renderX;
+                    const dy = incoming.y - existing.renderY;
+                    const jumped = (dx * dx + dy * dy) > (200 * 200);
                     Object.assign(existing, incoming);
+                    if (jumped) {
+                        existing.renderX = incoming.x;
+                        existing.renderY = incoming.y;
+                    }
                     next[id] = existing;
                 } else {
                     next[id] = { ...incoming, renderX: incoming.x, renderY: incoming.y, renderAngle: incoming.angle || 0 };
@@ -201,6 +214,21 @@ function connectToServer() {
             ME.vx = 0;
             ME.vy = 0;
             WORLD.CAMERA.x = null;
+        } else if (data.type === 'bulk_teleport') {
+            for (const id in data.positions) {
+                const pos = data.positions[id];
+                if (parseInt(id) === myId) {
+                    ME.x = pos.x; ME.y = pos.y; ME.vx = 0; ME.vy = 0;
+                    WORLD.CAMERA.x = null;
+                    continue;
+                }
+                const sp = serverPlayers[id];
+                if (sp) {
+                    sp.x       = pos.x; sp.y       = pos.y;
+                    sp.renderX = pos.x; sp.renderY = pos.y;
+                    sp.vx = 0; sp.vy = 0;
+                }
+            }
         } else if (data.type === 'player_left') {
             delete serverPlayers[data.id];
         } else if (data.type === 'map_update') {
@@ -406,6 +434,98 @@ function isOnHaybale(worldX, worldY) {
     return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
 }
 
+function computeShadowVisibility() {
+    const MAP  = WORLD.MAP;
+    const S    = WORLD.SHADOW;
+    const cols = MAP.columns;
+    const rows = MAP.rows;
+    const TILE = MAP.tileSize;
+    const R    = S.RADIUS;
+
+    if (!S.visible || S.visible.length !== cols * rows) {
+        S.visible = new Uint8Array(cols * rows);
+    }
+    S.visible.fill(0);
+
+    const wallLayer = MAP.layers.find(l => l.name === 'walls');
+    if (!wallLayer) { S.visible.fill(1); return; }
+
+    const originCol = Math.floor((ME.x + ME.width  / 2) / TILE);
+    const originRow = Math.floor((ME.y + ME.height / 2) / TILE);
+
+    if (originCol >= 0 && originCol < cols && originRow >= 0 && originRow < rows) {
+        S.visible[originRow * cols + originCol] = 1;
+    }
+
+    const isWall = (c, r) => {
+        if (c < 0 || c >= cols || r < 0 || r >= rows) return true;
+        return wallLayer.data[r * cols + c] !== 0;
+    };
+
+    const rayVisible = (tc, tr) => {
+        let x0 = originCol + 0.5;
+        let y0 = originRow + 0.5;
+        const x1 = tc + 0.5;
+        const y1 = tr + 0.5;
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 4;
+        if (steps === 0) return true;
+        const sx = dx / steps;
+        const sy = dy / steps;
+        let cx = x0, cy = y0;
+        for (let i = 0; i < steps - 1; i++) {
+            cx += sx; cy += sy;
+            const col = Math.floor(cx);
+            const row = Math.floor(cy);
+            if (col === originCol && row === originRow) continue;
+            if (col === tc && row === tr) break;
+            if (isWall(col, row)) return false;
+        }
+        return true;
+    };
+
+    for (let r = originRow - R; r <= originRow + R; r++) {
+        for (let c = originCol - R; c <= originCol + R; c++) {
+            if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
+            const dc = c - originCol;
+            const dr = r - originRow;
+            if (dc * dc + dr * dr > R * R) continue;
+            if (rayVisible(c, r)) {
+                S.visible[r * cols + c] = 1;
+            }
+        }
+    }
+}
+
+function drawShadowOverlay(ctx, camX, camY) {
+    const MAP  = WORLD.MAP;
+    const S    = WORLD.SHADOW;
+    const cols = MAP.columns;
+    const rows = MAP.rows;
+    const TILE = MAP.tileSize;
+    if (!S.visible) return;
+
+    const startC = Math.max(0, Math.floor(camX / TILE) - 1);
+    const endC   = Math.min(cols - 1, Math.ceil((camX + WORLD.CAMERA.width)  / TILE) + 1);
+    const startR = Math.max(0, Math.floor(camY / TILE) - 1);
+    const endR   = Math.min(rows - 1, Math.ceil((camY + WORLD.CAMERA.height) / TILE) + 1);
+
+    ctx.fillStyle = '#000000';
+    for (let r = startR; r <= endR; r++) {
+        for (let c = startC; c <= endC; c++) {
+            if (!S.visible[r * cols + c]) {
+                ctx.fillRect(
+                    c * TILE - camX,
+                    r * TILE - camY,
+                    TILE + 0.5,
+                    TILE + 0.5
+                );
+            }
+        }
+    }
+}
+
 function update(dt) {
     const currentEquipped = WORLD.INVENTORY[WORLD.INVENTORY_SELECTED];
     WORLD.INVENTORY_LAST_EQUIPPED = currentEquipped;
@@ -492,6 +612,11 @@ function update(dt) {
         nightAlpha = Math.min(0.6, nightAlpha + dt * 0.5);
     } else {
         nightAlpha = Math.max(0, nightAlpha - dt * 0.5);
+    }
+
+    WORLD.SHADOW.frame++;
+    if (WORLD.SHADOW.frame % 2 === 0) {
+        computeShadowVisibility();
     }
 
     sendPositionUpdate();
@@ -679,6 +804,8 @@ function render() {
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
             ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+
+    drawShadowOverlay(ctx, camX, camY);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
