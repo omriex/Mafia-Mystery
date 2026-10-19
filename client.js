@@ -39,10 +39,9 @@ const WORLD = {
     CURRENT_TARGET: null,
     ENTITIES: [],
     SHADOW: {
-        visible: null,
-        dirtyFrame: -1,
+        polygon: null,
         frame: 0,
-        RADIUS: 12
+        RADIUS: 800
     }
 };
 
@@ -435,95 +434,139 @@ function isOnHaybale(worldX, worldY) {
 }
 
 function computeShadowVisibility() {
-    const MAP  = WORLD.MAP;
-    const S    = WORLD.SHADOW;
-    const cols = MAP.columns;
-    const rows = MAP.rows;
-    const TILE = MAP.tileSize;
-    const R    = S.RADIUS;
+    const MAP    = WORLD.MAP;
+    const S      = WORLD.SHADOW;
+    const TILE   = MAP.tileSize;
+    const R      = S.RADIUS;
+    const cols   = MAP.columns;
+    const rows   = MAP.rows;
 
-    if (!S.visible || S.visible.length !== cols * rows) {
-        S.visible = new Uint8Array(cols * rows);
-    }
-    S.visible.fill(0);
+    const ox = ME.x + ME.width  / 2;
+    const oy = ME.y + ME.height / 2;
 
     const wallLayer = MAP.layers.find(l => l.name === 'walls');
-    if (!wallLayer) { S.visible.fill(1); return; }
+    if (!wallLayer) { S.polygon = null; return; }
 
-    const originCol = Math.floor((ME.x + ME.width  / 2) / TILE);
-    const originRow = Math.floor((ME.y + ME.height / 2) / TILE);
-
-    if (originCol >= 0 && originCol < cols && originRow >= 0 && originRow < rows) {
-        S.visible[originRow * cols + originCol] = 1;
-    }
+    const startC = Math.max(0, Math.floor((ox - R) / TILE));
+    const endC   = Math.min(cols - 1, Math.ceil((ox + R) / TILE));
+    const startR = Math.max(0, Math.floor((oy - R) / TILE));
+    const endR   = Math.min(rows - 1, Math.ceil((oy + R) / TILE));
 
     const isWall = (c, r) => {
         if (c < 0 || c >= cols || r < 0 || r >= rows) return true;
         return wallLayer.data[r * cols + c] !== 0;
     };
 
-    const rayVisible = (tc, tr) => {
-        let x0 = originCol + 0.5;
-        let y0 = originRow + 0.5;
-        const x1 = tc + 0.5;
-        const y1 = tr + 0.5;
-        const dx = x1 - x0;
-        const dy = y1 - y0;
-        const steps = Math.max(Math.abs(dx), Math.abs(dy)) * 4;
-        if (steps === 0) return true;
-        const sx = dx / steps;
-        const sy = dy / steps;
-        let cx = x0, cy = y0;
-        for (let i = 0; i < steps - 1; i++) {
-            cx += sx; cy += sy;
-            const col = Math.floor(cx);
-            const row = Math.floor(cy);
-            if (col === originCol && row === originRow) continue;
-            if (col === tc && row === tr) break;
-            if (isWall(col, row)) return false;
-        }
-        return true;
-    };
+    const angles = [];
+    const EPS = 0.0001;
 
-    for (let r = originRow - R; r <= originRow + R; r++) {
-        for (let c = originCol - R; c <= originCol + R; c++) {
-            if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
-            const dc = c - originCol;
-            const dr = r - originRow;
-            if (dc * dc + dr * dr > R * R) continue;
-            if (rayVisible(c, r)) {
-                S.visible[r * cols + c] = 1;
+    for (let r = startR; r <= endR; r++) {
+        for (let c = startC; c <= endC; c++) {
+            if (!isWall(c, r)) continue;
+            const corners = [
+                [c * TILE,        r * TILE       ],
+                [c * TILE + TILE, r * TILE       ],
+                [c * TILE,        r * TILE + TILE],
+                [c * TILE + TILE, r * TILE + TILE]
+            ];
+            for (const [cx, cy] of corners) {
+                const dx = cx - ox;
+                const dy = cy - oy;
+                if (dx * dx + dy * dy > R * R * 1.2) continue;
+                const a = Math.atan2(dy, dx);
+                angles.push(a - EPS, a, a + EPS);
             }
         }
     }
+
+    const STEPS = 32;
+    for (let i = 0; i < STEPS; i++) {
+        angles.push((Math.PI * 2 * i) / STEPS - Math.PI);
+    }
+
+    const castRay = (angle) => {
+        const rdx = Math.cos(angle);
+        const rdy = Math.sin(angle);
+
+        let minT = R;
+
+        for (let r = startR; r <= endR; r++) {
+            for (let c = startC; c <= endC; c++) {
+                if (!isWall(c, r)) continue;
+
+                const tx0 = c * TILE;
+                const ty0 = r * TILE;
+                const tx1 = tx0 + TILE;
+                const ty1 = ty0 + TILE;
+
+                const edges = [
+                    [tx0, ty0, tx1, ty0],
+                    [tx1, ty0, tx1, ty1],
+                    [tx1, ty1, tx0, ty1],
+                    [tx0, ty1, tx0, ty0]
+                ];
+
+                for (const [ax, ay, bx, by] of edges) {
+                    const segDx = bx - ax;
+                    const segDy = by - ay;
+                    const denom = rdx * segDy - rdy * segDx;
+                    if (Math.abs(denom) < 1e-10) continue;
+                    const t = ((ax - ox) * segDy - (ay - oy) * segDx) / denom;
+                    const u = ((ax - ox) * rdy   - (ay - oy) * rdx)   / denom;
+                    if (t > 0 && u >= 0 && u <= 1 && t < minT) {
+                        minT = t;
+                    }
+                }
+            }
+        }
+
+        return { x: ox + rdx * minT, y: oy + rdy * minT };
+    };
+
+    const uniqueAngles = [...new Set(angles.map(a => Math.round(a * 100000) / 100000))];
+    uniqueAngles.sort((a, b) => a - b);
+
+    const verts = [];
+    for (const angle of uniqueAngles) {
+        const pt = castRay(angle);
+        verts.push(pt.x, pt.y);
+    }
+
+    S.polygon = verts.length >= 6 ? new Float32Array(verts) : null;
 }
 
 function drawShadowOverlay(ctx, camX, camY) {
-    const MAP  = WORLD.MAP;
-    const S    = WORLD.SHADOW;
-    const cols = MAP.columns;
-    const rows = MAP.rows;
-    const TILE = MAP.tileSize;
-    if (!S.visible) return;
+    const S = WORLD.SHADOW;
+    if (!S.polygon || S.polygon.length < 6) return;
+    const W = WORLD.CAMERA.width;
+    const H = WORLD.CAMERA.height;
 
-    const startC = Math.max(0, Math.floor(camX / TILE) - 1);
-    const endC   = Math.min(cols - 1, Math.ceil((camX + WORLD.CAMERA.width)  / TILE) + 1);
-    const startR = Math.max(0, Math.floor(camY / TILE) - 1);
-    const endR   = Math.min(rows - 1, Math.ceil((camY + WORLD.CAMERA.height) / TILE) + 1);
-
-    ctx.fillStyle = '#000000';
-    for (let r = startR; r <= endR; r++) {
-        for (let c = startC; c <= endC; c++) {
-            if (!S.visible[r * cols + c]) {
-                ctx.fillRect(
-                    c * TILE - camX,
-                    r * TILE - camY,
-                    TILE + 0.5,
-                    TILE + 0.5
-                );
-            }
-        }
+    if (!WORLD.SHADOW._buf || WORLD.SHADOW._buf.width !== W || WORLD.SHADOW._buf.height !== H) {
+        WORLD.SHADOW._buf = document.createElement('canvas');
+        WORLD.SHADOW._buf.width  = W;
+        WORLD.SHADOW._buf.height = H;
     }
+    const buf    = WORLD.SHADOW._buf;
+    const bufCtx = buf.getContext('2d');
+
+    bufCtx.clearRect(0, 0, W, H);
+
+    bufCtx.fillStyle = 'rgba(0,0,0,0.97)';
+    bufCtx.fillRect(0, 0, W, H);
+
+    bufCtx.globalCompositeOperation = 'destination-out';
+    bufCtx.beginPath();
+    const verts = S.polygon;
+    bufCtx.moveTo(verts[0] - camX, verts[1] - camY);
+    for (let i = 2; i < verts.length; i += 2) {
+        bufCtx.lineTo(verts[i] - camX, verts[i + 1] - camY);
+    }
+    bufCtx.closePath();
+    bufCtx.fill();
+
+    bufCtx.globalCompositeOperation = 'source-over';
+
+    ctx.drawImage(buf, 0, 0);
 }
 
 function update(dt) {
@@ -614,10 +657,7 @@ function update(dt) {
         nightAlpha = Math.max(0, nightAlpha - dt * 0.5);
     }
 
-    WORLD.SHADOW.frame++;
-    if (WORLD.SHADOW.frame % 2 === 0) {
-        computeShadowVisibility();
-    }
+    computeShadowVisibility();
 
     sendPositionUpdate();
 }
@@ -805,8 +845,6 @@ function render() {
         for (let cx = startCX; cx <= endCX; cx++)
             ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
 
-    drawShadowOverlay(ctx, camX, camY);
-
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
         const wY  = (WORLD.INPUTS.mouseY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
@@ -840,7 +878,9 @@ function render() {
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
     renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
-    
+
+    drawShadowOverlay(ctx, camX, camY);
+
     if (nightAlpha > 0) {
         ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
         ctx.fillRect(0, 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
