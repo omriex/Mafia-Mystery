@@ -433,6 +433,48 @@ function isOnHaybale(worldX, worldY) {
     return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
 }
 
+let _shadowMapCache = null;
+
+function _rebuildShadowMapCache() {
+    const MAP        = WORLD.MAP;
+    const floorLayer = MAP.layers.find(l => l.name === 'floor2');
+    const wallLayer  = MAP.layers.find(l => l.name === 'walls');
+    if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
+
+    const cols       = MAP.columns;
+    const rows       = MAP.rows;
+    const floorTiles = [];
+    const wallTiles  = [];
+    const wallSet    = new Set();
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const idx  = r * cols + c;
+            const fgid = floorLayer.data[idx];
+            const wgid = wallLayer.data[idx];
+            if (fgid === 2 || fgid === 4) {
+                floorTiles.push({ c, r });
+                if (wgid !== 0) wallTiles.push({ c, r });
+            }
+            if (wgid !== 0) wallSet.add(c + ',' + r);
+        }
+    }
+
+    const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
+    const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+    for (const { c, r } of floorTiles) {
+        for (const [dc, dr] of DIRS) {
+            const nc = c + dc, nr = r + dr;
+            const key = nc + ',' + nr;
+            if (!interiorSet.has(key)) wallSet.add(key);
+        }
+    }
+
+    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
+}
+
+function invalidateShadowCache() { _shadowMapCache = null; }
+
 function isPlayerInsideHouse() {
     const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
     if (!floorLayer) return false;
@@ -444,43 +486,36 @@ function isPlayerInsideHouse() {
 }
 
 function computeShadowVisibility() {
-    const MAP    = WORLD.MAP;
-    const S      = WORLD.SHADOW;
-    const TILE   = MAP.tileSize;
-    const R      = S.RADIUS;
-    const cols   = MAP.columns;
-    const rows   = MAP.rows;
+    const MAP  = WORLD.MAP;
+    const S    = WORLD.SHADOW;
+    const TILE = MAP.tileSize;
+
+    if (!_shadowMapCache) _rebuildShadowMapCache();
+    if (!_shadowMapCache) { S.polygon = null; return; }
+
+    const { wallSet, floorTiles } = _shadowMapCache;
+    if (floorTiles.length === 0) { S.polygon = null; return; }
+
+    if (!isPlayerInsideHouse()) { S.polygon = null; return; }
 
     const ox = ME.x + ME.width  / 2;
     const oy = ME.y + ME.height / 2;
 
-    if (!isPlayerInsideHouse()) { S.polygon = null; return; }
+    let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+    for (const { c, r } of floorTiles) {
+        if (c < minC) minC = c; if (c > maxC) maxC = c;
+        if (r < minR) minR = r; if (r > maxR) maxR = r;
+    }
+    minC = Math.max(0, minC - 1); maxC = Math.min(MAP.columns - 1, maxC + 1);
+    minR = Math.max(0, minR - 1); maxR = Math.min(MAP.rows    - 1, maxR + 1);
 
-    const wallLayer = MAP.layers.find(l => l.name === 'walls');
-    if (!wallLayer) { S.polygon = null; return; }
+    const isWall = (c, r) => wallSet.has(c + ',' + r);
 
-    const startC = Math.max(0, Math.floor((ox - R) / TILE));
-    const endC   = Math.min(cols - 1, Math.ceil((ox + R) / TILE));
-    const startR = Math.max(0, Math.floor((oy - R) / TILE));
-    const endR   = Math.min(rows - 1, Math.ceil((oy + R) / TILE));
-
-    const floorLayer = MAP.layers.find(l => l.name === 'floor2');
-
-    const isWall = (c, r) => {
-        if (c < 0 || c >= cols || r < 0 || r >= rows) return true;
-        if (wallLayer.data[r * cols + c] !== 0) return true;
-        if (floorLayer) {
-            const fgid = floorLayer.data[r * cols + c];
-            if (fgid !== 2 && fgid !== 4) return true;
-        }
-        return false;
-    };
-
-    const angles = [];
     const EPS = 0.0001;
+    const angles = [];
 
-    for (let r = startR; r <= endR; r++) {
-        for (let c = startC; c <= endC; c++) {
+    for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
             if (!isWall(c, r)) continue;
             const corners = [
                 [c * TILE,        r * TILE       ],
@@ -489,34 +524,24 @@ function computeShadowVisibility() {
                 [c * TILE + TILE, r * TILE + TILE]
             ];
             for (const [cx, cy] of corners) {
-                const dx = cx - ox;
-                const dy = cy - oy;
-                if (dx * dx + dy * dy > R * R * 1.2) continue;
-                const a = Math.atan2(dy, dx);
+                const a = Math.atan2(cy - oy, cx - ox);
                 angles.push(a - EPS, a, a + EPS);
             }
         }
     }
 
-    const STEPS = 32;
-    for (let i = 0; i < STEPS; i++) {
-        angles.push((Math.PI * 2 * i) / STEPS - Math.PI);
-    }
-
     const castRay = (angle) => {
         const rdx = Math.cos(angle);
         const rdy = Math.sin(angle);
+        const maxDist = Math.hypot((maxC - minC + 2) * TILE, (maxR - minR + 2) * TILE);
+        let minT = maxDist;
 
-        let minT = R;
-
-        for (let r = startR; r <= endR; r++) {
-            for (let c = startC; c <= endC; c++) {
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
                 if (!isWall(c, r)) continue;
 
-                const tx0 = c * TILE;
-                const ty0 = r * TILE;
-                const tx1 = tx0 + TILE;
-                const ty1 = ty0 + TILE;
+                const tx0 = c * TILE, ty0 = r * TILE;
+                const tx1 = tx0 + TILE, ty1 = ty0 + TILE;
 
                 const edges = [
                     [tx0, ty0, tx1, ty0],
@@ -526,15 +551,12 @@ function computeShadowVisibility() {
                 ];
 
                 for (const [ax, ay, bx, by] of edges) {
-                    const segDx = bx - ax;
-                    const segDy = by - ay;
+                    const segDx = bx - ax, segDy = by - ay;
                     const denom = rdx * segDy - rdy * segDx;
                     if (Math.abs(denom) < 1e-10) continue;
                     const t = ((ax - ox) * segDy - (ay - oy) * segDx) / denom;
                     const u = ((ax - ox) * rdy   - (ay - oy) * rdx)   / denom;
-                    if (t > 0 && u >= 0 && u <= 1 && t < minT) {
-                        minT = t;
-                    }
+                    if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
                 }
             }
         }
@@ -554,66 +576,59 @@ function computeShadowVisibility() {
     S.polygon = verts.length >= 6 ? new Float32Array(verts) : null;
 }
 
-function buildInteriorClipPath(ctx, camX, camY) {
-    const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
-    if (!floorLayer) return false;
-    const TILE = WORLD.MAP.tileSize;
-    const cols = WORLD.MAP.columns;
-    const rows = WORLD.MAP.rows;
-
-    const c0 = Math.max(0, Math.floor(camX / TILE));
-    const c1 = Math.min(cols - 1, Math.ceil((camX + WORLD.CAMERA.width)  / TILE));
-    const r0 = Math.max(0, Math.floor(camY / TILE));
-    const r1 = Math.min(rows - 1, Math.ceil((camY + WORLD.CAMERA.height) / TILE));
-
-    ctx.beginPath();
-    let hasTiles = false;
-    for (let r = r0; r <= r1; r++) {
-        for (let c = c0; c <= c1; c++) {
-            const gid = floorLayer.data[r * cols + c];
-            if (gid === 2 || gid === 4) {
-                const sx = c * TILE - camX;
-                const sy = r * TILE - camY;
-                ctx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
-                hasTiles = true;
-            }
-        }
-    }
-    return hasTiles;
-}
-
 function drawShadowOverlay(ctx, camX, camY) {
-    const S = WORLD.SHADOW;
-    if (!S.polygon || S.polygon.length < 6) return;
-    const W = WORLD.CAMERA.width;
-    const H = WORLD.CAMERA.height;
+    if (!_shadowMapCache) return;
+    const { floorTiles, wallTiles } = _shadowMapCache;
+    if (floorTiles.length === 0) return;
+
+    const S    = WORLD.SHADOW;
+    const TILE = WORLD.MAP.tileSize;
+    const W    = WORLD.CAMERA.width;
+    const H    = WORLD.CAMERA.height;
 
     if (!WORLD.SHADOW._buf || WORLD.SHADOW._buf.width !== W || WORLD.SHADOW._buf.height !== H) {
-        WORLD.SHADOW._buf = document.createElement('canvas');
+        WORLD.SHADOW._buf        = document.createElement('canvas');
         WORLD.SHADOW._buf.width  = W;
         WORLD.SHADOW._buf.height = H;
     }
     const buf    = WORLD.SHADOW._buf;
     const bufCtx = buf.getContext('2d');
-
     bufCtx.clearRect(0, 0, W, H);
 
-    const hasTiles = buildInteriorClipPath(bufCtx, camX, camY);
-    if (!hasTiles) return;
     bufCtx.fillStyle = 'rgba(0,0,0,0.97)';
-    bufCtx.fill();
-
-    bufCtx.globalCompositeOperation = 'destination-out';
     bufCtx.beginPath();
-    const verts = S.polygon;
-    bufCtx.moveTo(verts[0] - camX, verts[1] - camY);
-    for (let i = 2; i < verts.length; i += 2) {
-        bufCtx.lineTo(verts[i] - camX, verts[i + 1] - camY);
+    for (const { c, r } of floorTiles) {
+        const sx = c * TILE - camX, sy = r * TILE - camY;
+        if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
+        bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
     }
-    bufCtx.closePath();
     bufCtx.fill();
 
-    bufCtx.globalCompositeOperation = 'source-over';
+    if (wallTiles.length > 0) {
+        bufCtx.globalCompositeOperation = 'destination-out';
+        bufCtx.fillStyle = 'rgba(0,0,0,1)';
+        bufCtx.beginPath();
+        for (const { c, r } of wallTiles) {
+            const sx = c * TILE - camX, sy = r * TILE - camY;
+            if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
+            bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+        }
+        bufCtx.fill();
+        bufCtx.globalCompositeOperation = 'source-over';
+    }
+
+    if (S.polygon && S.polygon.length >= 6) {
+        bufCtx.globalCompositeOperation = 'destination-out';
+        bufCtx.beginPath();
+        const verts = S.polygon;
+        bufCtx.moveTo(verts[0] - camX, verts[1] - camY);
+        for (let i = 2; i < verts.length; i += 2) {
+            bufCtx.lineTo(verts[i] - camX, verts[i + 1] - camY);
+        }
+        bufCtx.closePath();
+        bufCtx.fill();
+        bufCtx.globalCompositeOperation = 'source-over';
+    }
 
     ctx.drawImage(buf, 0, 0);
 }
