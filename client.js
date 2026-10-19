@@ -169,7 +169,10 @@ function connectToServer() {
             if (data.game) {
                 WORLD.GAME_STATE = data.game.state;
                 if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
-                    if (WORLD.GAME_STATE !== 'NIGHT') WORLD.CURRENT_TARGET = null;
+                    if (WORLD.GAME_STATE !== 'NIGHT') {
+                        WORLD.CURRENT_TARGET = null;
+                        document.getElementById('target-chooser-ui').style.display = 'none';
+                    }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
                 }
                 const pUi = document.getElementById('phase-ui');
@@ -234,6 +237,7 @@ function connectToServer() {
             myRole = null;
             ME.isDead = false;
             document.getElementById('role-ui').style.display = 'none';
+            document.getElementById('target-chooser-ui').style.display = 'none';
             addChatLog("The game has ended.", true);
 
         } else if (data.type === 'chat_log') {
@@ -242,6 +246,30 @@ function connectToServer() {
             addChatLog(data.text, true);
         }
     };
+}
+
+function populateTargetChooser() {
+    const list = document.getElementById('target-list');
+    list.innerHTML = '';
+    for (const id in serverPlayers) {
+        if (parseInt(id) === myId) continue;
+        const p = serverPlayers[id];
+        if (p.isDead) continue;
+        
+        const btn = document.createElement('button');
+        btn.className = 'layer-btn';
+        btn.style.width = '100%';
+        btn.innerText = p.name;
+        if (WORLD.CURRENT_TARGET === parseInt(id)) {
+            btn.classList.add('active');
+        }
+        btn.onclick = () => {
+            WORLD.CURRENT_TARGET = parseInt(id);
+            if (ws) ws.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
+            document.getElementById('target-chooser-ui').style.display = 'none';
+        };
+        list.appendChild(btn);
+    }
 }
 
 function addChatLog(text, isSys = false) {
@@ -253,7 +281,7 @@ function addChatLog(text, isSys = false) {
     const ui = document.getElementById('chat-log-ui');
     ui.scrollTop = ui.scrollHeight;
     
-    if (container.childElementCount > 35) {
+    if (container.childElementCount > 50) {
         container.removeChild(container.firstChild);
     }
 }
@@ -470,6 +498,8 @@ function isPlayerInsideHouse() {
 }
 
 function computeShadowVisibility() {
+    if (ME.isDead) { WORLD.SHADOW.polygon = null; return; }
+
     const MAP  = WORLD.MAP;
     const S    = WORLD.SHADOW;
     const TILE = MAP.tileSize;
@@ -550,8 +580,6 @@ function computeShadowVisibility() {
     const castRay = (angle) => {
         const rdx = Math.cos(angle);
         const rdy = Math.sin(angle);
-        const rdxSign = rdx >= 0 ? 1 : -1;
-        const rdySign = rdy >= 0 ? 1 : -1;
         let minT = maxDist;
 
         for (let i = 0; i < wallArr.length; i += 2) {
@@ -608,6 +636,7 @@ function computeShadowVisibility() {
 }
 
 function drawShadowOverlay(ctx, camX, camY) {
+    if (ME.isDead) return;
     if (!_shadowMapCache) return;
     const { floorTiles, wallTiles } = _shadowMapCache;
     if (floorTiles.length === 0) return;
@@ -798,7 +827,7 @@ function render() {
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE    = WORLD.MAP.tileSize;
-        const imgSize = TILE * 8;
+        const imgSize = TILE * 10;
         const imgX    = (WORLD.MAP.columns / 2) * TILE - imgSize / 2 - camX;
         const imgY    = (WORLD.MAP.rows    / 2) * TILE - imgSize / 2 - camY;
         ctx.imageSmoothingEnabled = false;
@@ -831,20 +860,14 @@ function render() {
         ctx.translate(pRX, pRY);
         ctx.rotate(p.renderAngle ?? 0);
         if (p.isDead) ctx.globalAlpha = 0.3;
-        ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
-        ctx.restore();
         
-        if (WORLD.CURRENT_TARGET === parseInt(id)) {
-            ctx.save();
-            ctx.translate(pRX, pRY);
-            ctx.rotate(p.renderAngle ?? 0);
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(-sW / 2 - 2, -sH / 2 - 2, sW + 4, sH + 4);
-            ctx.restore();
-        }
+        if (p.isDark) ctx.filter = 'brightness(0)';
+        ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
+        if (p.isDark) ctx.filter = 'none';
+        
+        ctx.restore();
 
-        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
+        if (!p.isDark && !isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
             ctx.textAlign  = 'center';
             ctx.lineJoin   = 'round';
             ctx.lineWidth  = 3;
@@ -1287,6 +1310,11 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Enter') {
+        if (WORLD.GAME_STATE === 'NIGHT') {
+            e.preventDefault();
+            return;
+        }
+
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             if (document.getElementById('main-menu-ui').style.display !== 'none') {
                 document.getElementById('play-btn').click();
@@ -1332,25 +1360,13 @@ window.addEventListener('keydown', e => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         if (key === 't' && !e.repeat) {
-            let nearestDist = Infinity;
-            let targetId = null;
-            for (let id in serverPlayers) {
-                if (parseInt(id) === myId) continue;
-                let p = serverPlayers[id];
-                if (p.isDead) continue;
-                let px = p.renderX + p.width/2;
-                let py = p.renderY + p.height/2;
-                let mx = ME.x + ME.width/2;
-                let my = ME.y + ME.height/2;
-                let dist = Math.hypot(px - mx, py - my);
-                if (dist < 150 && dist < nearestDist) {
-                    nearestDist = dist;
-                    targetId = parseInt(id);
-                }
-            }
-            if (targetId) {
-                WORLD.CURRENT_TARGET = targetId;
-                ws.send(JSON.stringify({ type: 'action_target', targetId }));
+            if (ME.isDead) return;
+            const ui = document.getElementById('target-chooser-ui');
+            if (ui.style.display === 'flex') {
+                ui.style.display = 'none';
+            } else {
+                populateTargetChooser();
+                ui.style.display = 'flex';
             }
             return;
         }
@@ -1378,7 +1394,7 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -1395,3 +1411,7 @@ document.getElementById('leaderboard-header').addEventListener('click', () => {
     if (list.style.display === 'none') { list.style.display = 'flex'; toggle.style.transform = 'rotate(0deg)';   }
     else                               { list.style.display = 'none'; toggle.style.transform = 'rotate(180deg)'; }
 });
+
+document.getElementById('close-target-btn').onclick = () => {
+    document.getElementById('target-chooser-ui').style.display = 'none';
+};
