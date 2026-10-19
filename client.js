@@ -5,9 +5,9 @@ let myId         = null;
 let myName       = 'Player???';      
 let isOwner      = false;          
 let serverPlayers = {};        
-let serverItems   = [];
 let myRole       = null;
 let nightAlpha = 0;
+let myTeleportId = 0;
 
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d', { alpha: false });
@@ -30,10 +30,6 @@ const WORLD = {
     },
     EDITOR: { enabled: false, selectedTileGid: 1, selectedLayer: 'background' },
     SYSTEM: { viewScale: 1, assetsLoaded: 0, isReady: false, lastTime: performance.now() },
-    INVENTORY:          [null, null, null, null, null],
-    INVENTORY_SELECTED: 0,
-    INVENTORY_LAST_EQUIPPED: null,
-    NEAREST_ITEM: null,
     GAME_STATE: 'LOBBY',
     LAST_STATE: 'LOBBY',
     CURRENT_TARGET: null,
@@ -59,11 +55,6 @@ const playerImg    = new Image();
 const centerImg    = new Image();
 const tableImg     = new Image();
 
-let dragIndex = -1;
-const dragGhost = document.createElement('div');
-dragGhost.id = 'drag-ghost';
-document.body.appendChild(dragGhost);
-
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     if (playBtn) {
@@ -75,7 +66,6 @@ window.addEventListener('DOMContentLoaded', () => {
             connectToServer();
         });
     } else {
-        console.warn("⚠️ Play button not found! Your browser is loading an old cached version of index.html. Auto-connecting instead...");
         connectToServer();
     }
     loadImages();
@@ -97,7 +87,6 @@ function connectToServer() {
     ws = new WebSocket(_wsURL);
 
     ws.onopen = () => {
-        console.log('[ws] connected');
         ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken }));
     };
 
@@ -140,7 +129,6 @@ function connectToServer() {
             }
 
             document.getElementById('leaderboard-ui').style.display = 'flex';
-            document.getElementById('bottom-ui').style.display = 'flex';
 
             WORLD.SYSTEM.lastTime = performance.now();
             WORLD.SYSTEM.isReady  = true;
@@ -169,25 +157,10 @@ function connectToServer() {
             }
             serverPlayers = next;
 
-            const nextItems = [];
-            for (const incoming of data.items) {
-                const existing = serverItems.find(i => i.id === incoming.id);
-                if (existing) {
-                    Object.assign(existing, incoming);
-                    nextItems.push(existing);
-                } else {
-                    nextItems.push({ ...incoming, renderX: incoming.x, renderY: incoming.y });
-                }
-            }
-            serverItems = nextItems;
-
             if (data.players[myId]) {
-                WORLD.INVENTORY          = data.players[myId].inventory;
-                WORLD.INVENTORY_SELECTED = data.players[myId].inventorySelected;
                 ME.chats                 = data.players[myId].chats || [];
                 ME.isDead                = data.players[myId].isDead;
                 if (data.players[myId].name) myName = data.players[myId].name;
-                renderInventory();
                 updateLeaderboard();
             }
             
@@ -213,6 +186,7 @@ function connectToServer() {
             ME.vx = 0;
             ME.vy = 0;
             WORLD.CAMERA.x = null;
+            if (data.teleportId !== undefined) myTeleportId = data.teleportId;
         } else if (data.type === 'bulk_teleport') {
             for (const id in data.positions) {
                 const pos = data.positions[id];
@@ -293,7 +267,8 @@ function sendPositionUpdate() {
         vx:    ME.vx,
         vy:    ME.vy,
         angle: ME.angle,
-        scale: ME.scale
+        scale: ME.scale,
+        teleportId: myTeleportId
     }));
 }
 
@@ -690,9 +665,6 @@ function drawShadowOverlay(ctx, camX, camY) {
 }
 
 function update(dt) {
-    const currentEquipped = WORLD.INVENTORY[WORLD.INVENTORY_SELECTED];
-    WORLD.INVENTORY_LAST_EQUIPPED = currentEquipped;
-    
     let inputX = 0, inputY = 0;
     if (WORLD.INPUTS.keys.w || WORLD.INPUTS.keys.arrowup)    inputY -= 1;
     if (WORLD.INPUTS.keys.s || WORLD.INPUTS.keys.arrowdown)  inputY += 1;
@@ -744,21 +716,6 @@ function update(dt) {
         WORLD.CAMERA.x += (targetCamX - WORLD.CAMERA.x) * lf;
         WORLD.CAMERA.y += (targetCamY - WORLD.CAMERA.y) * lf;
     }
-
-    let nearestDist = Infinity;
-    WORLD.NEAREST_ITEM = null;
-    const px = ME.x + ME.width  / 2;
-    const py = ME.y + ME.height / 2;
-
-    serverItems.forEach(item => {
-        if (item.renderX === undefined) { item.renderX = item.x; item.renderY = item.y; }
-        item.renderX += (item.x - item.renderX) * 0.3;
-        item.renderY += (item.y - item.renderY) * 0.3;
-
-        if (item.animState === 'picking_up') return;
-        const dist = Math.sqrt(Math.pow(item.renderX - px, 2) + Math.pow(item.renderY - py, 2));
-        if (dist < 70 && dist < nearestDist) { nearestDist = dist; WORLD.NEAREST_ITEM = item; }
-    });
 
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
@@ -863,30 +820,6 @@ function render() {
         });
     }
 
-    serverItems.forEach(item => {
-        ctx.save();
-        ctx.translate((item.renderX ?? item.x) - camX, (item.renderY ?? item.y) - camY);
-
-        let scale = 0.95, rot = item.targetRotation;
-        if (item.animState === 'dropping') {
-            const t    = Math.max(0, Math.min(1, 1 - item.animTimer / 0.3));
-            const ease = 1 - Math.pow(1 - t, 3);
-            scale = 0.95 * ease;
-            rot   = item.targetRotation * ease + ME.angle * (1 - ease);
-        } else if (item.animState === 'picking_up') {
-            const t = Math.max(0, Math.min(1, item.animTimer / 0.2));
-            scale = 0.95 * t;
-            rot   = item.targetRotation * t + ME.angle * (1 - t);
-        }
-        ctx.rotate(rot);
-        ctx.scale(scale, scale);
-        
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(-10, -10, 20, 20);
-
-        ctx.restore();
-    });
-
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
         const pRX = (p.renderX ?? p.x) - camX + p.width  / 2;
@@ -946,19 +879,6 @@ function render() {
         const myLabel = myName + (isOwner ? ' (Host)' : '');
         ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
         ctx.fillText(myLabel,   pRenderX, pRenderY - pScaledH / 2 - 16);
-    }
-
-    if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
-        ctx.save();
-        ctx.translate((WORLD.NEAREST_ITEM.renderX ?? WORLD.NEAREST_ITEM.x) - camX, (WORLD.NEAREST_ITEM.renderY ?? WORLD.NEAREST_ITEM.y) - camY - 25);
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(-12, -12, 24, 24);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = "bold 13px 'Segoe UI'";
-        ctx.textAlign    = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('E', 0, 1);
-        ctx.restore();
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
@@ -1079,7 +999,6 @@ function loadImages() {
         onAssetLoad();
     };
     tilesheetImg.onerror = () => {
-        console.warn("Missing tilesheet.png! Using fallback.");
         WORLD.MAP.tilesetCols = 1;
         onAssetLoad();
     };
@@ -1088,7 +1007,6 @@ function loadImages() {
     playerImg.crossOrigin = 'Anonymous';
     playerImg.onload = onAssetLoad;
     playerImg.onerror = () => {
-        console.warn("Missing player.png! Using fallback.");
         onAssetLoad();
     };
     playerImg.src = 'assets/player.png';
@@ -1096,14 +1014,13 @@ function loadImages() {
     centerImg.crossOrigin = 'Anonymous';
     centerImg.onload = onAssetLoad;
     centerImg.onerror = () => {
-        console.warn("Missing center.png! Skipping.");
         onAssetLoad();
     };
     centerImg.src = 'assets/center.png';
 
     tableImg.crossOrigin = 'Anonymous';
     tableImg.onload = onAssetLoad;
-    tableImg.onerror = () => { console.warn("Missing table.png!"); onAssetLoad(); };
+    tableImg.onerror = () => { onAssetLoad(); };
     tableImg.src = 'assets/table.png';
 }
 
@@ -1330,38 +1247,6 @@ function updateLeaderboard() {
     }
 }
 
-function renderInventory() {
-    document.querySelectorAll('.inv-slot').forEach((slot, i) => {
-        slot.className = 'inv-slot' + (WORLD.INVENTORY_SELECTED === i ? ' selected' : '');
-        slot.style.backgroundImage = 'none'; 
-
-        slot.onmouseenter = () => {
-            if (dragIndex !== -1 || !WORLD.INVENTORY[i]) return;
-            const tooltip = document.getElementById('tooltip-ui');
-            document.getElementById('tooltip-header').innerText =
-                WORLD.INVENTORY[i].charAt(0).toUpperCase() + WORLD.INVENTORY[i].slice(1);
-            tooltip.style.display = 'flex';
-            const rect = slot.getBoundingClientRect();
-            tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-            tooltip.style.top  = (rect.top - tooltip.offsetHeight - 8) + 'px';
-        };
-        slot.onmouseleave = () => document.getElementById('tooltip-ui').style.display = 'none';
-        slot.onmousedown  = (e) => {
-            if (!ws) return;
-            ws.send(JSON.stringify({ type: 'inv_select', index: i }));
-            if (WORLD.INVENTORY[i]) {
-                document.getElementById('tooltip-ui').style.display = 'none';
-                dragIndex = i;
-                dragGhost.style.backgroundImage = slot.style.backgroundImage;
-                dragGhost.style.display = 'block';
-                dragGhost.style.left = (e.clientX - 32) + 'px';
-                dragGhost.style.top  = (e.clientY - 32) + 'px';
-                slot.style.backgroundImage = 'none';
-            }
-        };
-    });
-}
-
 window.addEventListener('resize', resizeCanvas);
 function resizeCanvas() {
     canvas.width  = window.innerWidth;
@@ -1470,16 +1355,8 @@ window.addEventListener('keydown', e => {
             return;
         }
 
-        if (['1','2','3','4','5'].includes(key)) {
-            ws.send(JSON.stringify({ type: 'inv_select', index: parseInt(key) - 1 }));
-        } else if (key === 'g') {
-            ws.send(JSON.stringify({ type: 'drop', index: WORLD.INVENTORY_SELECTED }));
-        } else if (key === 'e') {
-            if (WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null)) {
-                ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
-            } else {
-                ws.send(JSON.stringify({ type: 'interact' }));
-            }
+        if (key === 'e') {
+            ws.send(JSON.stringify({ type: 'interact' }));
         }
     }
 });
@@ -1495,23 +1372,13 @@ window.addEventListener('mousemove', e => {
     WORLD.INPUTS.mouseX = e.clientX;
     WORLD.INPUTS.mouseY = e.clientY;
     
-    if (WORLD.INPUTS.isMouseDown && dragIndex === -1 && WORLD.EDITOR.enabled) {
+    if (WORLD.INPUTS.isMouseDown && WORLD.EDITOR.enabled) {
         handleMapEdit(e.clientX, e.clientY);
-    }
-
-    if (dragIndex !== -1) {
-        dragGhost.style.left = (e.clientX - 32) + 'px';
-        dragGhost.style.top  = (e.clientY - 32) + 'px';
     }
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.button === 2) {
-        if (ws && WORLD.NEAREST_ITEM && WORLD.INVENTORY.includes(null))
-            ws.send(JSON.stringify({ type: 'pickup', itemId: WORLD.NEAREST_ITEM.id }));
-        return;
-    }
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#bottom-ui') || e.target.closest('#chat-log-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -1520,17 +1387,6 @@ window.addEventListener('mousedown', e => {
 
 window.addEventListener('mouseup', e => {
     WORLD.INPUTS.isMouseDown = false;
-    if (dragIndex !== -1 && ws) {
-        dragGhost.style.display = 'none';
-        const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
-        if (dropTarget && dropTarget.classList.contains('inv-slot')) {
-            const dropIndex = Array.from(document.querySelectorAll('.inv-slot')).indexOf(dropTarget);
-            ws.send(JSON.stringify({ type: 'inv_swap', from: dragIndex, to: dropIndex }));
-        } else if (!e.target.closest('#bottom-ui')) {
-            ws.send(JSON.stringify({ type: 'drop', index: dragIndex }));
-        }
-        dragIndex = -1;
-    }
 });
 
 document.getElementById('leaderboard-header').addEventListener('click', () => {
