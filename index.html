@@ -50,6 +50,12 @@
     </div>
 </div>
 
+<div id="bottom-ui">
+    <div id="health-bar-bg">
+        <div id="health-bar-fill"></div>
+    </div>
+</div>
+
 <div id="phase-ui" style="display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; font-size: 20px; font-weight: bold; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); z-index: 1000; text-align: center; pointer-events: none;">
     <div id="phase-name">LOBBY</div>
     <div id="phase-timer" style="font-size: 14px; color: #aaa;">0s</div>
@@ -57,6 +63,12 @@
 
 <div id="role-ui" style="display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; z-index: 1000;">
     Role: <span id="my-role-name" style="color: #ffcc00;">None</span>
+</div>
+
+<div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #555; border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
+    <div style="color: white; font-weight: bold; text-align: center; font-size: 18px; margin-bottom: 10px;">Select Target</div>
+    <div id="target-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 300px; overflow-y: auto;"></div>
+    <button id="close-target-btn" class="layer-btn" style="margin-top: 10px; background-color: #ff4444;">Close</button>
 </div>
 
 <div id="chat-log-ui" style="display: none;">
