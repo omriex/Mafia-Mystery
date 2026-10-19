@@ -7,7 +7,6 @@ let isOwner      = false;
 let serverPlayers = {};        
 let serverItems   = [];
 let myRole       = null;
-
 let nightAlpha = 0;
 
 const canvas = document.getElementById('gameCanvas');
