@@ -434,6 +434,10 @@ function isOnHaybale(worldX, worldY) {
 }
 
 let _shadowMapCache = null;
+let _shadowFrame   = 0;
+let _shadowLastTileX = -1;
+let _shadowLastTileY = -1;
+let _shadowAnglesCache = null;
 
 function _rebuildShadowMapCache() {
     const MAP        = WORLD.MAP;
@@ -473,7 +477,12 @@ function _rebuildShadowMapCache() {
     _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
 }
 
-function invalidateShadowCache() { _shadowMapCache = null; }
+function invalidateShadowCache() {
+    _shadowMapCache    = null;
+    _shadowAnglesCache = null;
+    _shadowLastTileX   = -1;
+    _shadowLastTileY   = -1;
+}
 
 function isPlayerInsideHouse() {
     const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
@@ -490,6 +499,9 @@ function computeShadowVisibility() {
     const S    = WORLD.SHADOW;
     const TILE = MAP.tileSize;
 
+    _shadowFrame++;
+    if (_shadowFrame % 2 !== 0) return;
+
     if (!_shadowMapCache) _rebuildShadowMapCache();
     if (!_shadowMapCache) { S.polygon = null; return; }
 
@@ -501,75 +513,119 @@ function computeShadowVisibility() {
     const ox = ME.x + ME.width  / 2;
     const oy = ME.y + ME.height / 2;
 
-    let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
-    for (const { c, r } of floorTiles) {
-        if (c < minC) minC = c; if (c > maxC) maxC = c;
-        if (r < minR) minR = r; if (r > maxR) maxR = r;
-    }
-    minC = Math.max(0, minC - 1); maxC = Math.min(MAP.columns - 1, maxC + 1);
-    minR = Math.max(0, minR - 1); maxR = Math.min(MAP.rows    - 1, maxR + 1);
-
-    const isWall = (c, r) => wallSet.has(c + ',' + r);
-
-    const EPS = 0.0001;
-    const angles = [];
-
-    for (let r = minR; r <= maxR; r++) {
-        for (let c = minC; c <= maxC; c++) {
-            if (!isWall(c, r)) continue;
-            const corners = [
-                [c * TILE,        r * TILE       ],
-                [c * TILE + TILE, r * TILE       ],
-                [c * TILE,        r * TILE + TILE],
-                [c * TILE + TILE, r * TILE + TILE]
-            ];
-            for (const [cx, cy] of corners) {
-                const a = Math.atan2(cy - oy, cx - ox);
-                angles.push(a - EPS, a, a + EPS);
+    if (!_shadowMapCache._bounds) {
+        let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+        for (const { c, r } of floorTiles) {
+            if (c < minC) minC = c; if (c > maxC) maxC = c;
+            if (r < minR) minR = r; if (r > maxR) maxR = r;
+        }
+        _shadowMapCache._bounds = {
+            minC: Math.max(0, minC - 1),
+            maxC: Math.min(MAP.columns - 1, maxC + 1),
+            minR: Math.max(0, minR - 1),
+            maxR: Math.min(MAP.rows    - 1, maxR + 1)
+        };
+        const wallArr = [];
+        for (let r = _shadowMapCache._bounds.minR; r <= _shadowMapCache._bounds.maxR; r++) {
+            for (let c = _shadowMapCache._bounds.minC; c <= _shadowMapCache._bounds.maxC; c++) {
+                if (wallSet.has(c + ',' + r)) wallArr.push(c, r);
             }
         }
+        _shadowMapCache._wallArr = wallArr;
     }
+
+    const { minC, maxC, minR, maxR } = _shadowMapCache._bounds;
+    const wallArr = _shadowMapCache._wallArr;
+
+    const curTileX = Math.floor(ox / TILE);
+    const curTileY = Math.floor(oy / TILE);
+    if (_shadowAnglesCache === null || curTileX !== _shadowLastTileX || curTileY !== _shadowLastTileY) {
+        _shadowLastTileX = curTileX;
+        _shadowLastTileY = curTileY;
+
+        const EPS = 0.0001;
+        const seen = new Set();
+        const rawAngles = [];
+
+        for (let i = 0; i < wallArr.length; i += 2) {
+            const c = wallArr[i], r = wallArr[i + 1];
+            const corners = [
+                c * TILE,        r * TILE,
+                c * TILE + TILE, r * TILE,
+                c * TILE,        r * TILE + TILE,
+                c * TILE + TILE, r * TILE + TILE
+            ];
+            for (let j = 0; j < corners.length; j += 2) {
+                const cx = corners[j], cy = corners[j + 1];
+                const a = Math.atan2(cy - oy, cx - ox);
+                const key = Math.round(a * 100000);
+                if (!seen.has(key - 1)) { seen.add(key - 1); rawAngles.push(a - EPS); }
+                if (!seen.has(key    )) { seen.add(key    ); rawAngles.push(a);        }
+                if (!seen.has(key + 1)) { seen.add(key + 1); rawAngles.push(a + EPS); }
+            }
+        }
+        rawAngles.sort((a, b) => a - b);
+        _shadowAnglesCache = rawAngles;
+    }
+
+    const uniqueAngles = _shadowAnglesCache;
+
+    const maxDist = Math.hypot((maxC - minC + 2) * TILE, (maxR - minR + 2) * TILE);
 
     const castRay = (angle) => {
         const rdx = Math.cos(angle);
         const rdy = Math.sin(angle);
-        const maxDist = Math.hypot((maxC - minC + 2) * TILE, (maxR - minR + 2) * TILE);
+        const rdxSign = rdx >= 0 ? 1 : -1;
+        const rdySign = rdy >= 0 ? 1 : -1;
         let minT = maxDist;
 
-        for (let r = minR; r <= maxR; r++) {
-            for (let c = minC; c <= maxC; c++) {
-                if (!isWall(c, r)) continue;
+        for (let i = 0; i < wallArr.length; i += 2) {
+            const c = wallArr[i], r = wallArr[i + 1];
+            const tx0 = c * TILE, ty0 = r * TILE;
+            const tx1 = tx0 + TILE, ty1 = ty0 + TILE;
 
-                const tx0 = c * TILE, ty0 = r * TILE;
-                const tx1 = tx0 + TILE, ty1 = ty0 + TILE;
+            const tcx = tx0 + TILE * 0.5, tcy = ty0 + TILE * 0.5;
+            const approxDist = Math.abs(tcx - ox) + Math.abs(tcy - oy);
+            if (approxDist > minT + TILE * 1.5) continue;
 
-                const edges = [
-                    [tx0, ty0, tx1, ty0],
-                    [tx1, ty0, tx1, ty1],
-                    [tx1, ty1, tx0, ty1],
-                    [tx0, ty1, tx0, ty0]
-                ];
+            let segDx, segDy, denom, t, u;
 
-                for (const [ax, ay, bx, by] of edges) {
-                    const segDx = bx - ax, segDy = by - ay;
-                    const denom = rdx * segDy - rdy * segDx;
-                    if (Math.abs(denom) < 1e-10) continue;
-                    const t = ((ax - ox) * segDy - (ay - oy) * segDx) / denom;
-                    const u = ((ax - ox) * rdy   - (ay - oy) * rdx)   / denom;
-                    if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
-                }
+            segDx = TILE; segDy = 0;
+            denom = rdx * segDy - rdy * segDx;
+            if (Math.abs(denom) >= 1e-10) {
+                t = ((tx0 - ox) * segDy - (ty0 - oy) * segDx) / denom;
+                u = ((tx0 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
+                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
+            }
+            segDx = 0; segDy = TILE;
+            denom = rdx * segDy - rdy * segDx;
+            if (Math.abs(denom) >= 1e-10) {
+                t = ((tx1 - ox) * segDy - (ty0 - oy) * segDx) / denom;
+                u = ((tx1 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
+                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
+            }
+            segDx = -TILE; segDy = 0;
+            denom = rdx * segDy - rdy * segDx;
+            if (Math.abs(denom) >= 1e-10) {
+                t = ((tx1 - ox) * segDy - (ty1 - oy) * segDx) / denom;
+                u = ((tx1 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
+                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
+            }
+            segDx = 0; segDy = -TILE;
+            denom = rdx * segDy - rdy * segDx;
+            if (Math.abs(denom) >= 1e-10) {
+                t = ((tx0 - ox) * segDy - (ty1 - oy) * segDx) / denom;
+                u = ((tx0 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
+                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
             }
         }
 
         return { x: ox + rdx * minT, y: oy + rdy * minT };
     };
 
-    const uniqueAngles = [...new Set(angles.map(a => Math.round(a * 100000) / 100000))];
-    uniqueAngles.sort((a, b) => a - b);
-
     const verts = [];
-    for (const angle of uniqueAngles) {
-        const pt = castRay(angle);
+    for (let i = 0; i < uniqueAngles.length; i++) {
+        const pt = castRay(uniqueAngles[i]);
         verts.push(pt.x, pt.y);
     }
 
