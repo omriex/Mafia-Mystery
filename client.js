@@ -450,36 +450,63 @@ function _rebuildShadowMapCache() {
     const wallLayer  = MAP.layers.find(l => l.name === 'walls');
     if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
 
-    const cols       = MAP.columns;
-    const rows       = MAP.rows;
-    const floorTiles = [];
-    const wallTiles  = [];
-    const wallSet    = new Set();
+    const cols = MAP.columns;
+    const rows = MAP.rows;
 
+    const allFloorSet = new Set();
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-            const idx  = r * cols + c;
-            const fgid = floorLayer.data[idx];
-            const wgid = wallLayer.data[idx];
-            if (fgid === 2 || fgid === 4) {
-                floorTiles.push({ c, r });
-                if (wgid !== 0) wallTiles.push({ c, r });
+            const fgid = floorLayer.data[r * cols + c];
+            if (fgid === 2 || fgid === 4) allFloorSet.add(c + ',' + r);
+        }
+    }
+
+    const playerCol = Math.floor((ME.x + ME.width  / 2) / MAP.tileSize);
+    const playerRow = Math.floor((ME.y + ME.height / 2) / MAP.tileSize);
+    const startKey  = playerCol + ',' + playerRow;
+
+    if (!allFloorSet.has(startKey)) { _shadowMapCache = null; return; }
+
+    const houseSet  = new Set();
+    const queue     = [startKey];
+    const DIRS4     = [[-1,0],[1,0],[0,-1],[0,1]];
+    houseSet.add(startKey);
+    while (queue.length > 0) {
+        const key = queue.pop();
+        const sep = key.indexOf(',');
+        const cc  = parseInt(key.slice(0, sep));
+        const rr  = parseInt(key.slice(sep + 1));
+        for (const [dc, dr] of DIRS4) {
+            const nk = (cc + dc) + ',' + (rr + dr);
+            if (!houseSet.has(nk) && allFloorSet.has(nk)) {
+                houseSet.add(nk);
+                queue.push(nk);
             }
         }
     }
 
-    const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
-    const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+    const floorTiles = [];
+    const wallTiles  = [];
+    const wallSet    = new Set();
+
+    for (const key of houseSet) {
+        const sep  = key.indexOf(',');
+        const c    = parseInt(key.slice(0, sep));
+        const r    = parseInt(key.slice(sep + 1));
+        const wgid = wallLayer.data[r * cols + c];
+        floorTiles.push({ c, r });
+        if (wgid !== 0) wallTiles.push({ c, r });
+    }
+
     for (const { c, r } of floorTiles) {
-        for (const [dc, dr] of DIRS) {
-            const nc = c + dc, nr = r + dr;
-            if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
-            const key = nc + ',' + nr;
-            if (!interiorSet.has(key) && wallLayer.data[nr * cols + nc] !== 0) wallSet.add(key);
+        for (const [dc, dr] of DIRS4) {
+            const nc  = c + dc, nr = r + dr;
+            const nk  = nc + ',' + nr;
+            if (!houseSet.has(nk)) wallSet.add(nk);
         }
     }
 
-    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
+    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet: houseSet };
 }
 
 function invalidateShadowCache() {
@@ -640,6 +667,7 @@ function computeShadowVisibility() {
 function drawShadowOverlay(ctx, camX, camY) {
     if (ME.isDead) return;
     if (!_shadowMapCache) return;
+    if (!isPlayerInsideHouse()) return;
     const { floorTiles, wallTiles } = _shadowMapCache;
     if (floorTiles.length === 0) return;
 
@@ -662,7 +690,7 @@ function drawShadowOverlay(ctx, camX, camY) {
     for (const { c, r } of floorTiles) {
         const sx = c * TILE - camX, sy = r * TILE - camY;
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+        bufCtx.rect(sx, sy, TILE, TILE);
     }
     bufCtx.fill();
 
@@ -673,7 +701,7 @@ function drawShadowOverlay(ctx, camX, camY) {
         for (const { c, r } of wallTiles) {
             const sx = c * TILE - camX, sy = r * TILE - camY;
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+            bufCtx.rect(sx, sy, TILE, TILE);
         }
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
@@ -1008,10 +1036,9 @@ function renderChunk(cx, cy) {
                 if (gid > 0) {
                     const tId = gid - 1;
                     tCtx.drawImage(tilesheetImg,
-                        (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + 0.5,
-                        Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + 0.5,
-                        WORLD.MAP.tileSize - 1,
-                        WORLD.MAP.tileSize - 1,
+                        (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                        Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                        WORLD.MAP.tileSize, WORLD.MAP.tileSize,
                         (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize),
                         (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize),
                         WORLD.MAP.tileSize, WORLD.MAP.tileSize);
