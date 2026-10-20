@@ -465,11 +465,12 @@ function _rebuildShadowMapCache() {
                 floorTiles.push({ c, r });
                 if (wgid !== 0) wallTiles.push({ c, r });
             }
+            if (wgid !== 0) wallSet.add(c + ',' + r);
         }
     }
 
     const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
-    const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+    const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
     for (const { c, r } of floorTiles) {
         for (const [dc, dr] of DIRS) {
             const nc = c + dc, nr = r + dr;
@@ -824,7 +825,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE    = WORLD.MAP.tileSize;
@@ -910,7 +911,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
@@ -1012,7 +1013,7 @@ function renderChunk(cx, cy) {
                         WORLD.MAP.tileSize, WORLD.MAP.tileSize,
                         (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize),
                         (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize),
-                        WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                        WORLD.MAP.tileSize + 0.5, WORLD.MAP.tileSize + 0.5);
                 }
             }
         }
