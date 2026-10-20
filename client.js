@@ -450,63 +450,40 @@ function _rebuildShadowMapCache() {
     const wallLayer  = MAP.layers.find(l => l.name === 'walls');
     if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
 
-    const cols = MAP.columns;
-    const rows = MAP.rows;
+    const cols       = MAP.columns;
+    const rows       = MAP.rows;
+    const floorTiles = [];
+    const wallSet    = new Set();
 
-    const allFloorSet = new Set();
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-            const fgid = floorLayer.data[r * cols + c];
-            if (fgid === 2 || fgid === 4) allFloorSet.add(c + ',' + r);
-        }
-    }
-
-    const playerCol = Math.floor((ME.x + ME.width  / 2) / MAP.tileSize);
-    const playerRow = Math.floor((ME.y + ME.height / 2) / MAP.tileSize);
-    const startKey  = playerCol + ',' + playerRow;
-
-    if (!allFloorSet.has(startKey)) { _shadowMapCache = null; return; }
-
-    const houseSet  = new Set();
-    const queue     = [startKey];
-    const DIRS4     = [[-1,0],[1,0],[0,-1],[0,1]];
-    houseSet.add(startKey);
-    while (queue.length > 0) {
-        const key = queue.pop();
-        const sep = key.indexOf(',');
-        const cc  = parseInt(key.slice(0, sep));
-        const rr  = parseInt(key.slice(sep + 1));
-        for (const [dc, dr] of DIRS4) {
-            const nk = (cc + dc) + ',' + (rr + dr);
-            if (!houseSet.has(nk) && allFloorSet.has(nk)) {
-                houseSet.add(nk);
-                queue.push(nk);
+            const idx  = r * cols + c;
+            const fgid = floorLayer.data[idx];
+            if (fgid === 2 || fgid === 4) {
+                floorTiles.push({ c, r });
             }
         }
     }
 
-    const floorTiles = [];
-    const wallTiles  = [];
-    const wallSet    = new Set();
-
-    for (const key of houseSet) {
-        const sep  = key.indexOf(',');
-        const c    = parseInt(key.slice(0, sep));
-        const r    = parseInt(key.slice(sep + 1));
-        const wgid = wallLayer.data[r * cols + c];
-        floorTiles.push({ c, r });
-        if (wgid !== 0) wallTiles.push({ c, r });
-    }
-
+    const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
+    const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
     for (const { c, r } of floorTiles) {
-        for (const [dc, dr] of DIRS4) {
-            const nc  = c + dc, nr = r + dr;
-            const nk  = nc + ',' + nr;
-            if (!houseSet.has(nk)) wallSet.add(nk);
+        for (const [dc, dr] of DIRS) {
+            const nc = c + dc, nr = r + dr;
+            const key = nc + ',' + nr;
+            if (!interiorSet.has(key)) wallSet.add(key);
         }
     }
 
-    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet: houseSet };
+    const wallTiles = [];
+    for (const key of wallSet) {
+        const [nc, nr] = key.split(',').map(Number);
+        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+        const idx = nr * cols + nc;
+        if (wallLayer.data[idx] !== 0) wallTiles.push({ c: nc, r: nr });
+    }
+
+    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
 }
 
 function invalidateShadowCache() {
@@ -667,7 +644,6 @@ function computeShadowVisibility() {
 function drawShadowOverlay(ctx, camX, camY) {
     if (ME.isDead) return;
     if (!_shadowMapCache) return;
-    if (!isPlayerInsideHouse()) return;
     const { floorTiles, wallTiles } = _shadowMapCache;
     if (floorTiles.length === 0) return;
 
@@ -690,7 +666,7 @@ function drawShadowOverlay(ctx, camX, camY) {
     for (const { c, r } of floorTiles) {
         const sx = c * TILE - camX, sy = r * TILE - camY;
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx, sy, TILE, TILE);
+        bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
     }
     bufCtx.fill();
 
@@ -701,7 +677,7 @@ function drawShadowOverlay(ctx, camX, camY) {
         for (const { c, r } of wallTiles) {
             const sx = c * TILE - camX, sy = r * TILE - camY;
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx, sy, TILE, TILE);
+            bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
         }
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
