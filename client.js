@@ -477,6 +477,14 @@ function _rebuildShadowMapCache() {
             if (!interiorSet.has(key)) wallSet.add(key);
         }
     }
+    for (const key of [...wallSet]) {
+        const [nc, nr] = key.split(',').map(Number);
+        let cardinalFloorNeighbors = 0;
+        for (const [dc, dr] of DIRS) {
+            if (interiorSet.has((nc + dc) + ',' + (nr + dr))) cardinalFloorNeighbors++;
+        }
+        if (cardinalFloorNeighbors < 1) wallSet.delete(key);
+    }
 
     _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
 }
@@ -824,7 +832,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], Math.round(cx * WORLD.MAP.chunkSize - camX), Math.round(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE    = WORLD.MAP.tileSize;
@@ -910,7 +918,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], Math.round(cx * WORLD.MAP.chunkSize - camX), Math.round(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
@@ -1006,10 +1014,12 @@ function renderChunk(cx, cy) {
                 const gid = layer.data[r * WORLD.MAP.columns + c];
                 if (gid > 0) {
                     const tId = gid - 1;
+                    const srcX = (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + 0.5;
+                    const srcY = Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + 0.5;
+                    const srcW = WORLD.MAP.tileSize - 1;
+                    const srcH = WORLD.MAP.tileSize - 1;
                     tCtx.drawImage(tilesheetImg,
-                        (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
-                        Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
-                        WORLD.MAP.tileSize, WORLD.MAP.tileSize,
+                        srcX, srcY, srcW, srcH,
                         (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize),
                         (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize),
                         WORLD.MAP.tileSize, WORLD.MAP.tileSize);
