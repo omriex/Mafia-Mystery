@@ -465,7 +465,6 @@ function _rebuildShadowMapCache() {
                 floorTiles.push({ c, r });
                 if (wgid !== 0) wallTiles.push({ c, r });
             }
-            if (wgid !== 0) wallSet.add(c + ',' + r);
         }
     }
 
@@ -1013,7 +1012,7 @@ function renderChunk(cx, cy) {
                         WORLD.MAP.tileSize, WORLD.MAP.tileSize,
                         (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize),
                         (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize),
-                        WORLD.MAP.tileSize + 0.5, WORLD.MAP.tileSize + 0.5);
+                        WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                 }
             }
         }
