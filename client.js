@@ -438,11 +438,19 @@ function isOnHaybale(worldX, worldY) {
     return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
 }
 
-let _shadowMapCache = null;
-let _shadowFrame   = 0;
+// ─── Shadow / LOS system ────────────────────────────────────────────────────
+// Approach: flood-fill from the player's tile, blocked by the walls layer.
+// No rays, no angles, no floating-point intersection → zero corner bleed.
+// _shadowMapCache   – static per-map data (floor set, wall-blocked set)
+// _shadowVisible    – Set of "c,r" keys reachable from player this frame
+// _shadowVisFrame   – throttle: recompute every other frame
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _shadowMapCache  = null;
+let _shadowVisible   = null;
+let _shadowVisFrame  = 0;
 let _shadowLastTileX = -1;
 let _shadowLastTileY = -1;
-let _shadowAnglesCache = null;
 
 function _rebuildShadowMapCache() {
     const MAP        = WORLD.MAP;
@@ -450,47 +458,52 @@ function _rebuildShadowMapCache() {
     const wallLayer  = MAP.layers.find(l => l.name === 'walls');
     if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
 
-    const cols       = MAP.columns;
-    const rows       = MAP.rows;
-    const floorTiles = [];
-    const wallSet    = new Set();
+    const cols = MAP.columns;
+    const rows = MAP.rows;
+
+    // interiorSet  – every tile that is interior floor (gid 2 or 4)
+    // blockedSet   – tiles inside the house that have wall geometry on them
+    //                (a flood-fill step cannot cross into these)
+    const interiorSet = new Set();
+    const blockedSet  = new Set();
 
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const idx  = r * cols + c;
             const fgid = floorLayer.data[idx];
             if (fgid === 2 || fgid === 4) {
-                floorTiles.push({ c, r });
+                const key = c + ',' + r;
+                interiorSet.add(key);
+                if (wallLayer.data[idx] !== 0) blockedSet.add(key);
             }
         }
     }
 
-    const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
-    const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
-    for (const { c, r } of floorTiles) {
-        for (const [dc, dr] of DIRS) {
+    // darkRingTiles – exterior neighbour tiles (8-dir) that have wall gid,
+    //                 drawn dark so the outer wall art stays opaque.
+    const darkRingTiles = [];
+    const DIRS8 = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+    for (const key of interiorSet) {
+        const [c, r] = key.split(',').map(Number);
+        for (const [dc, dr] of DIRS8) {
             const nc = c + dc, nr = r + dr;
-            const key = nc + ',' + nr;
-            if (!interiorSet.has(key)) wallSet.add(key);
+            if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+            const nkey = nc + ',' + nr;
+            if (!interiorSet.has(nkey)) {
+                const idx = nr * cols + nc;
+                if (wallLayer.data[idx] !== 0) darkRingTiles.push({ c: nc, r: nr });
+            }
         }
     }
 
-    const wallTiles = [];
-    for (const key of wallSet) {
-        const [nc, nr] = key.split(',').map(Number);
-        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
-        const idx = nr * cols + nc;
-        if (wallLayer.data[idx] !== 0) wallTiles.push({ c: nc, r: nr });
-    }
-
-    _shadowMapCache = { wallSet, floorTiles, wallTiles, interiorSet };
+    _shadowMapCache = { interiorSet, blockedSet, darkRingTiles, cols, rows };
 }
 
 function invalidateShadowCache() {
-    _shadowMapCache    = null;
-    _shadowAnglesCache = null;
-    _shadowLastTileX   = -1;
-    _shadowLastTileY   = -1;
+    _shadowMapCache  = null;
+    _shadowVisible   = null;
+    _shadowLastTileX = -1;
+    _shadowLastTileY = -1;
 }
 
 function isPlayerInsideHouse() {
@@ -503,151 +516,61 @@ function isPlayerInsideHouse() {
     return gid === 2 || gid === 4;
 }
 
+// Flood-fill from player tile, 4-connected, blocked by blockedSet.
+// Stays strictly within interiorSet so it can never escape the house.
 function computeShadowVisibility() {
-    if (ME.isDead) { WORLD.SHADOW.polygon = null; return; }
+    if (ME.isDead) { _shadowVisible = null; return; }
 
-    const MAP  = WORLD.MAP;
-    const S    = WORLD.SHADOW;
-    const TILE = MAP.tileSize;
-
-    _shadowFrame++;
-    if (_shadowFrame % 2 !== 0) return;
+    _shadowVisFrame++;
+    if (_shadowVisFrame % 2 !== 0) return;
 
     if (!_shadowMapCache) _rebuildShadowMapCache();
-    if (!_shadowMapCache) { S.polygon = null; return; }
+    if (!_shadowMapCache) { _shadowVisible = null; return; }
 
-    const { wallSet, floorTiles } = _shadowMapCache;
-    if (floorTiles.length === 0) { S.polygon = null; return; }
+    if (!isPlayerInsideHouse()) { _shadowVisible = null; return; }
 
-    if (!isPlayerInsideHouse()) { S.polygon = null; return; }
+    const TILE = WORLD.MAP.tileSize;
+    const pc   = Math.floor((ME.x + ME.width  / 2) / TILE);
+    const pr   = Math.floor((ME.y + ME.height / 2) / TILE);
 
-    const ox = ME.x + ME.width  / 2;
-    const oy = ME.y + ME.height / 2;
+    // Skip rebuild if the player hasn't moved to a new tile
+    if (_shadowVisible !== null && pc === _shadowLastTileX && pr === _shadowLastTileY) return;
+    _shadowLastTileX = pc;
+    _shadowLastTileY = pr;
 
-    if (!_shadowMapCache._bounds) {
-        let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
-        for (const { c, r } of floorTiles) {
-            if (c < minC) minC = c; if (c > maxC) maxC = c;
-            if (r < minR) minR = r; if (r > maxR) maxR = r;
+    const { interiorSet, blockedSet } = _shadowMapCache;
+    const startKey = pc + ',' + pr;
+    if (!interiorSet.has(startKey)) { _shadowVisible = null; return; }
+
+    const visible = new Set();
+    const queue   = [startKey];
+    visible.add(startKey);
+
+    const DIRS4 = [[-1,0],[1,0],[0,-1],[0,1]];
+    while (queue.length > 0) {
+        const key = queue.pop();
+        const [c, r] = key.split(',').map(Number);
+        for (const [dc, dr] of DIRS4) {
+            const nc = c + dc, nr = r + dr;
+            const nkey = nc + ',' + nr;
+            if (!interiorSet.has(nkey))  continue;  // outside house
+            if (blockedSet.has(nkey))    continue;  // wall tile blocks passage
+            if (visible.has(nkey))       continue;  // already visited
+            visible.add(nkey);
+            queue.push(nkey);
         }
-        _shadowMapCache._bounds = {
-            minC: Math.max(0, minC - 1),
-            maxC: Math.min(MAP.columns - 1, maxC + 1),
-            minR: Math.max(0, minR - 1),
-            maxR: Math.min(MAP.rows    - 1, maxR + 1)
-        };
-        const wallArr = [];
-        for (let r = _shadowMapCache._bounds.minR; r <= _shadowMapCache._bounds.maxR; r++) {
-            for (let c = _shadowMapCache._bounds.minC; c <= _shadowMapCache._bounds.maxC; c++) {
-                if (wallSet.has(c + ',' + r)) wallArr.push(c, r);
-            }
-        }
-        _shadowMapCache._wallArr = wallArr;
     }
 
-    const { minC, maxC, minR, maxR } = _shadowMapCache._bounds;
-    const wallArr = _shadowMapCache._wallArr;
-
-    const curTileX = Math.floor(ox / TILE);
-    const curTileY = Math.floor(oy / TILE);
-    if (_shadowAnglesCache === null || curTileX !== _shadowLastTileX || curTileY !== _shadowLastTileY) {
-        _shadowLastTileX = curTileX;
-        _shadowLastTileY = curTileY;
-
-        const EPS = 0.0001;
-        const seen = new Set();
-        const rawAngles = [];
-
-        for (let i = 0; i < wallArr.length; i += 2) {
-            const c = wallArr[i], r = wallArr[i + 1];
-            const corners = [
-                c * TILE,        r * TILE,
-                c * TILE + TILE, r * TILE,
-                c * TILE,        r * TILE + TILE,
-                c * TILE + TILE, r * TILE + TILE
-            ];
-            for (let j = 0; j < corners.length; j += 2) {
-                const cx = corners[j], cy = corners[j + 1];
-                const a = Math.atan2(cy - oy, cx - ox);
-                const key = Math.round(a * 100000);
-                if (!seen.has(key - 1)) { seen.add(key - 1); rawAngles.push(a - EPS); }
-                if (!seen.has(key    )) { seen.add(key    ); rawAngles.push(a);        }
-                if (!seen.has(key + 1)) { seen.add(key + 1); rawAngles.push(a + EPS); }
-            }
-        }
-        rawAngles.sort((a, b) => a - b);
-        _shadowAnglesCache = rawAngles;
-    }
-
-    const uniqueAngles = _shadowAnglesCache;
-
-    const maxDist = Math.hypot((maxC - minC + 2) * TILE, (maxR - minR + 2) * TILE);
-
-    const castRay = (angle) => {
-        const rdx = Math.cos(angle);
-        const rdy = Math.sin(angle);
-        let minT = maxDist;
-
-        for (let i = 0; i < wallArr.length; i += 2) {
-            const c = wallArr[i], r = wallArr[i + 1];
-            const tx0 = c * TILE, ty0 = r * TILE;
-            const tx1 = tx0 + TILE, ty1 = ty0 + TILE;
-
-            const tcx = tx0 + TILE * 0.5, tcy = ty0 + TILE * 0.5;
-            const approxDist = Math.abs(tcx - ox) + Math.abs(tcy - oy);
-            if (approxDist > minT + TILE * 1.5) continue;
-
-            let segDx, segDy, denom, t, u;
-
-            segDx = TILE; segDy = 0;
-            denom = rdx * segDy - rdy * segDx;
-            if (Math.abs(denom) >= 1e-10) {
-                t = ((tx0 - ox) * segDy - (ty0 - oy) * segDx) / denom;
-                u = ((tx0 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
-                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
-            }
-            segDx = 0; segDy = TILE;
-            denom = rdx * segDy - rdy * segDx;
-            if (Math.abs(denom) >= 1e-10) {
-                t = ((tx1 - ox) * segDy - (ty0 - oy) * segDx) / denom;
-                u = ((tx1 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
-                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
-            }
-            segDx = -TILE; segDy = 0;
-            denom = rdx * segDy - rdy * segDx;
-            if (Math.abs(denom) >= 1e-10) {
-                t = ((tx1 - ox) * segDy - (ty1 - oy) * segDx) / denom;
-                u = ((tx1 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
-                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
-            }
-            segDx = 0; segDy = -TILE;
-            denom = rdx * segDy - rdy * segDx;
-            if (Math.abs(denom) >= 1e-10) {
-                t = ((tx0 - ox) * segDy - (ty1 - oy) * segDx) / denom;
-                u = ((tx0 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
-                if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
-            }
-        }
-
-        return { x: ox + rdx * minT, y: oy + rdy * minT };
-    };
-
-    const verts = [];
-    for (let i = 0; i < uniqueAngles.length; i++) {
-        const pt = castRay(uniqueAngles[i]);
-        verts.push(pt.x, pt.y);
-    }
-
-    S.polygon = verts.length >= 6 ? new Float32Array(verts) : null;
+    _shadowVisible = visible;
 }
 
 function drawShadowOverlay(ctx, camX, camY) {
     if (ME.isDead) return;
     if (!_shadowMapCache) return;
-    const { floorTiles, wallTiles } = _shadowMapCache;
-    if (floorTiles.length === 0) return;
 
-    const S    = WORLD.SHADOW;
+    const { interiorSet, darkRingTiles } = _shadowMapCache;
+    if (interiorSet.size === 0) return;
+
     const TILE = WORLD.MAP.tileSize;
     const W    = WORLD.CAMERA.width;
     const H    = WORLD.CAMERA.height;
@@ -661,37 +584,28 @@ function drawShadowOverlay(ctx, camX, camY) {
     const bufCtx = buf.getContext('2d');
     bufCtx.clearRect(0, 0, W, H);
 
+    // 1. Stamp dark over every interior floor tile
     bufCtx.fillStyle = 'rgba(0,0,0,0.97)';
     bufCtx.beginPath();
-    for (const { c, r } of floorTiles) {
+    for (const key of interiorSet) {
+        const [c, r] = key.split(',').map(Number);
         const sx = c * TILE - camX, sy = r * TILE - camY;
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+        bufCtx.rect(sx, sy, TILE + 1, TILE + 1);
     }
     bufCtx.fill();
 
-    if (wallTiles.length > 0) {
+    // 2. Punch out the flood-filled visible tiles
+    if (_shadowVisible && _shadowVisible.size > 0) {
         bufCtx.globalCompositeOperation = 'destination-out';
         bufCtx.fillStyle = 'rgba(0,0,0,1)';
         bufCtx.beginPath();
-        for (const { c, r } of wallTiles) {
+        for (const key of _shadowVisible) {
+            const [c, r] = key.split(',').map(Number);
             const sx = c * TILE - camX, sy = r * TILE - camY;
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+            bufCtx.rect(sx, sy, TILE + 1, TILE + 1);
         }
-        bufCtx.fill();
-        bufCtx.globalCompositeOperation = 'source-over';
-    }
-
-    if (S.polygon && S.polygon.length >= 6) {
-        bufCtx.globalCompositeOperation = 'destination-out';
-        bufCtx.beginPath();
-        const verts = S.polygon;
-        bufCtx.moveTo(verts[0] - camX, verts[1] - camY);
-        for (let i = 2; i < verts.length; i += 2) {
-            bufCtx.lineTo(verts[i] - camX, verts[i + 1] - camY);
-        }
-        bufCtx.closePath();
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
     }
