@@ -78,7 +78,7 @@ function connectToServer() {
     
     _params.set('ngrok-skip-browser-warning', 'true');
     
-    const _ngrokURL = 'wss://stomach-projection-pleasant-use.trycloudflare.com';
+    const _ngrokURL = 'wss://redeem-faced-zealand-carrier.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
