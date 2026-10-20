@@ -470,7 +470,7 @@ function _rebuildShadowMapCache() {
     }
 
     const interiorSet = new Set(floorTiles.map(t => t.c + ',' + t.r));
-    const DIRS = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+    const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
     for (const { c, r } of floorTiles) {
         for (const [dc, dr] of DIRS) {
             const nc = c + dc, nr = r + dr;
@@ -825,7 +825,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE    = WORLD.MAP.tileSize;
@@ -911,7 +911,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
