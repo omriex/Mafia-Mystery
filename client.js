@@ -1269,12 +1269,8 @@ function initEditorUI() {
             if (ws) ws.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
         });
     }
-    if (false) {
-        });
-    }
 
     document.querySelectorAll('#editor-ui .layer-btn').forEach(btn => {
-    }
         if (btn.id === 'editor-toggle-btn' || btn.id === 'start-game-btn' || btn.id === 'rolelist-toggle-btn') return;
         btn.addEventListener('click', () => {
             document.querySelectorAll('#layer-toggles .layer-btn').forEach(b => b.classList.remove('active'));
@@ -1540,7 +1536,3 @@ if (roleListHeader) {
         }
     });
 }
-
-if (false) document.getElementById('close-target-btn').onclick = () => {
-    document.getElementById('target-chooser-ui').style.display = 'none';
-};
