@@ -26,7 +26,15 @@ function updateRoleListUI(list, mode) {
         row.className = 'role-list-entry';
         const isMafia = item.name.includes('Mafia') || item.name === 'Skinwalker';
         row.classList.add(isMafia ? 'mafia' : 'town');
-        row.innerHTML = `<span>${item.count}x ${item.name}</span>`;
+
+        if (mode === 'precise' && item.isDead) {
+            row.classList.remove('town', 'mafia');
+            row.classList.add('dead');
+            row.innerHTML = `<span>${item.name} <span style="font-size:11px;opacity:0.8;">[DEAD]</span></span>`;
+        } else {
+            const countPrefix = (item.count !== undefined && item.count !== null) ? `${item.count}x ` : '';
+            row.innerHTML = `<span>${countPrefix}${item.name}</span>`;
+        }
 
         if (mode === 'subalignments' && SUBALIGNMENT_ROLES[item.name]) {
             row.style.cursor = 'pointer';
@@ -207,10 +215,16 @@ function connectToServer() {
             serverPlayers = next;
 
             if (data.players[myId]) {
-                ME.chats                 = data.players[myId].chats || [];
-                ME.isDead                = data.players[myId].isDead;
-                if (data.players[myId].name) myName = data.players[myId].name;
+                const sMe = data.players[myId];
+                ME.chats                 = sMe.chats || [];
+                ME.isDead                = sMe.isDead;
+                if (sMe.name) myName = sMe.name;
                 updateLeaderboard();
+                const sDist = Math.hypot(sMe.x - ME.x, sMe.y - ME.y);
+                if (sDist > 50) {
+                    ME.x += (sMe.x - ME.x) * 0.35;
+                    ME.y += (sMe.y - ME.y) * 0.35;
+                }
             }
             
             if (data.entities) WORLD.ENTITIES = data.entities;
@@ -308,6 +322,23 @@ function connectToServer() {
 function populateTargetChooser() {
     const list = document.getElementById('target-list');
     list.innerHTML = '';
+
+    const noOneBtn = document.createElement('button');
+    noOneBtn.className = 'layer-btn';
+    noOneBtn.style.width = '100%';
+    noOneBtn.style.color = '#aaa';
+    noOneBtn.style.fontStyle = 'italic';
+    noOneBtn.innerText = 'No one';
+    if (WORLD.CURRENT_TARGET === null) {
+        noOneBtn.classList.add('active');
+    }
+    noOneBtn.onclick = () => {
+        WORLD.CURRENT_TARGET = null;
+        if (ws) ws.send(JSON.stringify({ type: 'action_target', targetId: null }));
+        document.getElementById('target-chooser-ui').style.display = 'none';
+    };
+    list.appendChild(noOneBtn);
+
     for (const id in serverPlayers) {
         if (parseInt(id) === myId) continue;
         const p = serverPlayers[id];
@@ -331,12 +362,15 @@ function populateTargetChooser() {
 
 function addChatLog(text, isSys = false) {
     const container = document.getElementById('chat-log-messages');
+    const ui = document.getElementById('chat-log-ui');
+    const wasAtBottom = ui.scrollHeight - ui.scrollTop - ui.clientHeight < 30;
     const div = document.createElement('div');
     div.className = 'chat-log-line' + (isSys ? ' sys-msg' : '');
     div.innerText = text;
     container.appendChild(div);
-    const ui = document.getElementById('chat-log-ui');
-    ui.scrollTop = ui.scrollHeight;
+    if (wasAtBottom) {
+        ui.scrollTop = ui.scrollHeight;
+    }
     
     if (container.childElementCount > 200) {
         container.removeChild(container.firstChild);
@@ -437,8 +471,8 @@ function resolvePlayerCollisionsLocal() {
         const pR = (p.width * (p.scale || 1)) / 2;
         const minDist = meR + pR;
 
-        const pcx = p.renderX + p.width  / 2;
-        const pcy = p.renderY + p.height / 2;
+        const pcx = (p.renderX ?? p.x) + p.width  / 2;
+        const pcy = (p.renderY ?? p.y) + p.height / 2;
 
         const dX   = mecx - pcx;
         const dY   = mecy - pcy;
@@ -449,13 +483,20 @@ function resolvePlayerCollisionsLocal() {
             const nx = dX / dist;
             const ny = dY / dist;
 
-            ME.x += nx * (overlap / 2);
-            ME.y += ny * (overlap / 2);
+            ME.x += nx * (overlap * 0.65);
+            ME.y += ny * (overlap * 0.65);
+
+            if (p.renderX !== undefined) {
+                p.renderX -= nx * (overlap * 0.35);
+                p.renderY -= ny * (overlap * 0.35);
+            }
+            p.x -= nx * (overlap * 0.35);
+            p.y -= ny * (overlap * 0.35);
 
             const dot = ME.vx * nx + ME.vy * ny;
             if (dot < 0) {
-                ME.vx -= dot * nx;
-                ME.vy -= dot * ny;
+                ME.vx -= dot * nx * 0.7;
+                ME.vy -= dot * ny * 0.7;
             }
         }
     }
@@ -572,9 +613,6 @@ function computeShadowVisibility() {
     const S    = WORLD.SHADOW;
     const TILE = MAP.tileSize;
 
-    _shadowFrame++;
-    if (_shadowFrame % 2 !== 0) return;
-
     if (!_shadowMapCache) _rebuildShadowMapCache();
     if (!_shadowMapCache) { S.polygon = null; return; }
 
@@ -610,38 +648,28 @@ function computeShadowVisibility() {
     const { minC, maxC, minR, maxR } = _shadowMapCache._bounds;
     const wallArr = _shadowMapCache._wallArr;
 
-    const curTileX = Math.floor(ox / TILE);
-    const curTileY = Math.floor(oy / TILE);
-    if (_shadowAnglesCache === null || curTileX !== _shadowLastTileX || curTileY !== _shadowLastTileY) {
-        _shadowLastTileX = curTileX;
-        _shadowLastTileY = curTileY;
+    const EPS = 0.0001;
+    const seen = new Set();
+    const rawAngles = [];
 
-        const EPS = 0.0001;
-        const seen = new Set();
-        const rawAngles = [];
-
-        for (let i = 0; i < wallArr.length; i += 2) {
-            const c = wallArr[i], r = wallArr[i + 1];
-            const corners = [
-                c * TILE,        r * TILE,
-                c * TILE + TILE, r * TILE,
-                c * TILE,        r * TILE + TILE,
-                c * TILE + TILE, r * TILE + TILE
-            ];
-            for (let j = 0; j < corners.length; j += 2) {
-                const cx = corners[j], cy = corners[j + 1];
-                const a = Math.atan2(cy - oy, cx - ox);
-                const key = Math.round(a * 100000);
-                if (!seen.has(key - 1)) { seen.add(key - 1); rawAngles.push(a - EPS); }
-                if (!seen.has(key    )) { seen.add(key    ); rawAngles.push(a);        }
-                if (!seen.has(key + 1)) { seen.add(key + 1); rawAngles.push(a + EPS); }
-            }
+    for (let i = 0; i < wallArr.length; i += 2) {
+        const c = wallArr[i], r = wallArr[i + 1];
+        const corners = [
+            c * TILE,        r * TILE,
+            c * TILE + TILE, r * TILE,
+            c * TILE,        r * TILE + TILE,
+            c * TILE + TILE, r * TILE + TILE
+        ];
+        for (let j = 0; j < corners.length; j += 2) {
+            const cx = corners[j], cy = corners[j + 1];
+            const a = Math.atan2(cy - oy, cx - ox);
+            const key = Math.round(a * 20000);
+            if (!seen.has(key - 1)) { seen.add(key - 1); rawAngles.push(a - EPS); }
+            if (!seen.has(key    )) { seen.add(key    ); rawAngles.push(a);        }
+            if (!seen.has(key + 1)) { seen.add(key + 1); rawAngles.push(a + EPS); }
         }
-        rawAngles.sort((a, b) => a - b);
-        _shadowAnglesCache = rawAngles;
     }
-
-    const uniqueAngles = _shadowAnglesCache;
+    rawAngles.sort((a, b) => a - b);
 
     const maxDist = Math.hypot((maxC - minC + 2) * TILE, (maxR - minR + 2) * TILE);
 
@@ -659,44 +687,41 @@ function computeShadowVisibility() {
             const approxDist = Math.abs(tcx - ox) + Math.abs(tcy - oy);
             if (approxDist > minT + TILE * 1.5) continue;
 
-            let segDx, segDy, denom, t, u;
+            let denom, t, u;
 
-            segDx = TILE; segDy = 0;
-            denom = rdx * segDy - rdy * segDx;
+            denom = -rdy * TILE;
             if (Math.abs(denom) >= 1e-10) {
-                t = ((tx0 - ox) * segDy - (ty0 - oy) * segDx) / denom;
-                u = ((tx0 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
+                t = -(ty0 - oy) * TILE / denom;
+                u = ((tx0 - ox) * rdy - (ty0 - oy) * rdx) / denom;
                 if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
             }
-            segDx = 0; segDy = TILE;
-            denom = rdx * segDy - rdy * segDx;
+            denom = rdx * TILE;
             if (Math.abs(denom) >= 1e-10) {
-                t = ((tx1 - ox) * segDy - (ty0 - oy) * segDx) / denom;
-                u = ((tx1 - ox) * rdy   - (ty0 - oy) * rdx)   / denom;
+                t = (tx1 - ox) * TILE / denom;
+                u = ((tx1 - ox) * rdy - (ty0 - oy) * rdx) / denom;
                 if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
             }
-            segDx = -TILE; segDy = 0;
-            denom = rdx * segDy - rdy * segDx;
+            denom = rdy * TILE;
             if (Math.abs(denom) >= 1e-10) {
-                t = ((tx1 - ox) * segDy - (ty1 - oy) * segDx) / denom;
-                u = ((tx1 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
+                t = (ty1 - oy) * TILE / denom;
+                u = ((tx1 - ox) * rdy - (ty1 - oy) * rdx) / denom;
                 if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
             }
-            segDx = 0; segDy = -TILE;
-            denom = rdx * segDy - rdy * segDx;
+            denom = -rdx * TILE;
             if (Math.abs(denom) >= 1e-10) {
-                t = ((tx0 - ox) * segDy - (ty1 - oy) * segDx) / denom;
-                u = ((tx0 - ox) * rdy   - (ty1 - oy) * rdx)   / denom;
+                t = -(tx0 - ox) * TILE / denom;
+                u = ((tx0 - ox) * rdy - (ty1 - oy) * rdx) / denom;
                 if (t > 0.001 && u >= 0 && u <= 1 && t < minT) minT = t;
             }
         }
 
-        return { x: ox + rdx * minT, y: oy + rdy * minT };
+        const hitDist = minT < maxDist ? (minT + 8) : minT;
+        return { x: ox + rdx * hitDist, y: oy + rdy * hitDist };
     };
 
     const verts = [];
-    for (let i = 0; i < uniqueAngles.length; i++) {
-        const pt = castRay(uniqueAngles[i]);
+    for (let i = 0; i < rawAngles.length; i++) {
+        const pt = castRay(rawAngles[i]);
         verts.push(pt.x, pt.y);
     }
 
@@ -728,7 +753,7 @@ function drawShadowOverlay(ctx, camX, camY) {
     for (const { c, r } of floorTiles) {
         const sx = c * TILE - camX, sy = r * TILE - camY;
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+        bufCtx.rect(sx, sy, TILE, TILE);
     }
     bufCtx.fill();
 
@@ -739,7 +764,7 @@ function drawShadowOverlay(ctx, camX, camY) {
         for (const { c, r } of wallTiles) {
             const sx = c * TILE - camX, sy = r * TILE - camY;
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx, sy, TILE + 0.5, TILE + 0.5);
+            bufCtx.rect(sx, sy, TILE, TILE);
         }
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
@@ -767,6 +792,15 @@ function update(dt) {
     if (WORLD.INPUTS.keys.s || WORLD.INPUTS.keys.arrowdown)  inputY += 1;
     if (WORLD.INPUTS.keys.a || WORLD.INPUTS.keys.arrowleft)  inputX -= 1;
     if (WORLD.INPUTS.keys.d || WORLD.INPUTS.keys.arrowright) inputX += 1;
+
+    if (WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !WORLD.CURRENT_TARGET) {
+        inputX = 0;
+        inputY = 0;
+        ME.vx = 0;
+        ME.vy = 0;
+        ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2 - ME.width / 2;
+        ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2 - ME.height / 2;
+    }
 
     const isMoving = inputX !== 0 || inputY !== 0;
     if (isMoving) {
@@ -880,6 +914,7 @@ function render() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+    ctx.imageSmoothingEnabled = false;
 
     const camX = Math.round(WORLD.CAMERA.x);
     const camY = Math.round(WORLD.CAMERA.y);
@@ -891,7 +926,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE    = WORLD.MAP.tileSize;
@@ -904,9 +939,12 @@ function render() {
 
     if (tableImg.complete && tableImg.naturalWidth > 0) {
         WORLD.ENTITIES.forEach(ent => {
+            if (ent.type !== 'table') return;
             ctx.save();
             ctx.imageSmoothingEnabled = false;
-            if (ent.w >= ent.h) {
+            const imgIsHoriz = tableImg.naturalWidth >= tableImg.naturalHeight;
+            const entIsHoriz = ent.w >= ent.h;
+            if (imgIsHoriz === entIsHoriz) {
                 ctx.drawImage(tableImg, ent.x - camX, ent.y - camY, ent.w, ent.h);
             } else {
                 ctx.translate(ent.x - camX + ent.w / 2, ent.y - camY + ent.h / 2);
@@ -915,10 +953,24 @@ function render() {
             }
             ctx.restore();
         });
+    } else {
+        WORLD.ENTITIES.forEach(ent => {
+            if (ent.type !== 'table') return;
+            ctx.save();
+            ctx.fillStyle = '#6b4423';
+            ctx.fillRect(ent.x - camX, ent.y - camY, ent.w, ent.h);
+            ctx.strokeStyle = '#422810';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(ent.x - camX + 1, ent.y - camY + 1, ent.w - 2, ent.h - 2);
+            ctx.fillStyle = '#82532a';
+            ctx.fillRect(ent.x - camX + 4, ent.y - camY + 4, ent.w - 8, ent.h - 8);
+            ctx.restore();
+        });
     }
 
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
+        if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width  / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
         const sW  = p.width  * (p.scale || 1);
@@ -977,7 +1029,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize + 0.5, WORLD.MAP.chunkSize + 0.5);
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX  = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
@@ -1007,6 +1059,7 @@ function render() {
 
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
+        if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width  / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
@@ -1066,6 +1119,9 @@ function renderChunk(cx, cy) {
     const startRow = Math.floor((cy * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
     const endRow   = Math.ceil(((cy + 1) * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
 
+    const sInset = 0.08;
+    const sSize  = WORLD.MAP.tileSize - (sInset * 2);
+
     WORLD.MAP.layers.forEach(layer => {
         const tCtx = layer.name === 'trees' ? fgCtx : bgCtx;
         for (let r = Math.max(0, startRow); r < Math.min(WORLD.MAP.rows, endRow); r++) {
@@ -1073,13 +1129,11 @@ function renderChunk(cx, cy) {
                 const gid = layer.data[r * WORLD.MAP.columns + c];
                 if (gid > 0) {
                     const tId = gid - 1;
-                    tCtx.drawImage(tilesheetImg,
-                        (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
-                        Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
-                        WORLD.MAP.tileSize, WORLD.MAP.tileSize,
-                        (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize),
-                        (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize),
-                        WORLD.MAP.tileSize + 0.5, WORLD.MAP.tileSize + 0.5);
+                    const sx = (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                    const sy = Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                    const dx = (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize);
+                    const dy = (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize);
+                    tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                 }
             }
         }
