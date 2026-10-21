@@ -135,7 +135,7 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
     
     _params.set('ngrok-skip-browser-warning', 'true');
-    const _ngrokURL = 'wss://texas-jade-scotia-heavily.trycloudflare.com';
+    const _ngrokURL = 'wss://exhibits-walker-bread-bench.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
@@ -241,7 +241,7 @@ function connectToServer() {
             if (data.game) {
                 WORLD.GAME_STATE = data.game.state;
                 if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
-                    if (WORLD.GAME_STATE === 'DAY_REVEAL') {
+                    if (WORLD.GAME_STATE === 'DAY_REVEAL' && WORLD.LAST_STATE === 'NIGHT') {
                         WORLD.CURRENT_TARGET = null;
                     }
                     if (WORLD.GAME_STATE === 'NIGHT') {
@@ -1674,7 +1674,9 @@ window.addEventListener('keydown', e => {
         }
 
         if (key === 't' && !e.repeat) {
-            if (ME.isDead || WORLD.GAME_STATE === 'NIGHT' || WORLD.GAME_STATE === 'LOBBY') return;
+            if (myRole === 'Celebrity') return;
+            const isMafiaNight = (myRole === 'Skinwalker' && WORLD.GAME_STATE === 'NIGHT');
+            if (ME.isDead || WORLD.GAME_STATE === 'LOBBY' || (WORLD.GAME_STATE === 'NIGHT' && !isMafiaNight)) return;
             const ui = document.getElementById('target-chooser-ui');
             if (ui.style.display === 'flex') {
                 ui.style.display = 'none';
