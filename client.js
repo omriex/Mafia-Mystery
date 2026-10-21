@@ -1,5 +1,55 @@
 document.addEventListener('contextmenu', event => event.preventDefault());
 
+const SUBALIGNMENT_ROLES = {
+    'Town Investigative': ['Investigator', 'Tracker'],
+    'Town Protective': ['Doctor', 'Archer'],
+    'Town Killing': ['Vigilante'],
+    'Town Support': ['Escort', 'Celebrity'],
+    'Mafia Killing': ['Skinwalker']
+};
+
+function updateRoleListUI(list, mode) {
+    const ui = document.getElementById('role-list-ui');
+    const items = document.getElementById('role-list-items');
+    if (!ui || !items) return;
+
+    if (!mode || mode === 'off' || !list || list.length === 0) {
+        ui.style.display = 'none';
+        return;
+    }
+
+    ui.style.display = 'flex';
+    items.innerHTML = '';
+
+    list.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'role-list-entry';
+        const isMafia = item.name.includes('Mafia') || item.name === 'Skinwalker';
+        row.classList.add(isMafia ? 'mafia' : 'town');
+        row.innerHTML = `<span>${item.count}x ${item.name}</span>`;
+
+        if (mode === 'subalignments' && SUBALIGNMENT_ROLES[item.name]) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('mouseenter', () => {
+                const tt = document.getElementById('role-tooltip');
+                if (!tt) return;
+                const roles = SUBALIGNMENT_ROLES[item.name].join(', ');
+                tt.innerHTML = `<span style="color:#ffcc00;">${item.name}</span><br>Possible Roles: ${roles}`;
+                tt.style.display = 'block';
+                const rect = row.getBoundingClientRect();
+                tt.style.top = rect.top + 'px';
+                tt.style.left = (rect.left - 230) + 'px';
+            });
+            row.addEventListener('mouseleave', () => {
+                const tt = document.getElementById('role-tooltip');
+                if (tt) tt.style.display = 'none';
+            });
+        }
+
+        items.appendChild(row);
+    });
+}
+
 let ws           = null;
 let myId         = null;
 let myName       = 'Player???';      
@@ -55,151 +105,7 @@ const playerImg    = new Image();
 const centerImg    = new Image();
 const tableImg     = new Image();
 
-let roleListMode = 'subalignment';
-
-const ROLE_SUBALIGNMENT = {
-    Investigator: 'Town Investigative',
-    Tracker:      'Town Investigative',
-    Doctor:       'Town Protective',
-    Archer:       'Town Protective',
-    Escort:       'Town Support',
-    Vigilante:    'Town Killing',
-    Celebrity:    'Town Support',
-    Skinwalker:   'Mafia Killing',
-};
-
-const SUBALIGNMENT_ROLES = {
-    'Town Investigative': ['Investigator','Tracker'],
-    'Town Protective':    ['Doctor','Archer'],
-    'Town Support':       ['Escort','Celebrity'],
-    'Town Killing':       ['Vigilante'],
-    'Mafia Killing':      ['Skinwalker'],
-};
-
-let _knownRoles = {};
-let _roleCounts = {};
-
-function buildRoleList(playerCount) {
-    let pool = ['Skinwalker','Investigator','Doctor','Archer','Vigilante','Celebrity'];
-    if (playerCount > 6) pool.push('Tracker');
-    if (playerCount > 7) pool.push('Escort');
-    while (pool.length < playerCount) pool.push('Investigator');
-    const counts = {};
-    for (const r of pool) counts[r] = (counts[r] || 0) + 1;
-    return counts;
-}
-
-function renderRoleListUI(counts) {
-    const container = document.getElementById('role-list-content');
-    if (!container) return;
-    container.innerHTML = '';
-    if (roleListMode === 'off') {
-        container.innerHTML = '<div style="color:#aaa;font-size:12px;padding:4px 0;">Role list hidden by host.</div>';
-        return;
-    }
-    if (roleListMode === 'precise') {
-        for (const [role, count] of Object.entries(counts)) {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;justify-content:space-between;padding:2px 0;font-size:13px;';
-            const sub = ROLE_SUBALIGNMENT[role] || 'Unknown';
-            const color = sub.startsWith('Town') ? '#7ec87e' : sub.startsWith('Mafia') ? '#e06c6c' : '#aaa';
-            row.innerHTML = `<span style="color:${color}">${role}</span><span style="color:#ccc">×${count}</span>`;
-            container.appendChild(row);
-        }
-        return;
-    }
-    const subCounts = {};
-    for (const [role, count] of Object.entries(counts)) {
-        const sub = ROLE_SUBALIGNMENT[role] || 'Unknown';
-        subCounts[sub] = (subCounts[sub] || 0) + count;
-    }
-    for (const [sub, count] of Object.entries(subCounts)) {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:3px 0;font-size:13px;cursor:help;position:relative;';
-        const color = sub.startsWith('Town') ? '#7ec87e' : sub.startsWith('Mafia') ? '#e06c6c' : '#aaa';
-        const rolesInSub = (SUBALIGNMENT_ROLES[sub] || []).filter(r => counts[r]);
-        const tooltip = rolesInSub.map(r => `${r} ×${counts[r]}`).join(', ');
-        row.innerHTML = `<span style="color:${color}" title="${tooltip}">${sub}</span><span style="color:#ccc">×${count}</span>`;
-        const tip = document.createElement('div');
-        tip.style.cssText = 'display:none;position:absolute;left:0;top:100%;background:rgba(0,0,0,0.92);border:1px solid rgba(255,255,255,0.15);padding:4px 8px;font-size:12px;color:#fff;white-space:nowrap;z-index:9999;pointer-events:none;';
-        tip.innerText = tooltip || sub;
-        row.appendChild(tip);
-        row.onmouseenter = () => tip.style.display = 'block';
-        row.onmouseleave = () => tip.style.display = 'none';
-        container.appendChild(row);
-    }
-}
-
-function injectGameUI() {
-    const guide = document.createElement('div');
-    guide.id = 'guide-ui';
-    guide.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;flex-direction:column;background:rgba(10,10,20,0.97);border:2px solid rgba(255,255,255,0.18);min-width:340px;max-width:480px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;color:#fff;';
-    guide.innerHTML = `
-        <div style="padding:12px 16px 10px;font-weight:bold;font-size:15px;background:rgba(0,0,0,0.5);border-bottom:1px solid rgba(255,255,255,0.12);display:flex;justify-content:space-between;align-items:center;">
-            <span>Controls & Guide</span>
-            <button id="guide-close-btn" style="background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.3);padding:4px 14px;cursor:pointer;font-size:13px;font-weight:bold;font-family:inherit;transition:border-color 0.15s,background 0.15s;"
-                onmouseenter="this.style.borderColor='#fff';this.style.background='rgba(255,255,255,0.08)'"
-                onmouseleave="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='transparent'">Close</button>
-        </div>
-        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.6;">
-            <div style="font-weight:bold;color:#f0c070;margin-bottom:2px;">Movement</div>
-            <div><span style="color:#adf">W / A / S / D</span> — Move</div>
-            <div><span style="color:#adf">Shift</span> — Sprint</div>
-            <div style="font-weight:bold;color:#f0c070;margin-top:6px;margin-bottom:2px;">Chat & Actions</div>
-            <div><span style="color:#adf">Enter</span> — Open / send chat</div>
-            <div><span style="color:#adf">Esc</span> — Close chat</div>
-            <div><span style="color:#adf">T</span> — Open target chooser (day)</div>
-            <div><span style="color:#adf">E</span> — Interact with door</div>
-            <div><span style="color:#adf">Tab</span> — Open / save Last Will</div>
-            <div><span style="color:#adf">H</span> — Toggle this guide</div>
-            <div style="font-weight:bold;color:#f0c070;margin-top:6px;margin-bottom:2px;">Voting</div>
-            <div><span style="color:#adf">/vote [Name]</span> — Vote to eliminate (voting phase)</div>
-            <div style="font-weight:bold;color:#f0c070;margin-top:6px;margin-bottom:2px;">Roles</div>
-            <div><span style="color:#7ec87e">Town</span> — Eliminate the Mafia before they take over</div>
-            <div><span style="color:#e06c6c">Mafia (Skinwalker)</span> — Kill or outnumber Town at night</div>
-            <div style="margin-top:4px;color:#bbb;font-size:12px;">Dead players can still chat and see all.</div>
-        </div>`;
-    document.body.appendChild(guide);
-    document.getElementById('guide-close-btn').onclick = () => guide.style.display = 'none';
-
-    const rl = document.createElement('div');
-    rl.id = 'role-list-ui';
-    rl.style.cssText = 'display:none;position:fixed;bottom:10px;right:10px;z-index:1500;background:rgba(10,10,20,0.92);border:2px solid rgba(255,255,255,0.15);min-width:190px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;color:#fff;';
-    rl.innerHTML = `
-        <div style="padding:7px 12px 6px;font-weight:bold;font-size:13px;background:rgba(0,0,0,0.4);border-bottom:1px solid rgba(255,255,255,0.1);">Role List</div>
-        <div id="role-list-content" style="padding:6px 12px 10px;"></div>`;
-    document.body.appendChild(rl);
-
-    const hs = document.createElement('div');
-    hs.id = 'host-settings-ui';
-    hs.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3000;flex-direction:column;background:rgba(10,10,20,0.97);border:2px solid rgba(255,255,255,0.18);min-width:300px;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;color:#fff;';
-    hs.innerHTML = `
-        <div style="padding:12px 16px 10px;font-weight:bold;font-size:15px;background:rgba(0,0,0,0.5);border-bottom:1px solid rgba(255,255,255,0.12);display:flex;justify-content:space-between;align-items:center;">
-            <span>Host Settings</span>
-            <button id="host-settings-close-btn" style="background:transparent;color:#fff;border:2px solid rgba(255,255,255,0.3);padding:4px 14px;cursor:pointer;font-size:13px;font-weight:bold;font-family:inherit;"
-                onmouseenter="this.style.borderColor='#fff';this.style.background='rgba(255,255,255,0.08)'"
-                onmouseleave="this.style.borderColor='rgba(255,255,255,0.3)';this.style.background='transparent'">Close</button>
-        </div>
-        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:13px;">
-            <div style="font-weight:bold;color:#f0c070;">Role List Display</div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="rl-mode" value="off"> Off</label>
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="rl-mode" value="subalignment" checked> Subalignments <span style="color:#888;font-size:11px;">(Town Investigative etc.)</span></label>
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="rl-mode" value="precise"> Precise <span style="color:#888;font-size:11px;">(exact roles + counts)</span></label>
-            </div>
-        </div>`;
-    document.body.appendChild(hs);
-    document.getElementById('host-settings-close-btn').onclick = () => hs.style.display = 'none';
-    hs.querySelectorAll('input[name="rl-mode"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            roleListMode = radio.value;
-            if (_roleCounts && Object.keys(_roleCounts).length > 0) renderRoleListUI(_roleCounts);
-        });
-    });
-}
-
 window.addEventListener('DOMContentLoaded', () => {
-    injectGameUI();
     const playBtn = document.getElementById('play-btn');
     if (playBtn) {
         playBtn.addEventListener('click', () => {
@@ -326,6 +232,9 @@ function connectToServer() {
                     document.getElementById('phase-name').innerText = data.game.state.replace('_', ' ');
                     document.getElementById('phase-timer').innerText = data.game.timer + 's';
                 }
+                if (data.game.roleListMode !== undefined) {
+                    updateRoleListUI(data.game.roleList, data.game.roleListMode);
+                }
             }
 
         } else if (data.type === 'teleport') {
@@ -366,11 +275,6 @@ function connectToServer() {
             document.getElementById('role-ui').style.display = 'block';
             document.getElementById('my-role-name').innerText = myRole;
             addChatLog(`Game started! Your role is: ${myRole}`, true);
-            const pCount = 1 + Object.keys(serverPlayers).length;
-            _roleCounts = buildRoleList(pCount);
-            const rlUI = document.getElementById('role-list-ui');
-            if (rlUI) rlUI.style.display = 'block';
-            renderRoleListUI(_roleCounts);
             
             let info = "";
             if(myRole === 'Investigator') info = "Investigate (T) to narrow down roles.";
@@ -383,7 +287,10 @@ function connectToServer() {
             if(myRole === 'Celebrity') info = "If you die, the killer's name letter is revealed.";
             addChatLog(info, true);
 
+        } else if (data.type === 'rolelist_update') {
+            updateRoleListUI(data.list, data.mode);
         } else if (data.type === 'game_over') {
+            updateRoleListUI([], 'off');
             myRole = null;
             ME.isDead = false;
             document.getElementById('role-ui').style.display = 'none';
@@ -428,14 +335,26 @@ function addChatLog(text, isSys = false) {
     div.className = 'chat-log-line' + (isSys ? ' sys-msg' : '');
     div.innerText = text;
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    const ui = document.getElementById('chat-log-ui');
+    ui.scrollTop = ui.scrollHeight;
     
     if (container.childElementCount > 200) {
         container.removeChild(container.firstChild);
     }
 }
 
+let _lastSentX = -1, _lastSentY = -1, _lastSentAngle = -1, _lastSentTime = 0;
 function sendPositionUpdate() {
+    if (!myId || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const now = performance.now();
+    const dt = now - _lastSentTime;
+    const moved = Math.abs(ME.x - _lastSentX) > 0.05 || Math.abs(ME.y - _lastSentY) > 0.05 || Math.abs(ME.angle - _lastSentAngle) > 0.02;
+    if (!moved && dt < 200) return;
+    if (dt < 25) return;
+    _lastSentTime = now;
+    _lastSentX = ME.x;
+    _lastSentY = ME.y;
+    _lastSentAngle = ME.angle;
     if (!myId || !ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({
         type:  'position_update',
@@ -1339,8 +1258,24 @@ function initEditorUI() {
         });
     }
 
+    const rolelistBtn = document.getElementById('rolelist-toggle-btn');
+    if (rolelistBtn) {
+        let currentMode = 'subalignments';
+        rolelistBtn.addEventListener('click', () => {
+            if (currentMode === 'subalignments') currentMode = 'precise';
+            else if (currentMode === 'precise') currentMode = 'off';
+            else currentMode = 'subalignments';
+            rolelistBtn.innerText = 'Role List: ' + currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
+            if (ws) ws.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
+        });
+    }
+    if (false) {
+        });
+    }
+
     document.querySelectorAll('#editor-ui .layer-btn').forEach(btn => {
-        if (btn.id === 'editor-toggle-btn' || btn.id === 'start-game-btn') return;
+    }
+        if (btn.id === 'editor-toggle-btn' || btn.id === 'start-game-btn' || btn.id === 'rolelist-toggle-btn') return;
         btn.addEventListener('click', () => {
             document.querySelectorAll('#layer-toggles .layer-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -1490,6 +1425,16 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Escape') {
+        const guideUI = document.getElementById('guide-ui');
+        if (guideUI && guideUI.style.display === 'flex') {
+            guideUI.style.display = 'none';
+            return;
+        }
+        const targetUI = document.getElementById('target-chooser-ui');
+        if (targetUI && targetUI.style.display === 'flex') {
+            targetUI.style.display = 'none';
+            return;
+        }
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
         if (document.activeElement === chatInput) {
@@ -1506,6 +1451,14 @@ window.addEventListener('keydown', e => {
         
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
+        if (key === 'h' && !e.repeat) {
+            const guideUI = document.getElementById('guide-ui');
+            if (guideUI) {
+                guideUI.style.display = guideUI.style.display === 'flex' ? 'none' : 'flex';
+            }
+            return;
+        }
+
         if (key === 't' && !e.repeat) {
             if (ME.isDead || WORLD.GAME_STATE === 'NIGHT' || WORLD.GAME_STATE === 'LOBBY') return;
             const ui = document.getElementById('target-chooser-ui');
@@ -1520,12 +1473,6 @@ window.addEventListener('keydown', e => {
 
         if (key === 'e') {
             ws.send(JSON.stringify({ type: 'interact' }));
-        }
-
-        if (key === 'h' && !e.repeat) {
-            const guide = document.getElementById('guide-ui');
-            if (guide) guide.style.display = guide.style.display === 'flex' ? 'none' : 'flex';
-            return;
         }
     }
 });
@@ -1547,7 +1494,7 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -1565,6 +1512,35 @@ document.getElementById('leaderboard-header').addEventListener('click', () => {
     else                               { list.style.display = 'none'; toggle.style.transform = 'rotate(180deg)'; }
 });
 
-document.getElementById('close-target-btn').onclick = () => {
+const closeTargetBtn = document.getElementById('close-target-btn');
+if (closeTargetBtn) {
+    closeTargetBtn.onclick = () => {
+        document.getElementById('target-chooser-ui').style.display = 'none';
+    };
+}
+
+const closeGuideBtn = document.getElementById('close-guide-btn');
+if (closeGuideBtn) {
+    closeGuideBtn.onclick = () => {
+        document.getElementById('guide-ui').style.display = 'none';
+    };
+}
+
+const roleListHeader = document.getElementById('role-list-header');
+if (roleListHeader) {
+    roleListHeader.addEventListener('click', () => {
+        const list = document.getElementById('role-list-items');
+        const toggle = document.getElementById('role-list-toggle');
+        if (list.style.display === 'none') {
+            list.style.display = 'flex';
+            toggle.style.transform = 'rotate(0deg)';
+        } else {
+            list.style.display = 'none';
+            toggle.style.transform = 'rotate(180deg)';
+        }
+    });
+}
+
+if (false) document.getElementById('close-target-btn').onclick = () => {
     document.getElementById('target-chooser-ui').style.display = 'none';
 };
