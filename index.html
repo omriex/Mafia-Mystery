@@ -17,7 +17,7 @@
     <meta name="twitter:image" content="https://omriex.github.io/Mafia-Mystery/assets/player.png">
 
     <link rel="icon" type="image/png" href="assets/player.png">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles official.css">
 </head>
 <body>
 
@@ -38,8 +38,9 @@
 
 <div id="editor-ui" style="display: none;">
     <button id="editor-toggle-btn" class="layer-btn" style="width: 190px;">Editor: OFF</button>
-    <button id="start-game-btn" class="layer-btn" style="width: 190px; background-color: #ff4444; margin-top: 5px;">Start Mafia</button>
-    <div id="editor-tools" style="display: none; flex-direction: column; gap: 10px;">
+    <button id="start-game-btn" class="layer-btn danger-btn" style="width: 190px; margin-top: 5px;">Start Mafia</button>
+    <button id="rolelist-toggle-btn" class="layer-btn" style="width: 190px; margin-top: 5px;">Role List: Subalignments</button>
+    <div id="editor-tools" style="display: none; flex-direction: column; gap: 10px; margin-top: 5px;">
         <div id="layer-toggles">
             <button class="layer-btn active" data-layer="background">Floor</button>
             <button class="layer-btn" data-layer="floor2">Floor 2</button>
@@ -62,6 +63,16 @@
     </div>
 </div>
 
+<div id="role-list-ui" style="display: none;">
+    <div id="role-list-header">
+        <span>ROLE LIST</span>
+        <span id="role-list-toggle">▼</span>
+    </div>
+    <div id="role-list-items"></div>
+</div>
+
+<div id="role-tooltip" style="display: none;"></div>
+
 <div id="bottom-ui" style="display: none;">
     <div id="health-bar-bg">
         <div id="health-bar-fill"></div>
@@ -80,11 +91,33 @@
 <div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
     <div style="color: white; font-weight: bold; text-align: center; font-size: 16px; margin-bottom: 5px;">Select Target</div>
     <div id="target-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 300px; overflow-y: auto;"></div>
-    <button id="close-target-btn" class="layer-btn" style="margin-top: 10px; background-color: #ff4444; border-color: #ff4444;">Close</button>
+    <button id="close-target-btn" class="layer-btn danger-btn" style="margin-top: 10px; width: 100%;">Close</button>
 </div>
 
+<div id="guide-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.92); border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; z-index: 2500; flex-direction: column; width: 440px; box-sizing: border-box; overflow: hidden;">
+    <div style="background-color: rgba(0, 0, 0, 0.6); color: white; padding: 12px; font-weight: bold; text-align: center; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">HOW TO PLAY &amp; CONTROLS</div>
+    <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; color: #eee; font-size: 13px; font-weight: bold; max-height: 380px; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[W, A, S, D] / Arrows</span><span>Move</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Shift]</span><span>Sprint</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Enter]</span><span>Chat</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Tab]</span><span>Toggle Last Will</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[T]</span><span>Target / Ability (Day)</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[E]</span><span>Open / Close Doors</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[H]</span><span>Toggle Controls Guide</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/vote [Player]</span><span>Vote player out (Voting phase)</span></div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 8px; font-size: 12px; color: #aaa; font-weight: normal; line-height: 1.4;">
+            Town must eliminate all Mafia. Mafia kills at night. Plan your targets during the day (press T). Write your will (Tab) before night falls!
+        </div>
+    </div>
+    <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;">
+        <button id="close-guide-btn" class="layer-btn danger-btn" style="width: 100%;">Close</button>
+    </div>
+</div>
+
+<div id="controls-hint" style="position: fixed; bottom: 270px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; z-index: 1000;">Press [H] for Controls</div>
+
 <div id="chat-log-ui" style="display: none;">
-    <div id="chat-log-messages" style="display: flex; flex-direction: column; gap: 4px;"></div>
+    <div id="chat-log-messages"></div>
 </div>
 
 <div id="will-ui">
@@ -96,6 +129,6 @@
     <input type="text" id="chat-input" maxlength="80" placeholder="Chat" autocomplete="off">
 </div>
 
-<script src="client.js"></script>
+<script src="mafia client official.js"></script>
 </body>
 </html>
