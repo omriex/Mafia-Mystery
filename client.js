@@ -135,7 +135,7 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
     
     _params.set('ngrok-skip-browser-warning', 'true');
-    const _ngrokURL = 'wss://texas-jade-scotia-heavily.trycloudflare.com';
+    const _ngrokURL = 'wss://exhibits-walker-bread-bench.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
@@ -1552,13 +1552,16 @@ function updateLeaderboard() {
     
     const selfDiv = document.createElement('div');
     selfDiv.className = 'leaderboard-entry';
-    selfDiv.innerHTML = `<span>${myName}${isOwner ? ' (Host)' : ''}</span>`;
+    const selfSpan = document.createElement('span');
+    selfSpan.textContent = myName + (isOwner ? ' (Host)' : '');
+    selfDiv.appendChild(selfSpan);
     list.appendChild(selfDiv);
     for (const id in serverPlayers) {
         const div = document.createElement('div');
         div.className = 'leaderboard-entry';
-        const entryName = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' (Host)' : '');
-        div.innerHTML = `<span>${entryName}</span>`;
+        const span = document.createElement('span');
+        span.textContent = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' (Host)' : '');
+        div.appendChild(span);
         if (isOwner && !serverPlayers[id].isOwner) {
             div.style.cursor = 'context-menu';
             div.addEventListener('contextmenu', (e) => {
@@ -1687,7 +1690,7 @@ window.addEventListener('keydown', e => {
             return;
         }
 
-        if (key === 'e') {
+        if (key === 'e' && !ME.isDead) {
             ws.send(JSON.stringify({ type: 'interact' }));
         }
     }
