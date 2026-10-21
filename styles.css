@@ -82,7 +82,7 @@ body, html {
     left: 10px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 5px;
     z-index: 1000;
 }
 
@@ -102,6 +102,8 @@ body, html {
     font-size: 13px;
     cursor: pointer;
     border-radius: 4px;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .layer-btn:hover {
@@ -112,6 +114,16 @@ body, html {
 .layer-btn.active {
     border-color: #ffffff;
     background-color: rgba(0, 0, 0, 0.9);
+}
+
+.danger-btn {
+    background-color: #ff4444;
+    border: 2px solid transparent;
+}
+
+.danger-btn:hover {
+    border-color: #ffffff;
+    background-color: #ff5555;
 }
 
 #palette {
@@ -188,6 +200,89 @@ body, html {
     margin-bottom: 2px;
 }
 
+#role-list-ui {
+    position: fixed;
+    top: 240px;
+    right: 10px;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 1000;
+    width: 220px;
+}
+
+#role-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 8px 14px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#role-list-header:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#role-list-toggle {
+    font-size: 10px;
+}
+
+#role-list-items {
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.role-list-entry {
+    display: flex;
+    justify-content: space-between;
+    color: #ffffff;
+    font-weight: bold;
+    font-size: 13px;
+    margin-bottom: 3px;
+    cursor: default;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background 0.1s;
+}
+
+.role-list-entry:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.role-list-entry.town {
+    color: #55ee77;
+}
+
+.role-list-entry.mafia {
+    color: #ff5555;
+}
+
+#role-tooltip {
+    position: fixed;
+    z-index: 3000;
+    background: rgba(0, 0, 0, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    pointer-events: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+    max-width: 240px;
+    line-height: 1.4;
+}
+
 #bottom-ui {
     position: fixed;
     bottom: 15px;
@@ -248,17 +343,42 @@ body, html {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    width: 350px;
-    height: 250px;
+    width: 360px;
+    height: 240px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
     pointer-events: auto;
     z-index: 1500;
     overflow-y: auto;
-    background: rgba(0, 0, 0, 0.4);
+    overflow-x: hidden;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    padding: 8px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+}
+
+#chat-log-messages {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: min-content;
+}
+
+#chat-log-ui::-webkit-scrollbar {
+    width: 6px;
+}
+#chat-log-ui::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+#chat-log-ui::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+#chat-log-ui::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 .chat-log-line {
