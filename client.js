@@ -135,7 +135,7 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
     
     _params.set('ngrok-skip-browser-warning', 'true');
-    const _ngrokURL = 'wss://texas-jade-scotia-heavily.trycloudflare.com';
+    const _ngrokURL = 'wss://exhibits-walker-bread-bench.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
@@ -1678,8 +1678,7 @@ window.addEventListener('keydown', e => {
 
         if (key === 't' && !e.repeat) {
             if (myRole === 'Celebrity') return;
-            const isMafiaNight = (myRole === 'Skinwalker' && WORLD.GAME_STATE === 'NIGHT');
-            if (ME.isDead || WORLD.GAME_STATE === 'LOBBY' || (WORLD.GAME_STATE === 'NIGHT' && !isMafiaNight)) return;
+            if (ME.isDead || WORLD.GAME_STATE === 'NIGHT' || WORLD.GAME_STATE === 'LOBBY') return;
             const ui = document.getElementById('target-chooser-ui');
             if (ui.style.display === 'flex') {
                 ui.style.display = 'none';
