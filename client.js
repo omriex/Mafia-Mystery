@@ -173,6 +173,15 @@ function connectToServer() {
             WORLD.MAP.columns  = data.map.columns;
             WORLD.MAP.rows     = data.map.rows;
             WORLD.MAP.layers   = data.map.layers;
+            if (data.map.doors) {
+                WORLD.MAP.doors = data.map.doors;
+                const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
+                if (f2Layer) {
+                    for (const dIdx in WORLD.MAP.doors) {
+                        f2Layer.data[parseInt(dIdx)] = 2;
+                    }
+                }
+            }
             if (data.entities) WORLD.ENTITIES = data.entities;
 
             preRenderMap();
@@ -279,6 +288,11 @@ function connectToServer() {
             const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
             if (layer) {
                 layer.data[data.row * WORLD.MAP.columns + data.col] = data.gid;
+                const dIdx = data.row * WORLD.MAP.columns + data.col;
+                if (WORLD.MAP.doors && WORLD.MAP.doors[dIdx]) {
+                    const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
+                    if (f2Layer) f2Layer.data[dIdx] = 2;
+                }
                 const cx = Math.floor((data.col * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
                 const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
                 renderChunk(cx, cy);
@@ -437,7 +451,15 @@ function resolveCircleCollisions() {
 
                 if (dist < radius) {
                     if (dist === 0) {
-                        pY -= radius;
+                        const lD = pX - tileX;
+                        const rD = (tileX + WORLD.MAP.tileSize) - pX;
+                        const tD = pY - tileY;
+                        const bD = (tileY + WORLD.MAP.tileSize) - pY;
+                        const mD = Math.min(lD, rD, tD, bD);
+                        if (mD === lD) pX = tileX - radius;
+                        else if (mD === rD) pX = tileX + WORLD.MAP.tileSize + radius;
+                        else if (mD === tD) pY = tileY - radius;
+                        else pY = tileY + WORLD.MAP.tileSize + radius;
                     } else {
                         const overlap = radius - dist;
                         pX += (dX / dist) * overlap;
@@ -454,6 +476,97 @@ function resolveCircleCollisions() {
 
         ME.x = pX - ME.width  / 2;
         ME.y = pY - ME.height / 2;
+    }
+}
+
+function resolveCircleVsWalls(p) {
+    const wallLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
+    if (!wallLayer) return;
+
+    const scale = p.scale || 1;
+    const radius = (p.width * scale) / 2;
+
+    for (let iter = 0; iter < 2; iter++) {
+        let pX = p.x + p.width / 2;
+        let pY = p.y + p.height / 2;
+
+        const left   = Math.floor((pX - radius) / WORLD.MAP.tileSize);
+        const right  = Math.floor((pX + radius) / WORLD.MAP.tileSize);
+        const top    = Math.floor((pY - radius) / WORLD.MAP.tileSize);
+        const bottom = Math.floor((pY + radius) / WORLD.MAP.tileSize);
+
+        for (let r = top; r <= bottom; r++) {
+            for (let c = left; c <= right; c++) {
+                if (c < 0 || c >= WORLD.MAP.columns || r < 0 || r >= WORLD.MAP.rows) continue;
+                if (wallLayer.data[r * WORLD.MAP.columns + c] === 0) continue;
+
+                const tileX = c * WORLD.MAP.tileSize;
+                const tileY = r * WORLD.MAP.tileSize;
+
+                const testX = pX < tileX ? tileX : (pX > tileX + WORLD.MAP.tileSize ? tileX + WORLD.MAP.tileSize : pX);
+                const testY = pY < tileY ? tileY : (pY > tileY + WORLD.MAP.tileSize ? tileY + WORLD.MAP.tileSize : pY);
+
+                const dX   = pX - testX;
+                const dY   = pY - testY;
+                const dist = Math.sqrt(dX * dX + dY * dY);
+
+                if (dist < radius) {
+                    if (dist === 0) {
+                        const lD = pX - tileX;
+                        const rD = (tileX + WORLD.MAP.tileSize) - pX;
+                        const tD = pY - tileY;
+                        const bD = (tileY + WORLD.MAP.tileSize) - pY;
+                        const mD = Math.min(lD, rD, tD, bD);
+                        if (mD === lD) pX = tileX - radius;
+                        else if (mD === rD) pX = tileX + WORLD.MAP.tileSize + radius;
+                        else if (mD === tD) pY = tileY - radius;
+                        else pY = tileY + WORLD.MAP.tileSize + radius;
+                    } else {
+                        const overlap = radius - dist;
+                        pX += (dX / dist) * overlap;
+                        pY += (dY / dist) * overlap;
+                    }
+                }
+            }
+        }
+
+        p.x = pX - p.width / 2;
+        p.y = pY - p.height / 2;
+    }
+}
+
+function resolveCircleVsEntities(p) {
+    const scale = p.scale || 1;
+    const radius = (p.width * scale) / 2;
+    for (let iter = 0; iter < 2; iter++) {
+        let pX = p.x + p.width / 2;
+        let pY = p.y + p.height / 2;
+        for (const ent of WORLD.ENTITIES) {
+            const nearX = pX < ent.x ? ent.x : (pX > ent.x + ent.w ? ent.x + ent.w : pX);
+            const nearY = pY < ent.y ? ent.y : (pY > ent.y + ent.h ? ent.y + ent.h : pY);
+            const dX   = pX - nearX;
+            const dY   = pY - nearY;
+            const dist = Math.sqrt(dX * dX + dY * dY);
+            if (dist < radius && dist > 0) {
+                const overlap = radius - dist;
+                const nx = dX / dist;
+                const ny = dY / dist;
+                pX += nx * overlap;
+                pY += ny * overlap;
+            } else if (dist === 0) {
+                const lD = pX - ent.x;
+                const rD = (ent.x + ent.w) - pX;
+                const tD = pY - ent.y;
+                const bD = (ent.y + ent.h) - pY;
+                const mD = Math.min(lD, rD, tD, bD);
+                if (mD === lD) pX = ent.x - radius;
+                else if (mD === rD) pX = ent.x + ent.w + radius;
+                else if (mD === tD) pY = ent.y - radius;
+                else pY = ent.y + ent.h + radius;
+            }
+        }
+        p.x = pX - p.width / 2;
+        p.y = pY - p.height / 2;
     }
 }
 
@@ -483,24 +596,29 @@ function resolvePlayerCollisionsLocal() {
             const nx = dX / dist;
             const ny = dY / dist;
 
-            ME.x += nx * (overlap * 0.65);
-            ME.y += ny * (overlap * 0.65);
+            ME.x += nx * (overlap * 0.25);
+            ME.y += ny * (overlap * 0.25);
+
+            p.x -= nx * (overlap * 0.75);
+            p.y -= ny * (overlap * 0.75);
+
+            resolveCircleVsWalls(p);
+            resolveCircleVsEntities(p);
 
             if (p.renderX !== undefined) {
-                p.renderX -= nx * (overlap * 0.35);
-                p.renderY -= ny * (overlap * 0.35);
+                p.renderX = p.x;
+                p.renderY = p.y;
             }
-            p.x -= nx * (overlap * 0.35);
-            p.y -= ny * (overlap * 0.35);
 
             const dot = ME.vx * nx + ME.vy * ny;
             if (dot < 0) {
-                ME.vx -= dot * nx * 0.7;
-                ME.vy -= dot * ny * 0.7;
+                ME.vx -= dot * nx * 0.25;
+                ME.vy -= dot * ny * 0.25;
             }
         }
     }
     resolveCircleCollisions();
+    resolveEntityCollisions();
 }
 
 function resolveEntityCollisions() {
@@ -528,7 +646,15 @@ function resolveEntityCollisions() {
                     ME.vy -= dot * ny;
                 }
             } else if (dist === 0) {
-                pY -= radius;
+                const lD = pX - ent.x;
+                const rD = (ent.x + ent.w) - pX;
+                const tD = pY - ent.y;
+                const bD = (ent.y + ent.h) - pY;
+                const mD = Math.min(lD, rD, tD, bD);
+                if (mD === lD) pX = ent.x - radius;
+                else if (mD === rD) pX = ent.x + ent.w + radius;
+                else if (mD === tD) pY = ent.y - radius;
+                else pY = ent.y + ent.h + radius;
             }
         }
         ME.x = pX - ME.width  / 2;
@@ -870,7 +996,7 @@ function update(dt) {
     sendPositionUpdate();
 }
 
-function drawChatBubble(ctx, text, x, y) {
+function drawChatBubble(ctx, text, x, y, hasTail = true) {
     ctx.font = "bold 14px 'Segoe UI'";
     const textWidth = ctx.measureText(text).width;
     const bubbleW = textWidth + 24;
@@ -886,11 +1012,13 @@ function drawChatBubble(ctx, text, x, y) {
     }
     ctx.fill();
     
-    ctx.beginPath();
-    ctx.moveTo(x - 6, y);
-    ctx.lineTo(x + 6, y);
-    ctx.lineTo(x, y + 6);
-    ctx.fill();
+    if (hasTail) {
+        ctx.beginPath();
+        ctx.moveTo(x - 6, y);
+        ctx.lineTo(x + 6, y);
+        ctx.lineTo(x, y + 6);
+        ctx.fill();
+    }
     
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
@@ -902,7 +1030,7 @@ function renderChatHistory(ctx, chats, x, bottomY) {
     if (!chats || chats.length === 0) return;
     let currentY = bottomY;
     for (let i = 0; i < chats.length; i++) {
-        drawChatBubble(ctx, chats[i].text, x, currentY);
+        drawChatBubble(ctx, chats[i].text, x, currentY, i === 0);
         currentY -= 36;
     }
 }
@@ -1057,6 +1185,13 @@ function render() {
         }
     }
 
+    drawShadowOverlay(ctx, camX, camY);
+
+    if (nightAlpha > 0) {
+        ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
+        ctx.fillRect(0, 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
+    }
+
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
         if (p.isDead && !ME.isDead) continue;
@@ -1065,13 +1200,6 @@ function render() {
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
     renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
-
-    drawShadowOverlay(ctx, camX, camY);
-
-    if (nightAlpha > 0) {
-        ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
-        ctx.fillRect(0, 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
-    }
 
     ctx.restore();
 }
@@ -1126,14 +1254,50 @@ function renderChunk(cx, cy) {
         const tCtx = layer.name === 'trees' ? fgCtx : bgCtx;
         for (let r = Math.max(0, startRow); r < Math.min(WORLD.MAP.rows, endRow); r++) {
             for (let c = Math.max(0, startCol); c < Math.min(WORLD.MAP.columns, endCol); c++) {
-                const gid = layer.data[r * WORLD.MAP.columns + c];
+                let gid = layer.data[r * WORLD.MAP.columns + c];
+                if (layer.name === 'floor2' && WORLD.MAP.doors && WORLD.MAP.doors[r * WORLD.MAP.columns + c]) {
+                    gid = 2;
+                }
                 if (gid > 0) {
                     const tId = gid - 1;
                     const sx = (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
                     const sy = Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
                     const dx = (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize);
                     const dy = (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize);
-                    tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                    if (gid === 4) {
+                        const floorTId = 1;
+                        const fsx = (floorTId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                        const fsy = Math.floor(floorTId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                        tCtx.drawImage(tilesheetImg, fsx, fsy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+
+                        let side = WORLD.MAP.doors ? WORLD.MAP.doors[r * WORLD.MAP.columns + c] : null;
+                        if (!side) {
+                            const wLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
+                            const topW = (r > 0 && wLayer && wLayer.data[(r - 1) * WORLD.MAP.columns + c] > 0);
+                            const botW = (r < WORLD.MAP.rows - 1 && wLayer && wLayer.data[(r + 1) * WORLD.MAP.columns + c] > 0);
+                            const leftW = (c > 0 && wLayer && wLayer.data[r * WORLD.MAP.columns + c - 1] > 0);
+                            const rightW = (c < WORLD.MAP.columns - 1 && wLayer && wLayer.data[r * WORLD.MAP.columns + c + 1] > 0);
+                            if (leftW && rightW) side = (r < WORLD.MAP.rows / 2) ? 'bottom' : 'top';
+                            else if (topW && botW) side = (c < WORLD.MAP.columns / 2) ? 'right' : 'left';
+                        }
+                        let rot = 0;
+                        if (side === 'bottom') rot = Math.PI / 2;
+                        else if (side === 'left') rot = Math.PI;
+                        else if (side === 'top') rot = -Math.PI / 2;
+                        else if (side === 'right') rot = 0;
+
+                        if (rot !== 0) {
+                            tCtx.save();
+                            tCtx.translate(dx + WORLD.MAP.tileSize / 2, dy + WORLD.MAP.tileSize / 2);
+                            tCtx.rotate(rot);
+                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                            tCtx.restore();
+                        } else {
+                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                        }
+                    } else {
+                        tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                    }
                 }
             }
         }
