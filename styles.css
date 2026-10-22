@@ -664,21 +664,18 @@ body, html {
 
 #mayor-confirm-dialog {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 3000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-}
-
-#mayor-confirm-content {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: rgba(0, 0, 0, 0.92);
     border: 2px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
-    padding: 24px 30px;
-    text-align: center;
-    min-width: 320px;
+    z-index: 2500;
+    width: 380px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
 }
 
 .name-mayor {
