@@ -179,6 +179,10 @@ body, html {
     background-color: rgba(0, 0, 0, 0.8);
 }
 
+#settings-btn:hover svg path {
+    fill: #ffcc00;
+}
+
 #leaderboard-toggle {
     font-size: 10px;
 }
@@ -198,6 +202,126 @@ body, html {
     font-weight: bold;
     font-size: 13px;
     margin-bottom: 2px;
+}
+
+.leaderboard-entry.mayor-revealed {
+    color: #cc88ff;
+}
+
+#settings-btn-wrap {
+    position: fixed;
+    top: 10px;
+    right: 240px;
+    z-index: 1000;
+}
+
+#settings-btn {
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid transparent;
+    border-radius: 4px;
+    padding: 7px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    box-sizing: border-box;
+}
+
+#settings-btn:hover {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#settings-btn:hover svg path {
+    fill: #ffcc00;
+}
+
+#settings-panel {
+    position: fixed;
+    top: 52px;
+    right: 240px;
+    background: rgba(0,0,0,0.92);
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    z-index: 1100;
+    width: 260px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#settings-header {
+    background-color: rgba(0,0,0,0.6);
+    color: white;
+    padding: 10px 14px;
+    font-weight: bold;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#settings-body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #ddd;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.settings-label {
+    flex: 1;
+    margin-right: 12px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #444;
+    border-radius: 22px;
+    transition: 0.2s;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #ffcc00;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(18px);
 }
 
 #role-list-ui {
@@ -265,6 +389,10 @@ body, html {
 
 .role-list-entry.mafia {
     color: #ff5555;
+}
+
+.role-list-entry.dead {
+    color: #888;
 }
 
 #role-tooltip {
@@ -430,4 +558,189 @@ body, html {
     outline: none;
     font-family: 'Segoe UI', Tahoma, sans-serif;
     font-size: 16px;
+}
+
+#vote-tally-panel {
+    position: fixed;
+    bottom: 20px;
+    left: 390px;
+    background: rgba(0,0,0,0.85);
+    border: 2px solid rgba(255,200,0,0.3);
+    border-radius: 8px;
+    z-index: 1200;
+    width: 220px;
+    height: 240px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#vote-tally-header {
+    background-color: rgba(0,0,0,0.6);
+    color: #ffcc00;
+    padding: 8px 14px;
+    font-weight: bold;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255,200,0,0.2);
+}
+
+#vote-tally-list {
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.vote-tally-entry {
+    display: flex;
+    justify-content: space-between;
+    color: #eee;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.vote-tally-entry .vote-count {
+    color: #ffcc00;
+}
+
+.vote-tally-skip {
+    color: #aaa;
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 4px;
+}
+
+#ability-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 10, 20, 0.95);
+    border: 2px solid rgba(255, 200, 0, 0.4);
+    border-radius: 10px;
+    z-index: 2600;
+    width: 320px;
+    box-sizing: border-box;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0,0,40,0.8);
+}
+
+#ability-ui-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,0,0,0.5);
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,200,0,0.2);
+}
+
+#ability-ui-body {
+    padding: 16px;
+    color: #eee;
+    font-size: 13px;
+    min-height: 80px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.ability-section {
+    margin-bottom: 14px;
+}
+
+.ability-section-label {
+    color: #ffcc00;
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.ability-select {
+    width: 100%;
+    background: rgba(0,0,0,0.6);
+    color: #ffffff;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    outline: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.ability-select:focus {
+    border-color: #ffcc00;
+}
+
+.ability-select option {
+    background: #111;
+    color: white;
+}
+
+.ability-confirm-btn {
+    width: 100%;
+    background: rgba(255,200,0,0.15);
+    color: #ffcc00;
+    border: 2px solid rgba(255,200,0,0.4);
+    border-radius: 4px;
+    padding: 9px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin-top: 4px;
+    transition: background 0.15s;
+}
+
+.ability-confirm-btn:hover {
+    background: rgba(255,200,0,0.3);
+}
+
+.ability-passive-msg {
+    color: #888;
+    font-style: italic;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.ability-role-desc {
+    color: #ccc;
+    font-size: 12px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    border-left: 3px solid rgba(255,200,0,0.4);
+}
+
+#mayor-confirm-dialog {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#mayor-confirm-content {
+    background: rgba(10,10,20,0.97);
+    border: 2px solid rgba(200,136,255,0.5);
+    border-radius: 10px;
+    padding: 28px 32px;
+    text-align: center;
+    min-width: 300px;
+}
+
+.name-mayor {
+    color: #cc88ff !important;
 }
