@@ -128,8 +128,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (playBtn) {
         playBtn.addEventListener('click', () => {
             const rawInp = usernameInput.value;
-            const cleanInp = rawInp.replace(/[\s\u0000-\u001F\u007F-\u009F\u2000-\u200F\u2028-\u202F\u205F-\u206F\uFEFF\u3164\uFFA0]/g, ' ').trim();
-            myName = cleanInp || 'Player' + Math.floor(Math.random() * 1000);
+            const cleanInp = rawInp.replace(/[^a-zA-Z]/g, '').trim().substring(0, 14);
+            myName = cleanInp || 'Player';
             localStorage.setItem('playerName', myName);
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
@@ -2083,6 +2083,10 @@ window.addEventListener('keydown', e => {
             }
 
             if (WORLD.GAME_STATE === 'NIGHT') {
+                if (!WORLD.NIGHT_ABILITY_OPEN) {
+                    addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
+                    return;
+                }
                 const abilityUI = document.getElementById('ability-ui');
                 if (abilityUI) {
                     if (abilityUI.style.display === 'block') {
