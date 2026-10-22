@@ -119,22 +119,22 @@
 
 <div id="ability-ui" style="display: none;">
     <div id="ability-ui-header">
-        <span style="color: #ffcc00; font-size: 16px; font-weight: bold;">NIGHT ABILITY</span>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span id="ability-timer-label" style="color: #aaa; font-size: 13px;"></span>
-            <button id="close-ability-btn" style="display: none; background: none; border: none; color: white; font-size: 18px; cursor: pointer; line-height: 1;">✕</button>
-        </div>
+        <span>NIGHT ABILITY</span>
+        <span id="ability-timer-label" style="font-size: 13px; color: #aaa;"></span>
     </div>
     <div id="ability-ui-body"></div>
+    <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;">
+        <button id="close-ability-btn" class="layer-btn danger-btn" style="width: 100%;">Close</button>
+    </div>
 </div>
 
 <div id="mayor-confirm-dialog" style="display: none;">
     <div id="mayor-confirm-content">
-        <div style="color: #cc88ff; font-size: 16px; font-weight: bold; margin-bottom: 10px;">Reveal as Mayor</div>
-        <div style="color: #ddd; font-size: 13px; margin-bottom: 18px;">Reveal yourself as the Mayor? This is permanent.</div>
+        <div style="color: white; font-size: 16px; font-weight: bold; margin-bottom: 10px;">REVEAL AS MAYOR</div>
+        <div style="color: #ddd; font-size: 13px; margin-bottom: 18px; line-height: 1.4;">Reveal yourself as the Mayor? This is permanent.</div>
         <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="mayor-confirm-yes" class="layer-btn" style="background: #cc88ff; border-color: #cc88ff; color: #111;">Confirm</button>
-            <button id="mayor-confirm-no" class="layer-btn danger-btn">Cancel</button>
+            <button id="mayor-confirm-yes" class="layer-btn" style="background: rgba(204, 136, 255, 0.3); border-color: #cc88ff; color: #cc88ff; width: 120px;">Confirm</button>
+            <button id="mayor-confirm-no" class="layer-btn danger-btn" style="width: 120px;">Cancel</button>
         </div>
     </div>
 </div>
