@@ -1,4 +1,6 @@
-multiplayer version of epikmafia
+Multiplayer version of EPIKMAFIA
 
-playable at:
-https://omriex.github.io/Mafia-Mystery/
+Playable at:
+https://mafiamystery.duckdns.org/
+
+Made by omriex
