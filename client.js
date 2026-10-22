@@ -235,184 +235,214 @@ function updateVoteTally(gameState) {
     list.appendChild(skipRow);
 }
 
+let skinwalkerChosenTransform = null;
+let skinwalkerChosenAbilityTarget = null;
+let skinwalkerChosenKillTarget = null;
+
+function sendSkinwalkerAction() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'skinwalker_action',
+            transformRole: skinwalkerChosenTransform,
+            abilityTarget: skinwalkerChosenAbilityTarget,
+            killTarget: skinwalkerChosenKillTarget
+        }));
+    }
+}
+
 function populateAbilityUI() {
     const body = document.getElementById('ability-ui-body');
-    const closeBtn = document.getElementById('close-ability-btn');
     if (!body) return;
-    if (closeBtn) closeBtn.style.display = 'block';
-
     body.innerHTML = '';
 
     if (myRole === 'Celebrity' || myRole === 'Mayor') {
-        body.innerHTML = `<div class="ability-passive-msg">Your role has a passive ability. No night action required.</div>`;
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color: #aaa; font-style: italic; text-align: center; padding: 24px 0; font-size: 13px;';
+        msg.innerText = 'Your role has a passive ability. No night action required.';
+        body.appendChild(msg);
         return;
     }
 
     if (myRole === 'Skinwalker') {
-        const transSection = document.createElement('div');
-        transSection.className = 'ability-section';
-        transSection.innerHTML = `<div class="ability-section-label">Transform Role</div>`;
-        const transSelect = document.createElement('select');
-        transSelect.className = 'ability-select';
+        const tHead = document.createElement('div');
+        tHead.style.cssText = 'color: #ffffff; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
+        tHead.innerText = 'Transform into:';
+        body.appendChild(tHead);
+
+        const roleGrid = document.createElement('div');
+        roleGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
         const transRoles = ['None', 'Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Vigilante', 'Celebrity'];
         transRoles.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r;
-            opt.innerText = r;
-            transSelect.appendChild(opt);
+            const rBtn = document.createElement('button');
+            rBtn.className = 'layer-btn';
+            rBtn.style.cssText = 'width: 100%; font-size: 12px; padding: 6px 10px;';
+            rBtn.innerText = r;
+            const isAct = (r === 'None' && !skinwalkerChosenTransform) || (skinwalkerChosenTransform === r);
+            if (isAct) rBtn.classList.add('active');
+            rBtn.onclick = () => {
+                skinwalkerChosenTransform = (r === 'None') ? null : r;
+                sendSkinwalkerAction();
+                populateAbilityUI();
+            };
+            roleGrid.appendChild(rBtn);
         });
-        transSection.appendChild(transSelect);
-        body.appendChild(transSection);
+        body.appendChild(roleGrid);
 
-        const abilityTargetSection = document.createElement('div');
-        abilityTargetSection.className = 'ability-section';
-        abilityTargetSection.innerHTML = `<div class="ability-section-label">Transformed Role Target</div>`;
-        const abilityTargetSelect = document.createElement('select');
-        abilityTargetSelect.className = 'ability-select';
-        const noOneOpt1 = document.createElement('option');
-        noOneOpt1.value = '';
-        noOneOpt1.innerText = 'No one';
-        abilityTargetSelect.appendChild(noOneOpt1);
-        for (const id in serverPlayers) {
-            const sp = serverPlayers[id];
-            if (sp.isDead) continue;
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.innerText = sp.name;
-            abilityTargetSelect.appendChild(opt);
-        }
-        if (!ME.isDead) {
-            const opt = document.createElement('option');
-            opt.value = myId;
-            opt.innerText = myName + ' (Self)';
-            abilityTargetSelect.appendChild(opt);
-        }
-        abilityTargetSection.appendChild(abilityTargetSelect);
-        body.appendChild(abilityTargetSection);
+        if (skinwalkerChosenTransform && skinwalkerChosenTransform !== 'Celebrity') {
+            const aHead = document.createElement('div');
+            aHead.style.cssText = 'color: #ffffff; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
+            aHead.innerText = 'Use ' + skinwalkerChosenTransform + ' ability on:';
+            body.appendChild(aHead);
 
-        const killSection = document.createElement('div');
-        killSection.className = 'ability-section';
-        killSection.innerHTML = `<div class="ability-section-label">Mafia Kill Target</div>`;
-        const killSelect = document.createElement('select');
-        killSelect.className = 'ability-select';
-        const noOneOpt2 = document.createElement('option');
-        noOneOpt2.value = '';
-        noOneOpt2.innerText = 'No one';
-        killSelect.appendChild(noOneOpt2);
-        for (const id in serverPlayers) {
-            const sp = serverPlayers[id];
-            if (sp.isDead) continue;
-            const opt = document.createElement('option');
-            opt.value = id;
-            opt.innerText = sp.name;
-            if (WORLD.CURRENT_TARGET === parseInt(id)) opt.selected = true;
-            killSelect.appendChild(opt);
-        }
-        killSection.appendChild(killSelect);
-        body.appendChild(killSection);
+            const aList = document.createElement('div');
+            aList.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 120px; overflow-y: auto; margin-bottom: 10px;';
 
-        const confirmBtn = document.createElement('button');
-        confirmBtn.className = 'ability-confirm-btn';
-        confirmBtn.innerText = 'CONFIRM ACTIONS';
-        confirmBtn.onclick = () => {
-            const chosenTrans = transSelect.value === 'None' ? null : transSelect.value;
-            const chosenAbilityTarget = abilityTargetSelect.value ? parseInt(abilityTargetSelect.value) : null;
-            const chosenKillTarget = killSelect.value ? parseInt(killSelect.value) : null;
-            WORLD.CURRENT_TARGET = chosenKillTarget;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'skinwalker_action',
-                    transformRole: chosenTrans,
-                    abilityTarget: chosenAbilityTarget,
-                    killTarget: chosenKillTarget
-                }));
+            const noTargetBtn = document.createElement('button');
+            noTargetBtn.className = 'layer-btn';
+            noTargetBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+            noTargetBtn.innerText = 'No one';
+            if (!skinwalkerChosenAbilityTarget) noTargetBtn.classList.add('active');
+            noTargetBtn.onclick = () => {
+                skinwalkerChosenAbilityTarget = null;
+                sendSkinwalkerAction();
+                populateAbilityUI();
+            };
+            aList.appendChild(noTargetBtn);
+
+            for (const id in serverPlayers) {
+                const sp = serverPlayers[id];
+                if (sp.isDead) continue;
+                const pBtn = document.createElement('button');
+                pBtn.className = 'layer-btn';
+                pBtn.style.cssText = 'width: 100%;';
+                pBtn.innerText = sp.name;
+                if (skinwalkerChosenAbilityTarget === parseInt(id)) pBtn.classList.add('active');
+                pBtn.onclick = () => {
+                    skinwalkerChosenAbilityTarget = parseInt(id);
+                    sendSkinwalkerAction();
+                    populateAbilityUI();
+                };
+                aList.appendChild(pBtn);
             }
-            confirmBtn.innerText = 'ACTION CONFIRMED';
-            setTimeout(() => {
-                const ui = document.getElementById('ability-ui');
-                if (ui) ui.style.display = 'none';
-            }, 500);
+            body.appendChild(aList);
+        }
+
+        const kHead = document.createElement('div');
+        kHead.style.cssText = 'color: #ff5555; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
+        kHead.innerText = 'Mafia Kill Target:';
+        body.appendChild(kHead);
+
+        const kList = document.createElement('div');
+        kList.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 130px; overflow-y: auto;';
+
+        const noKillBtn = document.createElement('button');
+        noKillBtn.className = 'layer-btn';
+        noKillBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+        noKillBtn.innerText = 'No one';
+        if (!skinwalkerChosenKillTarget && !WORLD.CURRENT_TARGET) noKillBtn.classList.add('active');
+        noKillBtn.onclick = () => {
+            skinwalkerChosenKillTarget = null;
+            WORLD.CURRENT_TARGET = null;
+            sendSkinwalkerAction();
+            populateAbilityUI();
         };
-        body.appendChild(confirmBtn);
+        kList.appendChild(noKillBtn);
+
+        for (const id in serverPlayers) {
+            const sp = serverPlayers[id];
+            if (sp.isDead) continue;
+            const kBtn = document.createElement('button');
+            kBtn.className = 'layer-btn';
+            kBtn.style.cssText = 'width: 100%;';
+            kBtn.innerText = sp.name;
+            if (skinwalkerChosenKillTarget === parseInt(id) || WORLD.CURRENT_TARGET === parseInt(id)) kBtn.classList.add('active');
+            kBtn.onclick = () => {
+                skinwalkerChosenKillTarget = parseInt(id);
+                WORLD.CURRENT_TARGET = parseInt(id);
+                sendSkinwalkerAction();
+                populateAbilityUI();
+            };
+            kList.appendChild(kBtn);
+        }
+        body.appendChild(kList);
         return;
     }
 
     let roleDesc = '';
-    let btnText = 'CONFIRM TARGET';
     let allowSelf = false;
 
     if (myRole === 'Doctor') {
-        roleDesc = 'Heal and protect your target from death tonight:';
-        btnText = 'HEAL TARGET';
+        roleDesc = 'Select a player to heal and protect tonight:';
         allowSelf = true;
     } else if (myRole === 'Investigator') {
-        roleDesc = 'Investigate your target to narrow down their possible roles:';
-        btnText = 'INVESTIGATE';
+        roleDesc = 'Select a player to investigate tonight:';
     } else if (myRole === 'Tracker') {
-        roleDesc = 'Track your target to see who they visit tonight:';
-        btnText = 'TRACK';
+        roleDesc = 'Select a player to track visits tonight:';
     } else if (myRole === 'Archer') {
-        roleDesc = 'Watch over a player and shoot anyone hostile who visits them:';
-        btnText = 'GUARD';
+        roleDesc = 'Select a player to guard from harmful visitors:';
     } else if (myRole === 'Escort') {
-        roleDesc = 'Visit a player to roleblock them and stop their night action:';
-        btnText = 'ROLEBLOCK';
+        roleDesc = 'Select a player to roleblock tonight:';
     } else if (myRole === 'Vigilante') {
-        roleDesc = 'Shoot a player tonight. Be careful not to shoot fellow town members!';
-        btnText = 'SHOOT';
+        roleDesc = 'Select a player to shoot tonight:';
     }
 
     const descDiv = document.createElement('div');
-    descDiv.className = 'ability-role-desc';
+    descDiv.style.cssText = 'color: #ddd; font-size: 13px; font-weight: normal; line-height: 1.4; margin-bottom: 4px;';
     descDiv.innerText = roleDesc;
     body.appendChild(descDiv);
 
-    const targetSection = document.createElement('div');
-    targetSection.className = 'ability-section';
-    const targetSelect = document.createElement('select');
-    targetSelect.className = 'ability-select';
-    const noOneOpt = document.createElement('option');
-    noOneOpt.value = '';
-    noOneOpt.innerText = 'No one';
-    targetSelect.appendChild(noOneOpt);
+    const listDiv = document.createElement('div');
+    listDiv.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto;';
+
+    const noOneBtn = document.createElement('button');
+    noOneBtn.className = 'layer-btn';
+    noOneBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+    noOneBtn.innerText = 'No one';
+    if (WORLD.CURRENT_TARGET === null) noOneBtn.classList.add('active');
+    noOneBtn.onclick = () => {
+        WORLD.CURRENT_TARGET = null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'action_target', targetId: null }));
+        }
+        populateAbilityUI();
+    };
+    listDiv.appendChild(noOneBtn);
 
     for (const id in serverPlayers) {
         const sp = serverPlayers[id];
         if (sp.isDead) continue;
-        const opt = document.createElement('option');
-        opt.value = id;
-        opt.innerText = sp.name;
-        if (WORLD.CURRENT_TARGET === parseInt(id)) opt.selected = true;
-        targetSelect.appendChild(opt);
+        const btn = document.createElement('button');
+        btn.className = 'layer-btn';
+        btn.style.cssText = 'width: 100%;';
+        btn.innerText = sp.name;
+        if (WORLD.CURRENT_TARGET === parseInt(id)) btn.classList.add('active');
+        btn.onclick = () => {
+            WORLD.CURRENT_TARGET = parseInt(id);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
+            }
+            populateAbilityUI();
+        };
+        listDiv.appendChild(btn);
     }
 
     if (allowSelf && !ME.isDead) {
-        const opt = document.createElement('option');
-        opt.value = myId;
-        opt.innerText = myName + ' (Self)';
-        if (WORLD.CURRENT_TARGET === myId) opt.selected = true;
-        targetSelect.appendChild(opt);
+        const selfBtn = document.createElement('button');
+        selfBtn.className = 'layer-btn';
+        selfBtn.style.cssText = 'width: 100%;';
+        selfBtn.innerText = myName + ' (Self)';
+        if (WORLD.CURRENT_TARGET === myId) selfBtn.classList.add('active');
+        selfBtn.onclick = () => {
+            WORLD.CURRENT_TARGET = myId;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'action_target', targetId: myId }));
+            }
+            populateAbilityUI();
+        };
+        listDiv.appendChild(selfBtn);
     }
 
-    targetSection.appendChild(targetSelect);
-    body.appendChild(targetSection);
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'ability-confirm-btn';
-    confirmBtn.innerText = btnText;
-    confirmBtn.onclick = () => {
-        const chosen = targetSelect.value ? parseInt(targetSelect.value) : null;
-        WORLD.CURRENT_TARGET = chosen;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'action_target', targetId: chosen }));
-        }
-        confirmBtn.innerText = 'TARGET CONFIRMED';
-        setTimeout(() => {
-            const ui = document.getElementById('ability-ui');
-            if (ui) ui.style.display = 'none';
-        }, 500);
-    };
-    body.appendChild(confirmBtn);
+    body.appendChild(listDiv);
 }
 
 function connectToServer() {
