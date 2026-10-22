@@ -600,7 +600,7 @@ function connectToServer() {
                         phaseText = `DAY ${data.game.dayCount || 1} VOTING`;
                         document.getElementById('phase-timer').innerText = data.game.timer + 's';
                     } else if (data.game.state === 'NIGHT') {
-                        const nNum = Math.max(1, (data.game.dayCount || 2) - 1);
+                        const nNum = data.game.dayCount || 1;
                         if (data.game.nightAbilityOpen) {
                             phaseText = `NIGHT ${nNum} ABILITY PHASE`;
                             const aTimer = data.game.abilityTimer !== undefined ? data.game.abilityTimer : data.game.timer;
@@ -682,7 +682,7 @@ function connectToServer() {
             }
         } else if (data.type === 'role_assign') {
             myRole = data.role;
-            ME.isDead = false;
+            ME.isDead = (myRole === 'Spectator');
             revealedMayors.clear();
             WORLD.CURRENT_TARGET = null;
             skinwalkerChosenTransform = null;
@@ -693,7 +693,7 @@ function connectToServer() {
             if (abilityUiOnAssign) abilityUiOnAssign.style.display = 'none';
             document.getElementById('role-ui').style.display = 'block';
             document.getElementById('my-role-name').innerText = myRole;
-            addChatLog(`Game started! Your role is: ${myRole}`, true);
+            addChatLog(myRole === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
 
             let info = "";
             if (myRole === 'Investigator') info = "Investigate during the first 15s of night to narrow down roles.";
@@ -1490,7 +1490,7 @@ function render() {
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
-            const isTargetMayor = revealedMayors.has(parseInt(id));
+            const isTargetMayor = revealedMayors.has(parseInt(id)) && !p.isDead;
             ctx.fillStyle = isTargetMayor ? '#cc88ff' : '#ffffff';
             const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' (Host)' : ''));
             ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
@@ -1519,7 +1519,7 @@ function render() {
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0,0,0,0.85)';
         ctx.font = "bold 13px 'Segoe UI'";
-        const amIMayor = revealedMayors.has(myId);
+        const amIMayor = revealedMayors.has(myId) && !ME.isDead;
         ctx.fillStyle = amIMayor ? '#cc88ff' : '#ffffff';
         const myLabel = amIDark ? '???' : (myName + (isOwner ? ' (Host)' : ''));
         ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
@@ -1925,7 +1925,7 @@ function updateLeaderboard() {
     selfDiv.className = 'leaderboard-entry';
     const selfSpan = document.createElement('span');
     selfSpan.textContent = myName + (isOwner ? ' (Host)' : '');
-    if (revealedMayors.has(myId)) {
+    if (revealedMayors.has(myId) && !ME.isDead) {
         selfSpan.style.color = '#cc88ff';
     }
     selfDiv.appendChild(selfSpan);
@@ -1936,7 +1936,7 @@ function updateLeaderboard() {
         div.className = 'leaderboard-entry';
         const span = document.createElement('span');
         span.textContent = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' (Host)' : '');
-        if (revealedMayors.has(parseInt(id))) {
+        if (revealedMayors.has(parseInt(id)) && !serverPlayers[id].isDead) {
             span.style.color = '#cc88ff';
         }
         div.appendChild(span);
