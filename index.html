@@ -129,13 +129,14 @@
 </div>
 
 <div id="mayor-confirm-dialog" style="display: none;">
-    <div id="mayor-confirm-content">
-        <div style="color: white; font-size: 16px; font-weight: bold; margin-bottom: 10px;">REVEAL AS MAYOR</div>
-        <div style="color: #ddd; font-size: 13px; margin-bottom: 18px; line-height: 1.4;">Reveal yourself as the Mayor? This is permanent.</div>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="mayor-confirm-yes" class="layer-btn" style="background: rgba(204, 136, 255, 0.3); border-color: #cc88ff; color: #cc88ff; width: 120px;">Confirm</button>
-            <button id="mayor-confirm-no" class="layer-btn danger-btn" style="width: 120px;">Cancel</button>
-        </div>
+    <div style="background-color: rgba(0, 0, 0, 0.6); color: white; padding: 12px 20px; font-weight: bold; font-size: 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); text-align: center;">REVEAL AS MAYOR</div>
+    <div style="padding: 18px 20px; color: #ddd; font-size: 13px; line-height: 1.5; text-align: center;">
+        Are you sure you want to publicly reveal yourself as the Mayor?<br>
+        <span style="color: #aaa; font-size: 12px;">This is permanent and your vote will count as double.</span>
+    </div>
+    <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; gap: 10px; justify-content: center; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <button id="mayor-confirm-yes" class="layer-btn" style="flex: 1;">Confirm</button>
+        <button id="mayor-confirm-no" class="layer-btn danger-btn" style="flex: 1;">Cancel</button>
     </div>
 </div>
 
@@ -157,6 +158,7 @@
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[H]</span><span>Toggle Controls Guide</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/vote [Player]</span><span>Vote player out (Voting phase)</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/skip</span><span>Skip vote (Voting phase)</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/forcerole [Role]</span><span>Host: force role (Testing)</span></div>
         <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 8px; font-size: 12px; color: #aaa; font-weight: normal; line-height: 1.4;">
             Town must eliminate all Mafia. Mafia kills at night. Use the Ability UI at night start (auto-opens for 15s). Write your will (Tab) before night falls!
         </div>
