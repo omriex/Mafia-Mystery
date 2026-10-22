@@ -128,7 +128,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (playBtn) {
         playBtn.addEventListener('click', () => {
             const rawInp = usernameInput.value;
-            const cleanInp = rawInp.replace(/[^a-zA-Z]/g, '').trim().substring(0, 14);
+            const cleanInp = rawInp.replace(/<[^>]*>/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().substring(0, 14);
             myName = cleanInp || 'Player';
             localStorage.setItem('playerName', myName);
             document.getElementById('main-menu-ui').style.display = 'none';
@@ -233,7 +233,13 @@ function updateVoteTally(gameState) {
         const pName = (parseInt(id) === myId) ? myName : (serverPlayers[id] ? serverPlayers[id].name : `Player ${id}`);
         const row = document.createElement('div');
         row.className = 'vote-tally-entry';
-        row.innerHTML = `<span>${pName}</span><span class="vote-count">${counts[id]} vote${counts[id] === 1 ? '' : 's'}</span>`;
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = pName;
+        const countSpan = document.createElement('span');
+        countSpan.className = 'vote-count';
+        countSpan.textContent = `${counts[id]} vote${counts[id] === 1 ? '' : 's'}`;
+        row.appendChild(nameSpan);
+        row.appendChild(countSpan);
         list.appendChild(row);
     }
 
