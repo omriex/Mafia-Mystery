@@ -51,6 +51,30 @@
     </div>
 </div>
 
+<div id="settings-btn-wrap" style="display: none;">
+    <button id="settings-btn" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.69.07-1.08s-.03-.74-.07-1.08l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.34-.07.69-.07 1.08s.03.74.07 1.08l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.58 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65z" fill="#ffffff"/>
+        </svg>
+    </button>
+</div>
+
+<div id="settings-panel" style="display: none;">
+    <div id="settings-header">SETTINGS</div>
+    <div id="settings-body">
+        <div class="settings-row">
+            <span class="settings-label">Mouse-relative movement</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="setting-mouse-relative">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    <div style="padding: 10px 16px;">
+        <button id="close-settings-btn" class="layer-btn danger-btn" style="width: 100%;">Close</button>
+    </div>
+</div>
+
 <div id="leaderboard-ui" style="display: none;">
     <div id="leaderboard-header">
         <span>LEADERBOARD</span>
@@ -84,8 +108,35 @@
     <div id="phase-timer" style="font-size: 14px; color: #aaa;">0s</div>
 </div>
 
+<div id="vote-tally-panel" style="display: none;">
+    <div id="vote-tally-header">VOTE TALLY</div>
+    <div id="vote-tally-list"></div>
+</div>
+
 <div id="role-ui" style="display: none; position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); font-weight: bold; z-index: 1000;">
     Role: <span id="my-role-name" style="color: #ffcc00;">None</span>
+</div>
+
+<div id="ability-ui" style="display: none;">
+    <div id="ability-ui-header">
+        <span style="color: #ffcc00; font-size: 16px; font-weight: bold;">NIGHT ABILITY</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="ability-timer-label" style="color: #aaa; font-size: 13px;"></span>
+            <button id="close-ability-btn" style="display: none; background: none; border: none; color: white; font-size: 18px; cursor: pointer; line-height: 1;">✕</button>
+        </div>
+    </div>
+    <div id="ability-ui-body"></div>
+</div>
+
+<div id="mayor-confirm-dialog" style="display: none;">
+    <div id="mayor-confirm-content">
+        <div style="color: #cc88ff; font-size: 16px; font-weight: bold; margin-bottom: 10px;">Reveal as Mayor</div>
+        <div style="color: #ddd; font-size: 13px; margin-bottom: 18px;">Reveal yourself as the Mayor? This is permanent.</div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="mayor-confirm-yes" class="layer-btn" style="background: #cc88ff; border-color: #cc88ff; color: #111;">Confirm</button>
+            <button id="mayor-confirm-no" class="layer-btn danger-btn">Cancel</button>
+        </div>
+    </div>
 </div>
 
 <div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
@@ -101,12 +152,13 @@
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Shift]</span><span>Sprint</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Enter]</span><span>Chat</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[Tab]</span><span>Toggle Last Will</span></div>
-        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[T]</span><span>Target / Ability (Day)</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[T]</span><span>Open Ability UI (Night) / Reveal as Mayor</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[E]</span><span>Open / Close Doors</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">[H]</span><span>Toggle Controls Guide</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/vote [Player]</span><span>Vote player out (Voting phase)</span></div>
+        <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/skip</span><span>Skip vote (Voting phase)</span></div>
         <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 8px; font-size: 12px; color: #aaa; font-weight: normal; line-height: 1.4;">
-            Town must eliminate all Mafia. Mafia kills at night. Plan your targets during the day (press T). Write your will (Tab) before night falls!
+            Town must eliminate all Mafia. Mafia kills at night. Use the Ability UI at night start (auto-opens for 15s). Write your will (Tab) before night falls!
         </div>
     </div>
     <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;">
