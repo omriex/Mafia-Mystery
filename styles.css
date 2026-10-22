@@ -556,12 +556,12 @@ body, html {
     position: fixed;
     bottom: 20px;
     left: 390px;
-    background: rgba(0,0,0,0.85);
-    border: 2px solid rgba(255,200,0,0.3);
+    background: rgba(0,0,0,0.92);
+    border: 2px solid rgba(255,255,255,0.15);
     border-radius: 8px;
     z-index: 1200;
     width: 220px;
-    height: 240px;
+    max-height: 280px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -570,11 +570,11 @@ body, html {
 
 #vote-tally-header {
     background-color: rgba(0,0,0,0.6);
-    color: #ffcc00;
+    color: #fff;
     padding: 8px 14px;
     font-weight: bold;
     font-size: 13px;
-    border-bottom: 1px solid rgba(255,200,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 #vote-tally-list {
