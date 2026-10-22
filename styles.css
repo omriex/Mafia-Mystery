@@ -179,10 +179,6 @@ body, html {
     background-color: rgba(0, 0, 0, 0.8);
 }
 
-#settings-btn:hover svg path {
-    fill: #ffcc00;
-}
-
 #leaderboard-toggle {
     font-size: 10px;
 }
@@ -232,10 +228,6 @@ body, html {
 #settings-btn:hover {
     border-color: #ffffff;
     background-color: rgba(0, 0, 0, 0.8);
-}
-
-#settings-btn:hover svg path {
-    fill: #ffcc00;
 }
 
 #settings-panel {
@@ -653,6 +645,21 @@ body, html {
     font-weight: bold;
     max-height: 380px;
     overflow-y: auto;
+}
+
+#ability-ui-body::-webkit-scrollbar {
+    width: 6px;
+}
+#ability-ui-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+#ability-ui-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+#ability-ui-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
 }
 
 #mayor-confirm-dialog {
