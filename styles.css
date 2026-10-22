@@ -301,7 +301,7 @@ body, html {
     top: 0; left: 0; right: 0; bottom: 0;
     background-color: #444;
     border-radius: 22px;
-    transition: 0.2s;
+    transition: none;
 }
 
 .toggle-slider:before {
@@ -313,7 +313,7 @@ body, html {
     bottom: 3px;
     background-color: white;
     border-radius: 50%;
-    transition: 0.2s;
+    transition: none;
 }
 
 .toggle-switch input:checked + .toggle-slider {
@@ -620,125 +620,58 @@ body, html {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 10, 20, 0.95);
-    border: 2px solid rgba(255, 200, 0, 0.4);
-    border-radius: 10px;
-    z-index: 2600;
-    width: 320px;
+    background: rgba(0, 0, 0, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    z-index: 2500;
+    width: 440px;
     box-sizing: border-box;
     overflow: hidden;
-    box-shadow: 0 0 30px rgba(0,0,40,0.8);
+    display: none;
+    flex-direction: column;
 }
 
 #ability-ui-header {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 12px 20px;
+    font-weight: bold;
+    font-size: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(0,0,0,0.5);
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255,200,0,0.2);
 }
 
 #ability-ui-body {
-    padding: 16px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     color: #eee;
     font-size: 13px;
-    min-height: 80px;
-    max-height: 400px;
+    font-weight: bold;
+    max-height: 380px;
     overflow-y: auto;
-}
-
-.ability-section {
-    margin-bottom: 14px;
-}
-
-.ability-section-label {
-    color: #ffcc00;
-    font-weight: bold;
-    font-size: 12px;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.ability-select {
-    width: 100%;
-    background: rgba(0,0,0,0.6);
-    color: #ffffff;
-    border: 2px solid rgba(255,255,255,0.2);
-    border-radius: 4px;
-    padding: 8px 10px;
-    font-size: 13px;
-    font-weight: bold;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    outline: none;
-    cursor: pointer;
-    box-sizing: border-box;
-}
-
-.ability-select:focus {
-    border-color: #ffcc00;
-}
-
-.ability-select option {
-    background: #111;
-    color: white;
-}
-
-.ability-confirm-btn {
-    width: 100%;
-    background: rgba(255,200,0,0.15);
-    color: #ffcc00;
-    border: 2px solid rgba(255,200,0,0.4);
-    border-radius: 4px;
-    padding: 9px;
-    font-size: 13px;
-    font-weight: bold;
-    cursor: pointer;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin-top: 4px;
-    transition: background 0.15s;
-}
-
-.ability-confirm-btn:hover {
-    background: rgba(255,200,0,0.3);
-}
-
-.ability-passive-msg {
-    color: #888;
-    font-style: italic;
-    text-align: center;
-    padding: 20px 0;
-}
-
-.ability-role-desc {
-    color: #ccc;
-    font-size: 12px;
-    line-height: 1.5;
-    margin-bottom: 12px;
-    padding: 8px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 4px;
-    border-left: 3px solid rgba(255,200,0,0.4);
 }
 
 #mayor-confirm-dialog {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0, 0, 0, 0.6);
     z-index: 3000;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
 }
 
 #mayor-confirm-content {
-    background: rgba(10,10,20,0.97);
-    border: 2px solid rgba(200,136,255,0.5);
-    border-radius: 10px;
-    padding: 28px 32px;
+    background: rgba(0, 0, 0, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 24px 30px;
     text-align: center;
-    min-width: 300px;
+    min-width: 320px;
 }
 
 .name-mayor {
