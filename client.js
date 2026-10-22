@@ -135,7 +135,7 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
     
     _params.set('ngrok-skip-browser-warning', 'true');
-    const _ngrokURL = 'wss://texas-jade-scotia-heavily.trycloudflare.com';
+    const _ngrokURL = 'wss://displaying-animal-contribute-wholesale.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
