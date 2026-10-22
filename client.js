@@ -118,11 +118,19 @@ const tableImg = new Image();
 
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
+    const usernameInput = document.getElementById('username-input');
+
+    const savedName = localStorage.getItem('playerName');
+    if (savedName && usernameInput) {
+        usernameInput.value = savedName;
+    }
+
     if (playBtn) {
         playBtn.addEventListener('click', () => {
-            const rawInp = document.getElementById('username-input').value;
+            const rawInp = usernameInput.value;
             const cleanInp = rawInp.replace(/[\s\u0000-\u001F\u007F-\u009F\u2000-\u200F\u2028-\u202F\u205F-\u206F\uFEFF\u3164\uFFA0]/g, ' ').trim();
             myName = cleanInp || 'Player' + Math.floor(Math.random() * 1000);
+            localStorage.setItem('playerName', myName);
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
             connectToServer();
@@ -295,11 +303,11 @@ function populateAbilityUI() {
             body.appendChild(aHead);
 
             const aList = document.createElement('div');
-            aList.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 120px; overflow-y: auto; margin-bottom: 10px;';
+            aList.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
 
             const noTargetBtn = document.createElement('button');
             noTargetBtn.className = 'layer-btn';
-            noTargetBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+            noTargetBtn.style.cssText = 'grid-column: span 2; color: #aaa; font-style: italic;';
             noTargetBtn.innerText = 'No one';
             if (!skinwalkerChosenAbilityTarget) noTargetBtn.classList.add('active');
             noTargetBtn.onclick = () => {
@@ -314,7 +322,6 @@ function populateAbilityUI() {
                 if (sp.isDead) continue;
                 const pBtn = document.createElement('button');
                 pBtn.className = 'layer-btn';
-                pBtn.style.cssText = 'width: 100%;';
                 pBtn.innerText = sp.name;
                 if (skinwalkerChosenAbilityTarget === parseInt(id)) pBtn.classList.add('active');
                 pBtn.onclick = () => {
@@ -333,11 +340,11 @@ function populateAbilityUI() {
         body.appendChild(kHead);
 
         const kList = document.createElement('div');
-        kList.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 130px; overflow-y: auto;';
+        kList.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px;';
 
         const noKillBtn = document.createElement('button');
         noKillBtn.className = 'layer-btn';
-        noKillBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+        noKillBtn.style.cssText = 'grid-column: span 2; color: #aaa; font-style: italic;';
         noKillBtn.innerText = 'No one';
         if (!skinwalkerChosenKillTarget && !WORLD.CURRENT_TARGET) noKillBtn.classList.add('active');
         noKillBtn.onclick = () => {
@@ -353,7 +360,6 @@ function populateAbilityUI() {
             if (sp.isDead) continue;
             const kBtn = document.createElement('button');
             kBtn.className = 'layer-btn';
-            kBtn.style.cssText = 'width: 100%;';
             kBtn.innerText = sp.name;
             if (skinwalkerChosenKillTarget === parseInt(id) || WORLD.CURRENT_TARGET === parseInt(id)) kBtn.classList.add('active');
             kBtn.onclick = () => {
@@ -392,11 +398,11 @@ function populateAbilityUI() {
     body.appendChild(descDiv);
 
     const listDiv = document.createElement('div');
-    listDiv.style.cssText = 'display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto;';
+    listDiv.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px;';
 
     const noOneBtn = document.createElement('button');
     noOneBtn.className = 'layer-btn';
-    noOneBtn.style.cssText = 'width: 100%; color: #aaa; font-style: italic;';
+    noOneBtn.style.cssText = 'grid-column: span 2; color: #aaa; font-style: italic;';
     noOneBtn.innerText = 'No one';
     if (WORLD.CURRENT_TARGET === null) noOneBtn.classList.add('active');
     noOneBtn.onclick = () => {
@@ -413,7 +419,6 @@ function populateAbilityUI() {
         if (sp.isDead) continue;
         const btn = document.createElement('button');
         btn.className = 'layer-btn';
-        btn.style.cssText = 'width: 100%;';
         btn.innerText = sp.name;
         if (WORLD.CURRENT_TARGET === parseInt(id)) btn.classList.add('active');
         btn.onclick = () => {
@@ -429,7 +434,7 @@ function populateAbilityUI() {
     if (allowSelf && !ME.isDead) {
         const selfBtn = document.createElement('button');
         selfBtn.className = 'layer-btn';
-        selfBtn.style.cssText = 'width: 100%;';
+        selfBtn.style.cssText = 'grid-column: span 2;';
         selfBtn.innerText = myName + ' (Self)';
         if (WORLD.CURRENT_TARGET === myId) selfBtn.classList.add('active');
         selfBtn.onclick = () => {
@@ -571,6 +576,12 @@ function connectToServer() {
                         const abilityUI = document.getElementById('ability-ui');
                         if (abilityUI) abilityUI.style.display = 'none';
                     }
+                    if (WORLD.GAME_STATE === 'NIGHT') {
+                        ME.chats = [];
+                        for (const id in serverPlayers) {
+                            serverPlayers[id].chats = [];
+                        }
+                    }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
                 }
 
@@ -593,7 +604,7 @@ function connectToServer() {
                 if (data.game.state === 'NIGHT') {
                     const timerLbl = document.getElementById('ability-timer-label');
                     if (timerLbl) {
-                        timerLbl.innerText = data.game.nightAbilityOpen ? `Ability: ${data.game.timer}s` : 'Visits active';
+                        timerLbl.innerText = data.game.nightAbilityOpen ? `${data.game.timer}s` : '';
                     }
                     if (data.game.nightAbilityOpen && !abilityUIOpenedThisNight && !ME.isDead) {
                         abilityUIOpenedThisNight = true;
