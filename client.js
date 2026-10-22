@@ -563,6 +563,7 @@ function connectToServer() {
 
             if (data.game) {
                 WORLD.GAME_STATE = data.game.state;
+                WORLD.NIGHT_ABILITY_OPEN = data.game.nightAbilityOpen;
 
                 if (data.game.mayorRevealed) {
                     for (const mId in data.game.mayorRevealed) {
@@ -573,6 +574,9 @@ function connectToServer() {
                 if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
                     if (WORLD.GAME_STATE !== 'NIGHT') {
                         WORLD.CURRENT_TARGET = null;
+                        skinwalkerChosenTransform = null;
+                        skinwalkerChosenAbilityTarget = null;
+                        skinwalkerChosenKillTarget = null;
                         const abilityUI = document.getElementById('ability-ui');
                         if (abilityUI) abilityUI.style.display = 'none';
                     }
@@ -591,26 +595,41 @@ function connectToServer() {
                     let phaseText = data.game.state.replace('_', ' ');
                     if (data.game.state === 'DAY_DISCUSS') {
                         phaseText = `DAY ${data.game.dayCount || 1} DISCUSSION`;
+                        document.getElementById('phase-timer').innerText = data.game.timer + 's';
                     } else if (data.game.state === 'DAY_VOTE') {
                         phaseText = `DAY ${data.game.dayCount || 1} VOTING`;
+                        document.getElementById('phase-timer').innerText = data.game.timer + 's';
                     } else if (data.game.state === 'NIGHT') {
                         const nNum = Math.max(1, (data.game.dayCount || 2) - 1);
-                        phaseText = `NIGHT ${nNum}`;
+                        if (data.game.nightAbilityOpen) {
+                            phaseText = `NIGHT ${nNum} ABILITY PHASE`;
+                            const aTimer = data.game.abilityTimer !== undefined ? data.game.abilityTimer : data.game.timer;
+                            document.getElementById('phase-timer').innerText = aTimer + 's';
+                        } else {
+                            phaseText = `NIGHT ${nNum}`;
+                            document.getElementById('phase-timer').innerText = data.game.timer + 's';
+                        }
                     }
                     document.getElementById('phase-name').innerText = phaseText;
-                    document.getElementById('phase-timer').innerText = data.game.timer + 's';
                 }
 
                 if (data.game.state === 'NIGHT') {
                     const timerLbl = document.getElementById('ability-timer-label');
                     if (timerLbl) {
-                        timerLbl.innerText = data.game.nightAbilityOpen ? `${data.game.timer}s` : '';
+                        const aTimer = data.game.abilityTimer !== undefined ? data.game.abilityTimer : data.game.timer;
+                        timerLbl.innerText = data.game.nightAbilityOpen ? `${aTimer}s` : '';
                     }
                     if (data.game.nightAbilityOpen && !abilityUIOpenedThisNight && !ME.isDead) {
                         abilityUIOpenedThisNight = true;
                         populateAbilityUI();
                         const ui = document.getElementById('ability-ui');
                         if (ui) ui.style.display = 'block';
+                    }
+                    if (!data.game.nightAbilityOpen) {
+                        const ui = document.getElementById('ability-ui');
+                        if (ui && ui.style.display === 'block') {
+                            ui.style.display = 'none';
+                        }
                     }
                 } else {
                     abilityUIOpenedThisNight = false;
@@ -665,6 +684,13 @@ function connectToServer() {
             myRole = data.role;
             ME.isDead = false;
             revealedMayors.clear();
+            WORLD.CURRENT_TARGET = null;
+            skinwalkerChosenTransform = null;
+            skinwalkerChosenAbilityTarget = null;
+            skinwalkerChosenKillTarget = null;
+            abilityUIOpenedThisNight = false;
+            const abilityUiOnAssign = document.getElementById('ability-ui');
+            if (abilityUiOnAssign) abilityUiOnAssign.style.display = 'none';
             document.getElementById('role-ui').style.display = 'block';
             document.getElementById('my-role-name').innerText = myRole;
             addChatLog(`Game started! Your role is: ${myRole}`, true);
@@ -691,6 +717,11 @@ function connectToServer() {
             myRole = null;
             ME.isDead = false;
             revealedMayors.clear();
+            WORLD.CURRENT_TARGET = null;
+            skinwalkerChosenTransform = null;
+            skinwalkerChosenAbilityTarget = null;
+            skinwalkerChosenKillTarget = null;
+            abilityUIOpenedThisNight = false;
             document.getElementById('role-ui').style.display = 'none';
             document.getElementById('ability-ui').style.display = 'none';
             document.getElementById('vote-tally-panel').style.display = 'none';
@@ -1265,13 +1296,15 @@ function update(dt) {
         }
     }
 
-    if (WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !WORLD.CURRENT_TARGET) {
-        inputX = 0;
-        inputY = 0;
-        ME.vx = 0;
-        ME.vy = 0;
-        ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2 - ME.width / 2;
-        ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2 - ME.height / 2;
+    if (WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker') {
+        if (WORLD.NIGHT_ABILITY_OPEN || !WORLD.CURRENT_TARGET) {
+            inputX = 0;
+            inputY = 0;
+            ME.vx = 0;
+            ME.vy = 0;
+            ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2 - ME.width / 2;
+            ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2 - ME.height / 2;
+        }
     }
 
     const isMoving = inputX !== 0 || inputY !== 0;
