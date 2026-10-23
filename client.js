@@ -38,17 +38,27 @@ function updateRoleListUI(list, mode) {
 
         if (mode === 'subalignments' && SUBALIGNMENT_ROLES[item.name]) {
             row.style.cursor = 'pointer';
+            let _ttTimer = null;
             row.addEventListener('mouseenter', () => {
-                const tt = document.getElementById('role-tooltip');
-                if (!tt) return;
-                const roles = SUBALIGNMENT_ROLES[item.name].join(', ');
-                tt.innerHTML = `<span style="color:#ffcc00;">${item.name}</span><br>Possible Roles: ${roles}`;
-                tt.style.display = 'block';
-                const rect = row.getBoundingClientRect();
-                tt.style.top = rect.top + 'px';
-                tt.style.left = (rect.left - 230) + 'px';
+                clearTimeout(_ttTimer);
+                _ttTimer = setTimeout(() => {
+                    const tt = document.getElementById('role-tooltip');
+                    if (!tt) return;
+                    const roles = SUBALIGNMENT_ROLES[item.name].join(', ');
+                    tt.textContent = '';
+                    const nameSpan = document.createElement('span');
+                    nameSpan.style.color = '#ffcc00';
+                    nameSpan.textContent = item.name;
+                    tt.appendChild(nameSpan);
+                    tt.appendChild(document.createTextNode('\nPossible Roles: ' + roles));
+                    tt.style.display = 'block';
+                    const rect = row.getBoundingClientRect();
+                    tt.style.top = rect.top + 'px';
+                    tt.style.left = (rect.left - 230) + 'px';
+                }, 150);
             });
             row.addEventListener('mouseleave', () => {
+                clearTimeout(_ttTimer);
                 const tt = document.getElementById('role-tooltip');
                 if (tt) tt.style.display = 'none';
             });
@@ -285,7 +295,10 @@ function populateAbilityUI() {
 
         const roleGrid = document.createElement('div');
         roleGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
-        const transRoles = ['None', 'Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Vigilante', 'Celebrity'];
+        // Only show roles that are actually in the current game (exclude Vigilante — Skinwalker can't use it to kill)
+        const _allTransRoles = ['Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Celebrity'];
+        const transRoles = ['None', ..._allTransRoles.filter(r => WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === r))];
+        // Note: Vigilante is excluded — Skinwalker can only block them, not kill as them
         transRoles.forEach(r => {
             const rBtn = document.createElement('button');
             rBtn.className = 'layer-btn';
@@ -301,6 +314,14 @@ function populateAbilityUI() {
             roleGrid.appendChild(rBtn);
         });
         body.appendChild(roleGrid);
+
+        // Vigilante note
+        if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante')) {
+            const vigNote = document.createElement('div');
+            vigNote.style.cssText = 'color: #ff7777; font-size: 11px; margin-bottom: 8px; font-style: italic;';
+            vigNote.textContent = '⚠ Vigilante is in this game but you cannot kill as them — transforming into them only blocks the real Vigilante.';
+            body.appendChild(vigNote);
+        }
 
         if (skinwalkerChosenTransform && skinwalkerChosenTransform !== 'Celebrity') {
             const aHead = document.createElement('div');
@@ -644,6 +665,7 @@ function connectToServer() {
                 updateVoteTally(data.game);
 
                 if (data.game.roleListMode !== undefined) {
+                    WORLD.ROLE_LIST_RAW = data.game.roleList || [];
                     updateRoleListUI(data.game.roleList, data.game.roleListMode);
                 }
             }
@@ -717,6 +739,7 @@ function connectToServer() {
             revealedMayors.add(parseInt(data.playerId));
             updateLeaderboard();
         } else if (data.type === 'rolelist_update') {
+            WORLD.ROLE_LIST_RAW = data.list || [];
             updateRoleListUI(data.list, data.mode);
         } else if (data.type === 'game_over') {
             updateRoleListUI([], 'off');
@@ -1624,7 +1647,7 @@ function renderChunk(cx, cy) {
     const startRow = Math.floor((cy * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
     const endRow = Math.ceil(((cy + 1) * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
 
-    const sInset = 0.08;
+    const sInset = 0.5;
     const sSize = WORLD.MAP.tileSize - (sInset * 2);
 
     WORLD.MAP.layers.forEach(layer => {
@@ -2112,7 +2135,11 @@ window.addEventListener('keydown', e => {
         }
 
         if (key === 'e' && !ME.isDead) {
-            ws.send(JSON.stringify({ type: 'interact' }));
+            const _nowDoor = Date.now();
+            if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
+                window._lastDoorSend = _nowDoor;
+                ws.send(JSON.stringify({ type: 'interact' }));
+            }
         }
     }
 });
