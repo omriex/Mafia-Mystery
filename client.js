@@ -1413,33 +1413,6 @@ function update(dt) {
     sendPositionUpdate();
 }
 
-function drawCrownHat(ctx, x, y, scale = 1, alpha) {
-    ctx.save();
-    ctx.translate(x, y);
-    if (scale !== 1) ctx.scale(scale, scale);
-    if (alpha !== undefined) ctx.globalAlpha = alpha;
-
-    ctx.fillStyle = '#FFE600';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2.5;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-
-    ctx.beginPath();
-    ctx.moveTo(-15, 0);
-    ctx.lineTo(-18, -17);
-    ctx.lineTo(-8, -8);
-    ctx.lineTo(0, -23);
-    ctx.lineTo(8, -8);
-    ctx.lineTo(18, -17);
-    ctx.lineTo(15, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.restore();
-}
-
 function drawChatBubble(ctx, text, x, y, hasTail = true) {
     ctx.font = "bold 14px 'Segoe UI'";
     const textWidth = ctx.measureText(text).width;
@@ -1563,14 +1536,6 @@ function render() {
         }
         if (p.isDark) ctx.filter = 'none';
 
-        if (p.isOwner && !p.isDark) {
-            ctx.save();
-            ctx.translate(0, sH * 0.30);
-            ctx.rotate(Math.PI);
-            drawCrownHat(ctx, 0, 0, p.scale || 1, p.isDead ? 0.3 : 1);
-            ctx.restore();
-        }
-
         ctx.restore();
 
         if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
@@ -1582,9 +1547,8 @@ function render() {
             const isTargetMayor = revealedMayors.has(parseInt(id)) && !p.isDead;
             ctx.fillStyle = isTargetMayor ? '#cc88ff' : '#ffffff';
             const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
-            const pNameY = p.isOwner ? (pRY - sH / 2 - 28) : (pRY - sH / 2 - 16);
-            ctx.strokeText(pLabel, pRX, pNameY);
-            ctx.fillText(pLabel, pRX, pNameY);
+            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
+            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
         }
     }
 
@@ -1605,14 +1569,6 @@ function render() {
     }
     if (amIDark) ctx.filter = 'none';
 
-    if (isOwner && !amIDark) {
-        ctx.save();
-        ctx.translate(0, pScaledH * 0.30);
-        ctx.rotate(Math.PI);
-        drawCrownHat(ctx, 0, 0, ME.scale || 1, ME.isDead ? 0.3 : 1);
-        ctx.restore();
-    }
-
     ctx.restore();
 
     if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
@@ -1624,9 +1580,8 @@ function render() {
         const amIMayor = revealedMayors.has(myId) && !ME.isDead;
         ctx.fillStyle = amIMayor ? '#cc88ff' : '#ffffff';
         const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
-        const myNameY = isOwner ? (pRenderY - pScaledH / 2 - 28) : (pRenderY - pScaledH / 2 - 16);
-        ctx.strokeText(myLabel, pRenderX, myNameY);
-        ctx.fillText(myLabel, pRenderX, myNameY);
+        ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+        ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
@@ -1674,9 +1629,9 @@ function render() {
         if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
-        renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - (p.isOwner ? 44 : 32));
+        renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
-    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - (isOwner ? 44 : 32));
+    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
 
     ctx.restore();
 }
