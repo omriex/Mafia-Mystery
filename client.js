@@ -8,6 +8,8 @@ const SUBALIGNMENT_ROLES = {
     'Mafia Killing': ['Skinwalker']
 };
 
+let _lastRoleListKey = '';
+
 function updateRoleListUI(list, mode) {
     const ui = document.getElementById('role-list-ui');
     const items = document.getElementById('role-list-items');
@@ -17,6 +19,15 @@ function updateRoleListUI(list, mode) {
         ui.style.display = 'none';
         return;
     }
+
+    // Skip rebuild if nothing changed (prevents tooltip flicker)
+    const newKey = mode + '|' + JSON.stringify(list);
+    if (newKey === _lastRoleListKey) return;
+    _lastRoleListKey = newKey;
+
+    // Hide tooltip before rebuilding
+    const tt = document.getElementById('role-tooltip');
+    if (tt) { tt.style.visibility = 'hidden'; tt.style.opacity = '0'; }
 
     ui.style.display = 'flex';
     items.innerHTML = '';
@@ -52,12 +63,13 @@ function updateRoleListUI(list, mode) {
                 const rect = row.getBoundingClientRect();
                 tt.style.left = (rect.left - 235) + 'px';
                 tt.style.top = rect.top + 'px';
+                tt.style.display = 'block';
                 tt.style.visibility = 'visible';
                 tt.style.opacity = '1';
             });
             row.addEventListener('mouseleave', () => {
                 const tt = document.getElementById('role-tooltip');
-                if (tt) { tt.style.visibility = 'hidden'; tt.style.opacity = '0'; }
+                if (tt) { tt.style.display = 'none'; tt.style.visibility = 'hidden'; tt.style.opacity = '0'; }
             });
         }
 
@@ -1448,8 +1460,12 @@ function render() {
     const endCY = Math.min(WORLD.MAP.bgChunks.length - 1, Math.floor((camY + WORLD.CAMERA.height) / WORLD.MAP.chunkSize));
 
     for (let cy = startCY; cy <= endCY; cy++)
-        for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], Math.floor(cx * WORLD.MAP.chunkSize - camX), Math.floor(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+        for (let cx = startCX; cx <= endCX; cx++) {
+            const dx = cx * WORLD.MAP.chunkSize - camX;
+            const dy = cy * WORLD.MAP.chunkSize - camY;
+            // Draw 1px larger to close seams between chunks
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
+        }
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE = WORLD.MAP.tileSize;
@@ -1553,8 +1569,11 @@ function render() {
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
-        for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], Math.floor(cx * WORLD.MAP.chunkSize - camX), Math.floor(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+        for (let cx = startCX; cx <= endCX; cx++) {
+            const dx = cx * WORLD.MAP.chunkSize - camX;
+            const dy = cy * WORLD.MAP.chunkSize - camY;
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
+        }
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
