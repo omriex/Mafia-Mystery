@@ -323,7 +323,7 @@ function populateAbilityUI() {
         if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante' && !item.isDead)) {
             const vigNote = document.createElement('div');
             vigNote.style.cssText = 'color: #ff7777; font-size: 11px; margin-bottom: 8px; font-style: italic;';
-            vigNote.textContent = '⚠ Vigilante is in this game but you cannot kill as them - transforming into them only blocks the real Vigilante.';
+            vigNote.textContent = 'Vigilante is in this game but you cannot kill as them - transforming into them only blocks the real Vigilante.';
             body.appendChild(vigNote);
         }
 
@@ -1506,8 +1506,8 @@ function render() {
         if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
-        const sW = p.width * (p.scale || 1);
-        const sH = p.height * (p.scale || 1);
+        const sW = p.width * (p.scale || 1) * 1.3;
+        const sH = p.height * (p.scale || 1) * 1.3;
 
         ctx.save();
         ctx.translate(pRX, pRY);
@@ -1537,8 +1537,8 @@ function render() {
     const amIDark = WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !ME.isDead;
     const pRenderX = ME.x - camX + ME.width / 2;
     const pRenderY = ME.y - camY + ME.height / 2;
-    const pScaledW = ME.width * ME.scale;
-    const pScaledH = ME.height * ME.scale;
+    const pScaledW = ME.width * ME.scale * 1.3;
+    const pScaledH = ME.height * ME.scale * 1.3;
 
     ctx.save();
     ctx.translate(pRenderX, pRenderY);
