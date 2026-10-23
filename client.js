@@ -162,19 +162,21 @@ function getSkinImg(src) {
 }
 
 function drawPlayerLayers(ctx, pBody, pEyes, w, h) {
-    const bSrc = 'assets/' + (pBody || 'body01.png');
-    const bImg = getSkinImg(bSrc);
-    if (bImg.complete && bImg.naturalWidth > 0) {
-        ctx.drawImage(bImg, -w / 2, -h / 2, w, h);
-    } else {
-        ctx.drawImage(playerImg, -w / 2, -h / 2, w, h);
-    }
+    try {
+        const bSrc = 'assets/' + (pBody || 'body01.png');
+        const bImg = getSkinImg(bSrc);
+        if (bImg.complete && bImg.naturalWidth > 0) {
+            ctx.drawImage(bImg, -w / 2, -h / 2, w, h);
+        } else if (playerImg.complete && playerImg.naturalWidth > 0) {
+            ctx.drawImage(playerImg, -w / 2, -h / 2, w, h);
+        }
 
-    const eSrc = 'assets/' + (pEyes || 'eyes4.png');
-    const eImg = getSkinImg(eSrc);
-    if (eImg.complete && eImg.naturalWidth > 0) {
-        ctx.drawImage(eImg, -w / 2, -h / 2, w, h);
-    }
+        const eSrc = 'assets/' + (pEyes || 'eyes4.png');
+        const eImg = getSkinImg(eSrc);
+        if (eImg.complete && eImg.naturalWidth > 0) {
+            ctx.drawImage(eImg, -w / 2, -h / 2, w, h);
+        }
+    } catch (_) {}
 }
 
 function initCustomizationUI() {
@@ -265,13 +267,15 @@ window.addEventListener('DOMContentLoaded', () => {
             myName = cleanInp || 'Player';
             localStorage.setItem('playerName', myName);
             inMainMenu = false;
+            WORLD.CAMERA.x = null;
+            WORLD.CAMERA.y = null;
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
             const hint = document.getElementById('controls-hint');
             if (hint) hint.style.display = 'block';
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
-            } else {
+            } else if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
                 connectToServer();
             }
         });
@@ -619,6 +623,10 @@ function populateAbilityUI() {
 }
 
 function connectToServer() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        return;
+    }
+
     const _params = new URLSearchParams();
     if (_pageToken) _params.set('token', _pageToken);
 
@@ -631,9 +639,9 @@ function connectToServer() {
 
     ws = new WebSocket(_wsURL);
 
-    ws.onopen = () => {
-        if (!inMainMenu) {
-            ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
+    ws.onopen = function () {
+        if (!inMainMenu && this.readyState === WebSocket.OPEN) {
+            this.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
         }
     };
 
@@ -1537,11 +1545,11 @@ function update(dt) {
 
     const targetCamX = ME.x + ME.width / 2 - WORLD.CAMERA.width / 2;
     const targetCamY = ME.y + ME.height / 2 - WORLD.CAMERA.height / 2;
-    if (WORLD.CAMERA.x === null) {
+    if (WORLD.CAMERA.x === null || isNaN(WORLD.CAMERA.x) || !isFinite(WORLD.CAMERA.x)) {
         WORLD.CAMERA.x = targetCamX;
         WORLD.CAMERA.y = targetCamY;
     } else {
-        const lf = 1 - Math.exp(-dt * 40);
+        const lf = 1 - Math.exp(-Math.max(0, dt) * 40);
         WORLD.CAMERA.x += (targetCamX - WORLD.CAMERA.x) * lf;
         WORLD.CAMERA.y += (targetCamY - WORLD.CAMERA.y) * lf;
     }
@@ -1612,11 +1620,12 @@ function render() {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
-    ctx.imageSmoothingEnabled = false;
+    try {
+        ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
+        ctx.imageSmoothingEnabled = false;
 
-    const camX = Math.floor(WORLD.CAMERA.x);
-    const camY = Math.floor(WORLD.CAMERA.y);
+        const camX = Math.floor(WORLD.CAMERA.x || 0);
+        const camY = Math.floor(WORLD.CAMERA.y || 0);
 
     const startCX = Math.max(0, Math.floor(camX / WORLD.MAP.chunkSize));
     const endCX = Math.min(WORLD.MAP.bgChunks[0].length - 1, Math.floor((camX + WORLD.CAMERA.width) / WORLD.MAP.chunkSize));
@@ -1678,7 +1687,6 @@ function render() {
                 ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
             }
         }
-        ctx.restore();
         return;
     }
 
@@ -1691,18 +1699,20 @@ function render() {
         const sH = p.height * (p.scale || 1) * 1.3;
 
         ctx.save();
-        ctx.translate(pRX, pRY);
-        ctx.rotate(p.renderAngle ?? 0);
-        if (p.isDead) ctx.globalAlpha = 0.3;
+        try {
+            ctx.translate(pRX, pRY);
+            ctx.rotate(p.renderAngle ?? 0);
+            if (p.isDead) ctx.globalAlpha = 0.3;
 
-        if (p.isDark) ctx.filter = 'brightness(0)';
-        drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
-        if (revealedMayors.has(parseInt(id)) && !p.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
-            ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
+            if (p.isDark) ctx.filter = 'brightness(0)';
+            drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
+            if (revealedMayors.has(parseInt(id)) && !p.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+                ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
+            }
+            if (p.isDark) ctx.filter = 'none';
+        } finally {
+            ctx.restore();
         }
-        if (p.isDark) ctx.filter = 'none';
-
-        ctx.restore();
 
         if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
             ctx.textAlign = 'center';
@@ -1725,17 +1735,19 @@ function render() {
     const pScaledH = ME.height * ME.scale * 1.3;
 
     ctx.save();
-    ctx.translate(pRenderX, pRenderY);
-    ctx.rotate(ME.angle);
-    if (ME.isDead) ctx.globalAlpha = 0.3;
-    if (amIDark) ctx.filter = 'brightness(0)';
-    drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
-    if (revealedMayors.has(myId) && !ME.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
-        ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    try {
+        ctx.translate(pRenderX, pRenderY);
+        ctx.rotate(ME.angle);
+        if (ME.isDead) ctx.globalAlpha = 0.3;
+        if (amIDark) ctx.filter = 'brightness(0)';
+        drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
+        if (revealedMayors.has(myId) && !ME.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+        }
+        if (amIDark) ctx.filter = 'none';
+    } finally {
+        ctx.restore();
     }
-    if (amIDark) ctx.filter = 'none';
-
-    ctx.restore();
 
     if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
         ctx.textAlign = 'center';
@@ -1808,8 +1820,9 @@ function render() {
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
     renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
-
-    ctx.restore();
+    } finally {
+        ctx.restore();
+    }
 }
 
 function gameLoop(now) {
@@ -1819,6 +1832,7 @@ function gameLoop(now) {
     let dt = (now - WORLD.SYSTEM.lastTime) / 1000;
     WORLD.SYSTEM.lastTime = now;
     if (dt > 0.1) dt = 0.1;
+    if (dt < 0 || isNaN(dt)) dt = 0.016;
 
     if (inMainMenu) {
         updateMenuCamera(dt);
