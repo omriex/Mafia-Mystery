@@ -20,12 +20,10 @@ function updateRoleListUI(list, mode) {
         return;
     }
 
-    // Skip rebuild if nothing changed (prevents tooltip flicker)
     const newKey = mode + '|' + JSON.stringify(list);
     if (newKey === _lastRoleListKey) return;
     _lastRoleListKey = newKey;
 
-    // Hide tooltip before rebuilding
     const tt = document.getElementById('role-tooltip');
     if (tt) { tt.style.visibility = 'hidden'; tt.style.opacity = '0'; }
 
@@ -304,10 +302,8 @@ function populateAbilityUI() {
 
         const roleGrid = document.createElement('div');
         roleGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
-        // Only show roles that are actually in the current game (exclude Vigilante — Skinwalker can't use it to kill)
         const _allTransRoles = ['Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Celebrity'];
         const transRoles = ['None', ..._allTransRoles.filter(r => WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === r))];
-        // Note: Vigilante is excluded — Skinwalker can only block them, not kill as them
         transRoles.forEach(r => {
             const rBtn = document.createElement('button');
             rBtn.className = 'layer-btn';
@@ -324,11 +320,10 @@ function populateAbilityUI() {
         });
         body.appendChild(roleGrid);
 
-        // Vigilante note — only show if Vigilante is alive in this game
         if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante' && !item.isDead)) {
             const vigNote = document.createElement('div');
             vigNote.style.cssText = 'color: #ff7777; font-size: 11px; margin-bottom: 8px; font-style: italic;';
-            vigNote.textContent = '⚠ Vigilante is in this game but you cannot kill as them — transforming into them only blocks the real Vigilante.';
+            vigNote.textContent = '⚠ Vigilante is in this game but you cannot kill as them - transforming into them only blocks the real Vigilante.';
             body.appendChild(vigNote);
         }
 
@@ -1229,7 +1224,7 @@ function computeShadowVisibility() {
             }
         }
 
-        const hitDist = minT < maxDist ? (minT + 8) : minT;
+        const hitDist = minT < maxDist ? (minT + TILE) : minT;
         return { x: ox + rdx * hitDist, y: oy + rdy * hitDist };
     };
 
@@ -1267,7 +1262,7 @@ function drawShadowOverlay(ctx, camX, camY) {
     for (const { c, r } of floorTiles) {
         const sx = c * TILE - camX, sy = r * TILE - camY;
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx, sy, TILE, TILE);
+        bufCtx.rect(sx - 0.5, sy - 0.5, TILE + 1, TILE + 1);
     }
     bufCtx.fill();
 
@@ -1278,7 +1273,7 @@ function drawShadowOverlay(ctx, camX, camY) {
         for (const { c, r } of wallTiles) {
             const sx = c * TILE - camX, sy = r * TILE - camY;
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx, sy, TILE, TILE);
+            bufCtx.rect(sx - 0.5, sy - 0.5, TILE + 1, TILE + 1);
         }
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
@@ -1296,6 +1291,14 @@ function drawShadowOverlay(ctx, camX, camY) {
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
     }
+
+    const px = ME.x + ME.width / 2 - camX;
+    const py = ME.y + ME.height / 2 - camY;
+    bufCtx.globalCompositeOperation = 'destination-out';
+    bufCtx.beginPath();
+    bufCtx.arc(px, py, TILE * 0.75, 0, Math.PI * 2);
+    bufCtx.fill();
+    bufCtx.globalCompositeOperation = 'source-over';
 
     ctx.drawImage(buf, 0, 0);
 }
@@ -1463,7 +1466,6 @@ function render() {
         for (let cx = startCX; cx <= endCX; cx++) {
             const dx = cx * WORLD.MAP.chunkSize - camX;
             const dy = cy * WORLD.MAP.chunkSize - camY;
-            // Draw 1px larger to close seams between chunks
             ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
         }
 
