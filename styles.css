@@ -400,7 +400,8 @@ body, html {
     pointer-events: none;
     max-width: 240px;
     line-height: 1.5;
-    white-space: pre-line;
+    visibility: hidden;
+    opacity: 0;
 }
 
 #bottom-ui {
