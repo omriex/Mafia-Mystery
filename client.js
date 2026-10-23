@@ -1411,6 +1411,79 @@ function update(dt) {
     sendPositionUpdate();
 }
 
+function drawCrownHat(ctx, x, y, bobOffset, alpha) {
+    ctx.save();
+    ctx.translate(x, y + bobOffset);
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+
+    const grad = ctx.createLinearGradient(0, -23, 0, 0);
+    grad.addColorStop(0, '#FFF275');
+    grad.addColorStop(0.45, '#FFC700');
+    grad.addColorStop(1, '#C88500');
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#382200';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(-16, 0);
+    ctx.lineTo(-19, -17);
+    ctx.lineTo(-9, -8);
+    ctx.lineTo(0, -24);
+    ctx.lineTo(9, -8);
+    ctx.lineTo(19, -17);
+    ctx.lineTo(16, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFAA00';
+    ctx.beginPath();
+    ctx.rect(-17, -2, 34, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#382200';
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    ctx.arc(-19, -17, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#FF2244';
+    ctx.beginPath();
+    ctx.arc(0, -24, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(19, -17, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#00F0FF';
+    ctx.beginPath();
+    ctx.arc(0, 1, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FF2244';
+    ctx.beginPath();
+    ctx.arc(-9, 1, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#44FF44';
+    ctx.beginPath();
+    ctx.arc(9, 1, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
 function drawChatBubble(ctx, text, x, y, hasTail = true) {
     ctx.font = "bold 14px 'Segoe UI'";
     const textWidth = ctx.measureText(text).width;
@@ -1533,6 +1606,15 @@ function render() {
 
         ctx.restore();
 
+        if (p.isOwner && !p.isDark) {
+            const pSpeed = Math.hypot(p.vx || 0, p.vy || 0);
+            let pCrownBob = Math.sin(Date.now() / 250) * 1.5;
+            if (pSpeed > 10 || (p.scale && Math.abs(p.scale - 1) > 0.01)) {
+                pCrownBob += Math.sin(Date.now() / 50) * 4;
+            }
+            drawCrownHat(ctx, pRX, pRY - sH * 0.42, pCrownBob, p.isDead ? 0.3 : 1);
+        }
+
         if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
             ctx.textAlign = 'center';
             ctx.lineJoin = 'round';
@@ -1541,9 +1623,10 @@ function render() {
             ctx.font = "bold 13px 'Segoe UI'";
             const isTargetMayor = revealedMayors.has(parseInt(id)) && !p.isDead;
             ctx.fillStyle = isTargetMayor ? '#cc88ff' : '#ffffff';
-            const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' (Host)' : ''));
-            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
-            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+            const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
+            const pNameY = p.isOwner ? (pRY - sH / 2 - 28) : (pRY - sH / 2 - 16);
+            ctx.strokeText(pLabel, pRX, pNameY);
+            ctx.fillText(pLabel, pRX, pNameY);
         }
     }
 
@@ -1562,6 +1645,14 @@ function render() {
     if (amIDark) ctx.filter = 'none';
     ctx.restore();
 
+    if (isOwner && !amIDark) {
+        let myCrownBob = Math.sin(Date.now() / 250) * 1.5;
+        if (ME.bopTimer > 0) {
+            myCrownBob += Math.sin(ME.bopTimer * 15) * 5;
+        }
+        drawCrownHat(ctx, pRenderX, pRenderY - pScaledH * 0.42, myCrownBob, ME.isDead ? 0.3 : 1);
+    }
+
     if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
         ctx.textAlign = 'center';
         ctx.lineJoin = 'round';
@@ -1570,9 +1661,10 @@ function render() {
         ctx.font = "bold 13px 'Segoe UI'";
         const amIMayor = revealedMayors.has(myId) && !ME.isDead;
         ctx.fillStyle = amIMayor ? '#cc88ff' : '#ffffff';
-        const myLabel = amIDark ? '???' : (myName + (isOwner ? ' (Host)' : ''));
-        ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
-        ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+        const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
+        const myNameY = isOwner ? (pRenderY - pScaledH / 2 - 28) : (pRenderY - pScaledH / 2 - 16);
+        ctx.strokeText(myLabel, pRenderX, myNameY);
+        ctx.fillText(myLabel, pRenderX, myNameY);
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
@@ -1620,9 +1712,9 @@ function render() {
         if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
-        renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
+        renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - (p.isOwner ? 44 : 32));
     }
-    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
+    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - (isOwner ? 44 : 32));
 
     ctx.restore();
 }
@@ -1976,7 +2068,7 @@ function updateLeaderboard() {
     const selfDiv = document.createElement('div');
     selfDiv.className = 'leaderboard-entry';
     const selfSpan = document.createElement('span');
-    selfSpan.textContent = myName + (isOwner ? ' (Host)' : '');
+    selfSpan.textContent = myName + (isOwner ? ' [🗝️]' : '');
     if (revealedMayors.has(myId) && !ME.isDead) {
         selfSpan.style.color = '#cc88ff';
     }
@@ -1987,7 +2079,7 @@ function updateLeaderboard() {
         const div = document.createElement('div');
         div.className = 'leaderboard-entry';
         const span = document.createElement('span');
-        span.textContent = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' (Host)' : '');
+        span.textContent = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' [🗝️]' : '');
         if (revealedMayors.has(parseInt(id)) && !serverPlayers[id].isDead) {
             span.style.color = '#cc88ff';
         }
