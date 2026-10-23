@@ -302,8 +302,16 @@ function populateAbilityUI() {
 
         const roleGrid = document.createElement('div');
         roleGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
-        const _allTransRoles = ['Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Celebrity'];
-        const transRoles = ['None', ..._allTransRoles.filter(r => WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === r))];
+        const _allTransRoles = ['Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Celebrity', 'Vigilante'];
+        const isRoleAvailable = (r) => {
+            if (!WORLD.ROLE_LIST_RAW || WORLD.ROLE_LIST_RAW.length === 0) return true;
+            return WORLD.ROLE_LIST_RAW.some(item => {
+                if (item.name === r) return !item.isDead;
+                if (SUBALIGNMENT_ROLES[item.name] && SUBALIGNMENT_ROLES[item.name].includes(r)) return true;
+                return false;
+            });
+        };
+        const transRoles = ['None', ..._allTransRoles.filter(isRoleAvailable)];
         transRoles.forEach(r => {
             const rBtn = document.createElement('button');
             rBtn.className = 'layer-btn';
@@ -320,14 +328,19 @@ function populateAbilityUI() {
         });
         body.appendChild(roleGrid);
 
-        if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante' && !item.isDead)) {
+        if (isRoleAvailable('Vigilante')) {
             const vigNote = document.createElement('div');
             vigNote.style.cssText = 'color: #ff7777; font-size: 11px; margin-bottom: 8px; font-style: italic;';
-            vigNote.textContent = 'Vigilante is in this game but you cannot kill as them - transforming into them only blocks the real Vigilante.';
+            vigNote.textContent = 'Transforming into Vigilante only blocks the real Vigilante - you cannot shoot.';
             body.appendChild(vigNote);
         }
 
-        if (skinwalkerChosenTransform && skinwalkerChosenTransform !== 'Celebrity') {
+        if (skinwalkerChosenTransform === 'Vigilante') {
+            const vMsg = document.createElement('div');
+            vMsg.style.cssText = 'color: #aaa; font-style: italic; text-align: center; padding: 8px 0; font-size: 12px;';
+            vMsg.innerText = 'The real Vigilante is blocked tonight.';
+            body.appendChild(vMsg);
+        } else if (skinwalkerChosenTransform && skinwalkerChosenTransform !== 'Celebrity') {
             const aHead = document.createElement('div');
             aHead.style.cssText = 'color: #ffffff; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
             aHead.innerText = 'Use ' + skinwalkerChosenTransform + ' ability on:';
