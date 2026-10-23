@@ -28,10 +28,22 @@
 </div>
 
 <div id="main-menu-ui">
-    <img src="assets/mafia icon.png" style="width: 96px; height: 96px; margin-bottom: 10px; image-rendering: pixelated;">
-    <div style="font-size: 40px; margin-bottom: 25px; color: white; font-weight: bold; text-shadow: 0px 4px 6px rgba(0,0,0,0.5);">Mafia Mystery</div>
-    <input type="text" id="username-input" maxlength="16" placeholder="Nickname" autocomplete="off">
-    <button id="play-btn">PLAY</button>
+    <div class="menu-box" id="main-menu-box">
+        <img src="assets/mafia icon.png" style="width: 80px; height: 80px; margin-bottom: 10px; image-rendering: pixelated;">
+        <div style="font-size: 32px; margin-bottom: 20px; color: white; font-weight: bold; text-shadow: 0px 4px 6px rgba(0,0,0,0.5);">Mafia Mystery</div>
+        <input type="text" id="username-input" maxlength="16" placeholder="Nickname" autocomplete="off">
+        <button id="play-btn">PLAY</button>
+    </div>
+
+    <div class="menu-box" id="customization-box">
+        <div class="menu-box-header">CUSTOMIZATION</div>
+        <div class="customization-content">
+            <div class="skin-section-title">BODY</div>
+            <div class="skin-grid" id="body-skin-grid"></div>
+            <div class="skin-section-title" style="margin-top: 14px;">EYES</div>
+            <div class="skin-grid" id="eyes-skin-grid"></div>
+        </div>
+    </div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
@@ -168,7 +180,7 @@
     </div>
 </div>
 
-<div id="controls-hint" style="position: fixed; bottom: 270px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; z-index: 1000;">Press [H] for Controls</div>
+<div id="controls-hint" style="display: none; position: fixed; bottom: 270px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; z-index: 1000;">Press [H] for Controls</div>
 
 <div id="chat-log-ui" style="display: none;">
     <div id="chat-log-messages"></div>
