@@ -1411,9 +1411,10 @@ function update(dt) {
     sendPositionUpdate();
 }
 
-function drawCrownHat(ctx, x, y, bobOffset, alpha) {
+function drawCrownHat(ctx, x, y, scale = 1, alpha) {
     ctx.save();
-    ctx.translate(x, y + bobOffset);
+    ctx.translate(x, y);
+    if (scale !== 1) ctx.scale(scale, scale);
     if (alpha !== undefined) ctx.globalAlpha = alpha;
 
     ctx.fillStyle = '#FFE600';
@@ -1558,12 +1559,11 @@ function render() {
         if (p.isDark) ctx.filter = 'none';
 
         if (p.isOwner && !p.isDark) {
-            const pSpeed = Math.hypot(p.vx || 0, p.vy || 0);
-            let pCrownBob = 0;
-            if (pSpeed > 100) {
-                pCrownBob = Math.sin(Date.now() / 50) * 4;
-            }
-            drawCrownHat(ctx, 0, -sH * 0.38, pCrownBob, p.isDead ? 0.3 : 1);
+            ctx.save();
+            ctx.translate(0, sH * 0.30);
+            ctx.rotate(Math.PI);
+            drawCrownHat(ctx, 0, 0, p.scale || 1, p.isDead ? 0.3 : 1);
+            ctx.restore();
         }
 
         ctx.restore();
@@ -1598,11 +1598,11 @@ function render() {
     if (amIDark) ctx.filter = 'none';
 
     if (isOwner && !amIDark) {
-        let myCrownBob = 0;
-        if (ME.bopTimer > 0) {
-            myCrownBob = Math.sin(ME.bopTimer * 15) * 4;
-        }
-        drawCrownHat(ctx, 0, -pScaledH * 0.38, myCrownBob, ME.isDead ? 0.3 : 1);
+        ctx.save();
+        ctx.translate(0, pScaledH * 0.30);
+        ctx.rotate(Math.PI);
+        drawCrownHat(ctx, 0, 0, ME.scale || 1, ME.isDead ? 0.3 : 1);
+        ctx.restore();
     }
 
     ctx.restore();
