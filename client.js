@@ -77,6 +77,7 @@ function updateRoleListUI(list, mode) {
 
 let ws = null;
 let myId = null;
+const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
 let myName = 'Player???';
 let isOwner = false;
 let serverPlayers = {};
@@ -98,7 +99,7 @@ const WORLD = {
         tileSize: 64, chunkSize: 1024,
         columns: 0, rows: 0,
         tilesetCols: 0, layers: [],
-        bgChunks: [], fgChunks: []
+        bgChunks: [], wallChunks: [], fgChunks: []
     },
     CAMERA: { x: null, y: null, width: LOGICAL_WIDTH, height: LOGICAL_HEIGHT },
     INPUTS: {
@@ -135,6 +136,119 @@ const tableImg = new Image();
 const mayorCosmeticImg = new Image();
 mayorCosmeticImg.src = 'assets/mayor cosmetic.png';
 
+const ALL_BODIES = ['body00.png', 'body01.png', 'body02.png', 'body03.png', 'body04.png', 'body05.png', 'body06.png', 'body07.png', 'body08.png', 'body09.png', 'body10.png'];
+const ALL_EYES = ['eyes0.png', 'eyes1.png', 'eyes2.png', 'eyes3.png', 'eyes4.png', 'eyes5.png', 'eyes6.png'];
+
+let selectedBody = localStorage.getItem('selectedBody') || 'body01.png';
+if (selectedBody === 'body1.png' || selectedBody === 'body1') selectedBody = 'body01.png';
+if (!selectedBody.endsWith('.png')) selectedBody += '.png';
+let selectedEyes = localStorage.getItem('selectedEyes') || 'eyes4.png';
+if (!selectedEyes.endsWith('.png')) selectedEyes += '.png';
+let inMainMenu = true;
+
+let menuCamX = null;
+let menuCamY = null;
+let menuCamVX = 60;
+let menuCamVY = 45;
+
+const _skinImgCache = {};
+function getSkinImg(src) {
+    if (!_skinImgCache[src]) {
+        const img = new Image();
+        img.src = src;
+        _skinImgCache[src] = img;
+    }
+    return _skinImgCache[src];
+}
+
+function drawPlayerLayers(ctx, pBody, pEyes, w, h) {
+    const bSrc = 'assets/' + (pBody || 'body01.png');
+    const bImg = getSkinImg(bSrc);
+    if (bImg.complete && bImg.naturalWidth > 0) {
+        ctx.drawImage(bImg, -w / 2, -h / 2, w, h);
+    } else {
+        ctx.drawImage(playerImg, -w / 2, -h / 2, w, h);
+    }
+
+    const eSrc = 'assets/' + (pEyes || 'eyes4.png');
+    const eImg = getSkinImg(eSrc);
+    if (eImg.complete && eImg.naturalWidth > 0) {
+        ctx.drawImage(eImg, -w / 2, -h / 2, w, h);
+    }
+}
+
+function initCustomizationUI() {
+    const bodyGrid = document.getElementById('body-skin-grid');
+    const eyesGrid = document.getElementById('eyes-skin-grid');
+    if (!bodyGrid || !eyesGrid) return;
+
+    bodyGrid.innerHTML = '';
+    ALL_BODIES.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'skin-btn' + (b === selectedBody ? ' selected' : '');
+        const img = document.createElement('img');
+        img.src = 'assets/' + b;
+        img.onerror = () => {
+            if (b === 'body01.png') img.src = 'assets/player.png';
+        };
+        btn.appendChild(img);
+        btn.onclick = () => {
+            selectedBody = b;
+            localStorage.setItem('selectedBody', b);
+            bodyGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
+            btn.classList.add('selected');
+        };
+        bodyGrid.appendChild(btn);
+    });
+
+    eyesGrid.innerHTML = '';
+    ALL_EYES.forEach(e => {
+        const btn = document.createElement('button');
+        btn.className = 'skin-btn' + (e === selectedEyes ? ' selected' : '');
+        const img = document.createElement('img');
+        img.src = 'assets/' + e;
+        btn.appendChild(img);
+        btn.onclick = () => {
+            selectedEyes = e;
+            localStorage.setItem('selectedEyes', e);
+            eyesGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
+            btn.classList.add('selected');
+        };
+        eyesGrid.appendChild(btn);
+    });
+}
+
+function updateMenuCamera(dt) {
+    if (!WORLD.MAP.columns || !WORLD.CAMERA.width) return;
+    const maxCamX = Math.max(0, WORLD.MAP.columns * WORLD.MAP.tileSize - WORLD.CAMERA.width);
+    const maxCamY = Math.max(0, WORLD.MAP.rows * WORLD.MAP.tileSize - WORLD.CAMERA.height);
+    if (menuCamX === null) {
+        menuCamX = maxCamX / 2;
+        menuCamY = maxCamY / 2;
+    }
+    menuCamX += menuCamVX * dt;
+    menuCamY += menuCamVY * dt;
+
+    if (menuCamX <= 0) {
+        menuCamX = 0;
+        menuCamVX = Math.abs(menuCamVX);
+    } else if (menuCamX >= maxCamX) {
+        menuCamX = maxCamX;
+        menuCamVX = -Math.abs(menuCamVX);
+    }
+
+    if (menuCamY <= 0) {
+        menuCamY = 0;
+        menuCamVY = Math.abs(menuCamVY);
+    } else if (menuCamY >= maxCamY) {
+        menuCamY = maxCamY;
+        menuCamVY = -Math.abs(menuCamVY);
+    }
+
+    WORLD.CAMERA.x = menuCamX;
+    WORLD.CAMERA.y = menuCamY;
+}
+
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
     const usernameInput = document.getElementById('username-input');
@@ -150,13 +264,21 @@ window.addEventListener('DOMContentLoaded', () => {
             const cleanInp = rawInp.replace(/<[^>]*>/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().substring(0, 14);
             myName = cleanInp || 'Player';
             localStorage.setItem('playerName', myName);
+            inMainMenu = false;
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
-            connectToServer();
+            const hint = document.getElementById('controls-hint');
+            if (hint) hint.style.display = 'block';
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
+            } else {
+                connectToServer();
+            }
         });
-    } else {
-        connectToServer();
     }
+
+    initCustomizationUI();
+    connectToServer();
     loadImages();
     initSettingsUI();
 });
@@ -497,7 +619,6 @@ function populateAbilityUI() {
 }
 
 function connectToServer() {
-    const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
     const _params = new URLSearchParams();
     if (_pageToken) _params.set('token', _pageToken);
 
@@ -511,7 +632,9 @@ function connectToServer() {
     ws = new WebSocket(_wsURL);
 
     ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken }));
+        if (!inMainMenu) {
+            ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
+        }
     };
 
     window.addEventListener('beforeunload', () => {
@@ -531,8 +654,34 @@ function connectToServer() {
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
+        if (data.type === 'map_data') {
+            WORLD.MAP.tileSize = data.map.tileSize;
+            WORLD.MAP.columns = data.map.columns;
+            WORLD.MAP.rows = data.map.rows;
+            WORLD.MAP.layers = data.map.layers;
+            if (data.map.doors) {
+                WORLD.MAP.doors = data.map.doors;
+                const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
+                if (f2Layer) {
+                    for (const dIdx in WORLD.MAP.doors) {
+                        f2Layer.data[parseInt(dIdx)] = 2;
+                    }
+                }
+            }
+            if (data.entities) WORLD.ENTITIES = data.entities;
+            preRenderMap();
+            WORLD.SYSTEM.isReady = true;
+            resizeCanvas();
+            if (!WORLD.SYSTEM._gameLoopRunning) {
+                WORLD.SYSTEM._gameLoopRunning = true;
+                requestAnimationFrame(gameLoop);
+            }
+            return;
+        }
+
         if (data.type === 'init') {
             myId = data.id;
+            inMainMenu = false;
             isOwner = data.isOwner || false;
             myName = data.name || myName;
 
@@ -555,21 +704,26 @@ function connectToServer() {
 
             ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
             ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2;
+            WORLD.CAMERA.x = ME.x + ME.width / 2 - WORLD.CAMERA.width / 2;
+            WORLD.CAMERA.y = ME.y + ME.height / 2 - WORLD.CAMERA.height / 2;
 
             if (isOwner) {
                 document.getElementById('editor-ui').style.display = 'flex';
+                document.getElementById('settings-btn-wrap').style.display = 'block';
                 initEditorUI();
             }
-
             document.getElementById('leaderboard-ui').style.display = 'flex';
+            document.getElementById('role-list-ui').style.display = 'flex';
             const sw = document.getElementById('settings-btn-wrap');
-            if (sw) sw.style.display = 'block';
-
+            if (sw && isOwner) sw.style.display = 'block';
             WORLD.SYSTEM.lastTime = performance.now();
             WORLD.SYSTEM.isReady = true;
             updateLeaderboard();
-            requestAnimationFrame(gameLoop);
-
+            if (!WORLD.SYSTEM._gameLoopRunning) {
+                WORLD.SYSTEM._gameLoopRunning = true;
+                requestAnimationFrame(gameLoop);
+            }
+            return;
         } else if (data.type === 'state') {
             const next = {};
             for (const id in data.players) {
@@ -1516,6 +1670,18 @@ function render() {
         });
     }
 
+    if (inMainMenu) {
+        for (let cy = startCY; cy <= endCY; cy++) {
+            for (let cx = startCX; cx <= endCX; cx++) {
+                const dx = cx * WORLD.MAP.chunkSize - camX;
+                const dy = cy * WORLD.MAP.chunkSize - camY;
+                ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
+            }
+        }
+        ctx.restore();
+        return;
+    }
+
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
         if (p.isDead && !ME.isDead) continue;
@@ -1530,7 +1696,7 @@ function render() {
         if (p.isDead) ctx.globalAlpha = 0.3;
 
         if (p.isDark) ctx.filter = 'brightness(0)';
-        ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
+        drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
         if (revealedMayors.has(parseInt(id)) && !p.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
             ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
         }
@@ -1563,7 +1729,7 @@ function render() {
     ctx.rotate(ME.angle);
     if (ME.isDead) ctx.globalAlpha = 0.3;
     if (amIDark) ctx.filter = 'brightness(0)';
-    ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
     if (revealedMayors.has(myId) && !ME.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
         ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
     }
@@ -1582,6 +1748,16 @@ function render() {
         const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
         ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
         ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+    }
+
+    if (WORLD.GAME_STATE === 'NIGHT' && WORLD.MAP.wallChunks && WORLD.MAP.wallChunks.length > 0) {
+        for (let cy = startCY; cy <= endCY; cy++)
+            for (let cx = startCX; cx <= endCX; cx++) {
+                if (!WORLD.MAP.wallChunks[cy] || !WORLD.MAP.wallChunks[cy][cx]) continue;
+                const dx = cx * WORLD.MAP.chunkSize - camX;
+                const dy = cy * WORLD.MAP.chunkSize - camY;
+                ctx.drawImage(WORLD.MAP.wallChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
+            }
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
@@ -1637,13 +1813,20 @@ function render() {
 }
 
 function gameLoop(now) {
-    if (!WORLD.SYSTEM.isReady || !myId) return;
+    if (!WORLD.SYSTEM.isReady) return;
     requestAnimationFrame(gameLoop);
 
     let dt = (now - WORLD.SYSTEM.lastTime) / 1000;
     WORLD.SYSTEM.lastTime = now;
     if (dt > 0.1) dt = 0.1;
 
+    if (inMainMenu) {
+        updateMenuCamera(dt);
+        render();
+        return;
+    }
+
+    if (!myId) return;
     update(dt);
     render();
 }
@@ -1654,14 +1837,18 @@ function preRenderMap() {
 
     WORLD.MAP.bgChunks = [];
     WORLD.MAP.fgChunks = [];
+    WORLD.MAP.wallChunks = [];
     for (let cy = 0; cy < numCY; cy++) {
         WORLD.MAP.bgChunks[cy] = [];
         WORLD.MAP.fgChunks[cy] = [];
+        WORLD.MAP.wallChunks[cy] = [];
         for (let cx = 0; cx < numCX; cx++) {
             const bg = document.createElement('canvas'); bg.width = bg.height = WORLD.MAP.chunkSize;
             const fg = document.createElement('canvas'); fg.width = fg.height = WORLD.MAP.chunkSize;
+            const wc = document.createElement('canvas'); wc.width = wc.height = WORLD.MAP.chunkSize;
             WORLD.MAP.bgChunks[cy][cx] = bg;
             WORLD.MAP.fgChunks[cy][cx] = fg;
+            WORLD.MAP.wallChunks[cy][cx] = wc;
             renderChunk(cx, cy);
         }
     }
@@ -1670,9 +1857,12 @@ function preRenderMap() {
 function renderChunk(cx, cy) {
     const bgCtx = WORLD.MAP.bgChunks[cy][cx].getContext('2d', { alpha: true });
     const fgCtx = WORLD.MAP.fgChunks[cy][cx].getContext('2d', { alpha: true });
+    const wcCtx = WORLD.MAP.wallChunks[cy] && WORLD.MAP.wallChunks[cy][cx] ? WORLD.MAP.wallChunks[cy][cx].getContext('2d', { alpha: true }) : null;
     bgCtx.imageSmoothingEnabled = fgCtx.imageSmoothingEnabled = false;
+    if (wcCtx) wcCtx.imageSmoothingEnabled = false;
     bgCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
     fgCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+    if (wcCtx) wcCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     const startCol = Math.floor((cx * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
     const endCol = Math.ceil(((cx + 1) * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
@@ -1724,11 +1914,24 @@ function renderChunk(cx, cy) {
                             tCtx.rotate(rot);
                             tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                             tCtx.restore();
+                            if (layer.name === 'walls' && wcCtx) {
+                                wcCtx.save();
+                                wcCtx.translate(dx + WORLD.MAP.tileSize / 2, dy + WORLD.MAP.tileSize / 2);
+                                wcCtx.rotate(rot);
+                                wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                                wcCtx.restore();
+                            }
                         } else {
                             tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                            if (layer.name === 'walls' && wcCtx) {
+                                wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                            }
                         }
                     } else {
                         tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                        if (layer.name === 'walls' && wcCtx) {
+                            wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                        }
                     }
                 }
             }
@@ -2055,12 +2258,13 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Enter') {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            if (document.getElementById('main-menu-ui').style.display !== 'none') {
-                document.getElementById('play-btn').click();
-            }
+        if (inMainMenu) {
+            const playBtn = document.getElementById('play-btn');
+            if (playBtn) playBtn.click();
             return;
         }
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
