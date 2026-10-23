@@ -130,7 +130,6 @@ const ME = {
 };
 
 const tilesheetImg = new Image();
-const playerImg = new Image();
 const centerImg = new Image();
 const tableImg = new Image();
 const mayorCosmeticImg = new Image();
@@ -167,8 +166,6 @@ function drawPlayerLayers(ctx, pBody, pEyes, w, h) {
         const bImg = getSkinImg(bSrc);
         if (bImg.complete && bImg.naturalWidth > 0) {
             ctx.drawImage(bImg, -w / 2, -h / 2, w, h);
-        } else if (playerImg.complete && playerImg.naturalWidth > 0) {
-            ctx.drawImage(playerImg, -w / 2, -h / 2, w, h);
         }
 
         const eSrc = 'assets/' + (pEyes || 'eyes4.png');
@@ -190,9 +187,6 @@ function initCustomizationUI() {
         btn.className = 'skin-btn' + (b === selectedBody ? ' selected' : '');
         const img = document.createElement('img');
         img.src = 'assets/' + b;
-        img.onerror = () => {
-            if (b === 'body01.png') img.src = 'assets/player.png';
-        };
         btn.appendChild(img);
         btn.onclick = () => {
             selectedBody = b;
@@ -1690,79 +1684,73 @@ function render() {
         return;
     }
 
-    for (const id in serverPlayers) {
-        const p = serverPlayers[id];
-        if (p.isDead && !ME.isDead) continue;
-        const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
-        const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
-        const sW = p.width * (p.scale || 1) * 1.3;
-        const sH = p.height * (p.scale || 1) * 1.3;
-
-        ctx.save();
-        try {
-            ctx.translate(pRX, pRY);
-            ctx.rotate(p.renderAngle ?? 0);
-            if (p.isDead) ctx.globalAlpha = 0.3;
-
-            if (p.isDark) ctx.filter = 'brightness(0)';
-            drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
-            if (revealedMayors.has(parseInt(id)) && !p.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
-                ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
-            }
-            if (p.isDark) ctx.filter = 'none';
-        } finally {
-            ctx.restore();
-        }
-
-        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
-            ctx.textAlign = 'center';
-            ctx.lineJoin = 'round';
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-            ctx.font = "bold 13px 'Segoe UI'";
-            const isTargetMayor = revealedMayors.has(parseInt(id)) && !p.isDead;
-            ctx.fillStyle = isTargetMayor ? '#cc88ff' : '#ffffff';
-            const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
-            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
-            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
-        }
-    }
-
     const amIDark = WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !ME.isDead;
     const pRenderX = ME.x - camX + ME.width / 2;
     const pRenderY = ME.y - camY + ME.height / 2;
     const pScaledW = ME.width * ME.scale * 1.3;
     const pScaledH = ME.height * ME.scale * 1.3;
 
-    ctx.save();
-    try {
-        ctx.translate(pRenderX, pRenderY);
-        ctx.rotate(ME.angle);
-        if (ME.isDead) ctx.globalAlpha = 0.3;
-        if (amIDark) ctx.filter = 'brightness(0)';
-        drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
-        if (revealedMayors.has(myId) && !ME.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
-            ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
+        if (p.isDead) continue;
+        const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
+        const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
+        const sW = p.width * (p.scale || 1) * 1.3;
+        const sH = p.height * (p.scale || 1) * 1.3;
+        ctx.save();
+        try {
+            ctx.translate(pRX, pRY);
+            ctx.rotate(p.renderAngle ?? 0);
+            if (p.isDark) ctx.filter = 'brightness(0)';
+            drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
+            if (revealedMayors.has(parseInt(id)) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+                ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
+            }
+            if (p.isDark) ctx.filter = 'none';
+        } finally {
+            ctx.restore();
         }
-        if (amIDark) ctx.filter = 'none';
-    } finally {
-        ctx.restore();
+        if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
+            ctx.textAlign = 'center';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.fillStyle = revealedMayors.has(parseInt(id)) ? '#cc88ff' : '#ffffff';
+            const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
+            ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
+            ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+        }
     }
 
-    if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
-        ctx.textAlign = 'center';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-        ctx.font = "bold 13px 'Segoe UI'";
-        const amIMayor = revealedMayors.has(myId) && !ME.isDead;
-        ctx.fillStyle = amIMayor ? '#cc88ff' : '#ffffff';
-        const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
-        ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
-        ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+    if (!ME.isDead) {
+        ctx.save();
+        try {
+            ctx.translate(pRenderX, pRenderY);
+            ctx.rotate(ME.angle);
+            if (amIDark) ctx.filter = 'brightness(0)';
+            drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
+            if (revealedMayors.has(myId) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+                ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+            }
+            if (amIDark) ctx.filter = 'none';
+        } finally {
+            ctx.restore();
+        }
+        if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
+            ctx.textAlign = 'center';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.fillStyle = (revealedMayors.has(myId)) ? '#cc88ff' : '#ffffff';
+            const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
+            ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+            ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+        }
     }
 
-    if (WORLD.GAME_STATE === 'NIGHT' && WORLD.MAP.wallChunks && WORLD.MAP.wallChunks.length > 0) {
+    if (WORLD.MAP.wallChunks && WORLD.MAP.wallChunks.length > 0) {
         for (let cy = startCY; cy <= endCY; cy++)
             for (let cx = startCX; cx <= endCX; cx++) {
                 if (!WORLD.MAP.wallChunks[cy] || !WORLD.MAP.wallChunks[cy][cx]) continue;
@@ -1770,6 +1758,63 @@ function render() {
                 const dy = cy * WORLD.MAP.chunkSize - camY;
                 ctx.drawImage(WORLD.MAP.wallChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
             }
+    }
+
+    if (ME.isDead) {
+        for (const id in serverPlayers) {
+            const p = serverPlayers[id];
+            if (!p.isDead) continue;
+            const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
+            const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
+            const sW = p.width * (p.scale || 1) * 1.3;
+            const sH = p.height * (p.scale || 1) * 1.3;
+            ctx.save();
+            try {
+                ctx.translate(pRX, pRY);
+                ctx.rotate(p.renderAngle ?? 0);
+                ctx.globalAlpha = 0.3;
+                drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
+            } finally {
+                ctx.restore();
+            }
+            if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.textAlign = 'center';
+                ctx.lineJoin = 'round';
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                ctx.font = "bold 13px 'Segoe UI'";
+                ctx.fillStyle = '#ffffff';
+                const pLabel = p.name + (p.isOwner ? ' [🗝️]' : '');
+                ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
+                ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
+                ctx.restore();
+            }
+        }
+        ctx.save();
+        try {
+            ctx.translate(pRenderX, pRenderY);
+            ctx.rotate(ME.angle);
+            ctx.globalAlpha = 0.3;
+            drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
+        } finally {
+            ctx.restore();
+        }
+        if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.textAlign = 'center';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.font = "bold 13px 'Segoe UI'";
+            ctx.fillStyle = '#ffffff';
+            const myLabel = myName + (isOwner ? ' [🗝️]' : '');
+            ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+            ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
+            ctx.restore();
+        }
     }
 
     for (let cy = startCY; cy <= endCY; cy++)
@@ -1887,7 +1932,8 @@ function renderChunk(cx, cy) {
     const sSize = WORLD.MAP.tileSize - (sInset * 2);
 
     WORLD.MAP.layers.forEach(layer => {
-        const tCtx = layer.name === 'trees' ? fgCtx : bgCtx;
+        const isWallLayer = layer.name === 'walls';
+        const tCtx = layer.name === 'trees' ? fgCtx : (isWallLayer ? (wcCtx || bgCtx) : bgCtx);
         for (let r = Math.max(0, startRow); r < Math.min(WORLD.MAP.rows, endRow); r++) {
             for (let c = Math.max(0, startCol); c < Math.min(WORLD.MAP.columns, endCol); c++) {
                 let gid = layer.data[r * WORLD.MAP.columns + c];
@@ -1904,7 +1950,7 @@ function renderChunk(cx, cy) {
                         const floorTId = 1;
                         const fsx = (floorTId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
                         const fsy = Math.floor(floorTId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
-                        tCtx.drawImage(tilesheetImg, fsx, fsy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
+                        bgCtx.drawImage(tilesheetImg, fsx, fsy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
 
                         let side = WORLD.MAP.doors ? WORLD.MAP.doors[r * WORLD.MAP.columns + c] : null;
                         if (!side) {
@@ -1928,24 +1974,11 @@ function renderChunk(cx, cy) {
                             tCtx.rotate(rot);
                             tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                             tCtx.restore();
-                            if (layer.name === 'walls' && wcCtx) {
-                                wcCtx.save();
-                                wcCtx.translate(dx + WORLD.MAP.tileSize / 2, dy + WORLD.MAP.tileSize / 2);
-                                wcCtx.rotate(rot);
-                                wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
-                                wcCtx.restore();
-                            }
                         } else {
                             tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
-                            if (layer.name === 'walls' && wcCtx) {
-                                wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
-                            }
                         }
                     } else {
                         tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
-                        if (layer.name === 'walls' && wcCtx) {
-                            wcCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
-                        }
                     }
                 }
             }
@@ -1965,13 +1998,6 @@ function loadImages() {
     };
     tilesheetImg.src = 'assets/tilesheet.png';
 
-    playerImg.crossOrigin = 'Anonymous';
-    playerImg.onload = onAssetLoad;
-    playerImg.onerror = () => {
-        onAssetLoad();
-    };
-    playerImg.src = 'assets/player.png';
-
     centerImg.crossOrigin = 'Anonymous';
     centerImg.onload = onAssetLoad;
     centerImg.onerror = () => {
@@ -1987,7 +2013,7 @@ function loadImages() {
 
 function onAssetLoad() {
     WORLD.SYSTEM.assetsLoaded++;
-    if (WORLD.SYSTEM.assetsLoaded === 4) {
+    if (WORLD.SYSTEM.assetsLoaded === 3) {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('main-menu-ui').style.display = 'flex';
         resizeCanvas();
