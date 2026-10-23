@@ -1416,70 +1416,23 @@ function drawCrownHat(ctx, x, y, bobOffset, alpha) {
     ctx.translate(x, y + bobOffset);
     if (alpha !== undefined) ctx.globalAlpha = alpha;
 
-    const grad = ctx.createLinearGradient(0, -23, 0, 0);
-    grad.addColorStop(0, '#FFF275');
-    grad.addColorStop(0.45, '#FFC700');
-    grad.addColorStop(1, '#C88500');
-
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = '#382200';
+    ctx.fillStyle = '#FFE600';
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
 
     ctx.beginPath();
-    ctx.moveTo(-16, 0);
-    ctx.lineTo(-19, -17);
-    ctx.lineTo(-9, -8);
-    ctx.lineTo(0, -24);
-    ctx.lineTo(9, -8);
-    ctx.lineTo(19, -17);
-    ctx.lineTo(16, 0);
+    ctx.moveTo(-15, 0);
+    ctx.lineTo(-18, -17);
+    ctx.lineTo(-8, -8);
+    ctx.lineTo(0, -23);
+    ctx.lineTo(8, -8);
+    ctx.lineTo(18, -17);
+    ctx.lineTo(15, 0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-
-    ctx.fillStyle = '#FFAA00';
-    ctx.beginPath();
-    ctx.rect(-17, -2, 34, 6);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#382200';
-    ctx.lineWidth = 1.5;
-
-    ctx.beginPath();
-    ctx.arc(-19, -17, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FF2244';
-    ctx.beginPath();
-    ctx.arc(0, -24, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(19, -17, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#00F0FF';
-    ctx.beginPath();
-    ctx.arc(0, 1, 2.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#FF2244';
-    ctx.beginPath();
-    ctx.arc(-9, 1, 1.8, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#44FF44';
-    ctx.beginPath();
-    ctx.arc(9, 1, 1.8, 0, Math.PI * 2);
-    ctx.fill();
 
     ctx.restore();
 }
@@ -1604,16 +1557,16 @@ function render() {
         ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
         if (p.isDark) ctx.filter = 'none';
 
-        ctx.restore();
-
         if (p.isOwner && !p.isDark) {
             const pSpeed = Math.hypot(p.vx || 0, p.vy || 0);
-            let pCrownBob = Math.sin(Date.now() / 250) * 1.5;
-            if (pSpeed > 10 || (p.scale && Math.abs(p.scale - 1) > 0.01)) {
-                pCrownBob += Math.sin(Date.now() / 50) * 4;
+            let pCrownBob = 0;
+            if (pSpeed > 100) {
+                pCrownBob = Math.sin(Date.now() / 50) * 4;
             }
-            drawCrownHat(ctx, pRX, pRY - sH * 0.42, pCrownBob, p.isDead ? 0.3 : 1);
+            drawCrownHat(ctx, 0, -sH * 0.38, pCrownBob, p.isDead ? 0.3 : 1);
         }
+
+        ctx.restore();
 
         if (!isOnHaybale((p.renderX ?? p.x) + p.width / 2, (p.renderY ?? p.y) + p.height / 2)) {
             ctx.textAlign = 'center';
@@ -1643,15 +1596,16 @@ function render() {
     if (amIDark) ctx.filter = 'brightness(0)';
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
     if (amIDark) ctx.filter = 'none';
-    ctx.restore();
 
     if (isOwner && !amIDark) {
-        let myCrownBob = Math.sin(Date.now() / 250) * 1.5;
+        let myCrownBob = 0;
         if (ME.bopTimer > 0) {
-            myCrownBob += Math.sin(ME.bopTimer * 15) * 5;
+            myCrownBob = Math.sin(ME.bopTimer * 15) * 4;
         }
-        drawCrownHat(ctx, pRenderX, pRenderY - pScaledH * 0.42, myCrownBob, ME.isDead ? 0.3 : 1);
+        drawCrownHat(ctx, 0, -pScaledH * 0.38, myCrownBob, ME.isDead ? 0.3 : 1);
     }
+
+    ctx.restore();
 
     if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
         ctx.textAlign = 'center';
