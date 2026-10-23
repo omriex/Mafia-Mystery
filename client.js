@@ -132,6 +132,8 @@ const tilesheetImg = new Image();
 const playerImg = new Image();
 const centerImg = new Image();
 const tableImg = new Image();
+const mayorCosmeticImg = new Image();
+mayorCosmeticImg.src = 'assets/mayor cosmetic.png';
 
 window.addEventListener('DOMContentLoaded', () => {
     const playBtn = document.getElementById('play-btn');
@@ -1556,6 +1558,9 @@ function render() {
 
         if (p.isDark) ctx.filter = 'brightness(0)';
         ctx.drawImage(playerImg, -sW / 2, -sH / 2, sW, sH);
+        if (revealedMayors.has(parseInt(id)) && !p.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
+        }
         if (p.isDark) ctx.filter = 'none';
 
         if (p.isOwner && !p.isDark) {
@@ -1595,6 +1600,9 @@ function render() {
     if (ME.isDead) ctx.globalAlpha = 0.3;
     if (amIDark) ctx.filter = 'brightness(0)';
     ctx.drawImage(playerImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    if (revealedMayors.has(myId) && !ME.isDead && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+        ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
+    }
     if (amIDark) ctx.filter = 'none';
 
     if (isOwner && !amIDark) {
