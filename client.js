@@ -38,29 +38,26 @@ function updateRoleListUI(list, mode) {
 
         if (mode === 'subalignments' && SUBALIGNMENT_ROLES[item.name]) {
             row.style.cursor = 'pointer';
-            let _ttTimer = null;
             row.addEventListener('mouseenter', () => {
-                clearTimeout(_ttTimer);
-                _ttTimer = setTimeout(() => {
-                    const tt = document.getElementById('role-tooltip');
-                    if (!tt) return;
-                    const roles = SUBALIGNMENT_ROLES[item.name].join(', ');
-                    tt.textContent = '';
-                    const nameSpan = document.createElement('span');
-                    nameSpan.style.color = '#ffcc00';
-                    nameSpan.textContent = item.name;
-                    tt.appendChild(nameSpan);
-                    tt.appendChild(document.createTextNode('\nPossible Roles: ' + roles));
-                    tt.style.display = 'block';
-                    const rect = row.getBoundingClientRect();
-                    tt.style.top = rect.top + 'px';
-                    tt.style.left = (rect.left - 230) + 'px';
-                }, 150);
+                const tt = document.getElementById('role-tooltip');
+                if (!tt) return;
+                const roles = SUBALIGNMENT_ROLES[item.name].join(', ');
+                tt.innerHTML = '';
+                const nameSpan = document.createElement('span');
+                nameSpan.style.color = '#ffcc00';
+                nameSpan.textContent = item.name;
+                tt.appendChild(nameSpan);
+                tt.appendChild(document.createElement('br'));
+                tt.appendChild(document.createTextNode('Possible Roles: ' + roles));
+                const rect = row.getBoundingClientRect();
+                tt.style.left = (rect.left - 235) + 'px';
+                tt.style.top = rect.top + 'px';
+                tt.style.visibility = 'visible';
+                tt.style.opacity = '1';
             });
             row.addEventListener('mouseleave', () => {
-                clearTimeout(_ttTimer);
                 const tt = document.getElementById('role-tooltip');
-                if (tt) tt.style.display = 'none';
+                if (tt) { tt.style.visibility = 'hidden'; tt.style.opacity = '0'; }
             });
         }
 
@@ -315,8 +312,8 @@ function populateAbilityUI() {
         });
         body.appendChild(roleGrid);
 
-        // Vigilante note
-        if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante')) {
+        // Vigilante note — only show if Vigilante is alive in this game
+        if (WORLD.ROLE_LIST_RAW && WORLD.ROLE_LIST_RAW.some(item => item.name === 'Vigilante' && !item.isDead)) {
             const vigNote = document.createElement('div');
             vigNote.style.cssText = 'color: #ff7777; font-size: 11px; margin-bottom: 8px; font-style: italic;';
             vigNote.textContent = '⚠ Vigilante is in this game but you cannot kill as them — transforming into them only blocks the real Vigilante.';
@@ -1442,8 +1439,8 @@ function render() {
     ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
     ctx.imageSmoothingEnabled = false;
 
-    const camX = Math.round(WORLD.CAMERA.x);
-    const camY = Math.round(WORLD.CAMERA.y);
+    const camX = Math.floor(WORLD.CAMERA.x);
+    const camY = Math.floor(WORLD.CAMERA.y);
 
     const startCX = Math.max(0, Math.floor(camX / WORLD.MAP.chunkSize));
     const endCX = Math.min(WORLD.MAP.bgChunks[0].length - 1, Math.floor((camX + WORLD.CAMERA.width) / WORLD.MAP.chunkSize));
@@ -1452,7 +1449,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], Math.floor(cx * WORLD.MAP.chunkSize - camX), Math.floor(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
         const TILE = WORLD.MAP.tileSize;
@@ -1557,7 +1554,7 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++)
-            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], cx * WORLD.MAP.chunkSize - camX, cy * WORLD.MAP.chunkSize - camY, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], Math.floor(cx * WORLD.MAP.chunkSize - camX), Math.floor(cy * WORLD.MAP.chunkSize - camY), WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
     if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
         const wX = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
