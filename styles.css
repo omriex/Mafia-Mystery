@@ -29,12 +29,102 @@ body, html {
 #main-menu-ui {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
+    background: transparent;
     display: none; 
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     z-index: 9000;
+    gap: 24px;
+    pointer-events: none;
+}
+
+.menu-box {
+    background: rgba(0, 0, 0, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    pointer-events: auto;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#main-menu-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 36px;
+}
+
+#customization-box {
+    display: flex;
+    flex-direction: column;
+    width: 440px;
+}
+
+.menu-box-header {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 12px;
+    font-weight: bold;
+    text-align: center;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.customization-content {
+    padding: 18px 20px;
+}
+
+.skin-section-title {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.skin-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 44px);
+    gap: 6px;
+    justify-content: center;
+}
+
+.skin-btn {
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    box-sizing: border-box;
+    transition: border-color 0.12s ease;
+}
+
+.skin-btn:hover {
+    border-color: #ffffff;
+}
+
+.skin-btn.selected {
+    border-color: #ffffff;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.skin-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    pointer-events: none;
 }
 
 #username-input {
@@ -59,17 +149,20 @@ body, html {
 #play-btn {
     background-color: #ff8800;
     color: white;
-    border: none;
+    border: 2px solid transparent;
     padding: 14px 48px;
     font-size: 20px;
     font-weight: bold;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     cursor: pointer;
     border-radius: 6px;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
 }
 
 #play-btn:hover {
     background-color: #ff9911;
+    border-color: #ffffff;
 }
 
 #play-btn:active {
