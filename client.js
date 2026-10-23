@@ -1112,7 +1112,7 @@ function isPlayerInsideHouse() {
     const row = Math.floor((ME.y + ME.height / 2) / WORLD.MAP.tileSize);
     if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
     const gid = floorLayer.data[row * WORLD.MAP.columns + col];
-    return gid === 2 || gid === 4;
+    return gid === 2;
 }
 
 function computeShadowVisibility() {
@@ -1224,7 +1224,7 @@ function computeShadowVisibility() {
             }
         }
 
-        const hitDist = minT < maxDist ? (minT + TILE) : minT;
+        const hitDist = minT < maxDist ? (minT + 8) : minT;
         return { x: ox + rdx * hitDist, y: oy + rdy * hitDist };
     };
 
@@ -1260,9 +1260,9 @@ function drawShadowOverlay(ctx, camX, camY) {
     bufCtx.fillStyle = 'rgba(0,0,0,0.97)';
     bufCtx.beginPath();
     for (const { c, r } of floorTiles) {
-        const sx = c * TILE - camX, sy = r * TILE - camY;
+        const sx = Math.floor(c * TILE - camX), sy = Math.floor(r * TILE - camY);
         if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-        bufCtx.rect(sx - 0.5, sy - 0.5, TILE + 1, TILE + 1);
+        bufCtx.rect(sx - 1, sy - 1, TILE + 2, TILE + 2);
     }
     bufCtx.fill();
 
@@ -1271,9 +1271,9 @@ function drawShadowOverlay(ctx, camX, camY) {
         bufCtx.fillStyle = 'rgba(0,0,0,1)';
         bufCtx.beginPath();
         for (const { c, r } of wallTiles) {
-            const sx = c * TILE - camX, sy = r * TILE - camY;
+            const sx = Math.floor(c * TILE - camX), sy = Math.floor(r * TILE - camY);
             if (sx > W || sy > H || sx + TILE < 0 || sy + TILE < 0) continue;
-            bufCtx.rect(sx - 0.5, sy - 0.5, TILE + 1, TILE + 1);
+            bufCtx.rect(sx - 1, sy - 1, TILE + 2, TILE + 2);
         }
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
@@ -1291,14 +1291,6 @@ function drawShadowOverlay(ctx, camX, camY) {
         bufCtx.fill();
         bufCtx.globalCompositeOperation = 'source-over';
     }
-
-    const px = ME.x + ME.width / 2 - camX;
-    const py = ME.y + ME.height / 2 - camY;
-    bufCtx.globalCompositeOperation = 'destination-out';
-    bufCtx.beginPath();
-    bufCtx.arc(px, py, TILE * 0.75, 0, Math.PI * 2);
-    bufCtx.fill();
-    bufCtx.globalCompositeOperation = 'source-over';
 
     ctx.drawImage(buf, 0, 0);
 }
