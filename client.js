@@ -1980,11 +1980,13 @@ function updateLeaderboard() {
         }
         div.appendChild(span);
         if (isOwner && !serverPlayers[id].isOwner) {
+            const pId = serverPlayers[id].id;
+            const pName = serverPlayers[id].name;
             div.style.cursor = 'context-menu';
             div.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                showAdminPanel(serverPlayers[id].id, serverPlayers[id].name, e.clientX, e.clientY);
+                showAdminPanel(pId, pName, e.clientX, e.clientY);
             });
         }
         list.appendChild(div);
