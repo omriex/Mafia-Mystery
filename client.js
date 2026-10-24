@@ -97,16 +97,34 @@ let touchAimActive = false;
 let touchAimAngle = 0;
 let touchAimId = null;
 
+let joystickAutoSprint = false;
+
+function updateAbilityButtonVisibility() {
+    const btn = document.getElementById('mob-ability-btn');
+    if (!btn) return;
+    const canUseNight = WORLD.GAME_STATE === 'NIGHT' && !ME.isDead;
+    const canUseMayor = myRole === 'Mayor' && !revealedMayors.has(myId) && !ME.isDead;
+    if (canUseNight || canUseMayor) {
+        btn.style.display = 'flex';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+
 function updateMobileVisibility() {
     const joy = document.getElementById('mobile-joystick-zone');
-    const btns = document.getElementById('mobile-buttons');
-    if (!joy || !btns) return;
+    const topBar = document.getElementById('mobile-top-bar');
+    const actBar = document.getElementById('mobile-action-bar');
+    if (!joy || !topBar || !actBar) return;
     if (!inMainMenu && isTouchDevice) {
         joy.style.display = 'flex';
-        btns.style.display = 'grid';
+        topBar.style.display = 'flex';
+        actBar.style.display = 'flex';
+        updateAbilityButtonVisibility();
     } else {
         joy.style.display = 'none';
-        btns.style.display = 'none';
+        topBar.style.display = 'none';
+        actBar.style.display = 'none';
     }
 }
 
@@ -849,6 +867,7 @@ function connectToServer() {
                         }
                     }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
+                    updateAbilityButtonVisibility();
                 }
 
                 const pUi = document.getElementById('phase-ui');
@@ -956,6 +975,7 @@ function connectToServer() {
             if (abilityUiOnAssign) abilityUiOnAssign.style.display = 'none';
             document.getElementById('role-ui').style.display = 'block';
             document.getElementById('my-role-name').innerText = myRole;
+            updateAbilityButtonVisibility();
             addChatLog(myRole === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
 
             let info = "";
@@ -973,6 +993,7 @@ function connectToServer() {
         } else if (data.type === 'mayor_reveal') {
             revealedMayors.add(parseInt(data.playerId));
             updateLeaderboard();
+            updateAbilityButtonVisibility();
         } else if (data.type === 'rolelist_update') {
             WORLD.ROLE_LIST_RAW = data.list || [];
             updateRoleListUI(data.list, data.mode);
@@ -989,6 +1010,7 @@ function connectToServer() {
             document.getElementById('role-ui').style.display = 'none';
             document.getElementById('ability-ui').style.display = 'none';
             document.getElementById('vote-tally-panel').style.display = 'none';
+            updateAbilityButtonVisibility();
             addChatLog("The game has ended.", true);
 
         } else if (data.type === 'chat_log') {
@@ -1575,7 +1597,7 @@ function update(dt) {
     }
 
     const isMoving = inputX !== 0 || inputY !== 0;
-    const intentSprint = (WORLD.INPUTS.keys.shift || mobileSprintActive) && isMoving;
+    const intentSprint = (WORLD.INPUTS.keys.shift || mobileSprintActive || joystickAutoSprint) && isMoving;
     ME.bopTimer = intentSprint ? ME.bopTimer + dt : 0;
     ME.scale = 1 + (ME.bopTimer > 0 ? Math.sin(ME.bopTimer * 15) * 0.05 : 0);
 
@@ -2508,7 +2530,7 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-buttons') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-action-bar') || e.target.closest('#mobile-top-bar') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -2575,6 +2597,7 @@ function initMobileControls() {
             if (dist === 0) {
                 joystickX = 0;
                 joystickY = 0;
+                joystickAutoSprint = false;
                 joyKnob.style.transform = 'translate(0px, 0px)';
                 return;
             }
@@ -2585,6 +2608,7 @@ function initMobileControls() {
 
             joystickX = clampedX / maxRadius;
             joystickY = clampedY / maxRadius;
+            joystickAutoSprint = (dist >= maxRadius * 0.75);
             joyKnob.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
         };
 
@@ -2618,6 +2642,7 @@ function initMobileControls() {
                     joystickActive = false;
                     joystickX = 0;
                     joystickY = 0;
+                    joystickAutoSprint = false;
                     joyKnob.style.transform = 'translate(0px, 0px)';
                     break;
                 }
@@ -2809,14 +2834,40 @@ function initMobileControls() {
         });
     }
 
-    const helpBtn = document.getElementById('mob-help-btn');
-    if (helpBtn) {
-        helpBtn.addEventListener('click', (e) => {
+    const mobTopChat = document.getElementById('mob-top-chat');
+    if (mobTopChat) mobTopChat.addEventListener('click', (e) => { e.stopPropagation(); openMobChat(); });
+
+    const mobTopWill = document.getElementById('mob-top-will');
+    if (mobTopWill) mobTopWill.addEventListener('click', (e) => { e.stopPropagation(); toggleWill(); });
+
+    const mobTopRoles = document.getElementById('mob-top-roles');
+    if (mobTopRoles) {
+        mobTopRoles.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const rl = document.getElementById('role-list-ui');
+            const lb = document.getElementById('leaderboard-ui');
+            if (lb) lb.style.display = 'none';
+            if (rl) rl.style.display = (rl.style.display === 'flex' ? 'none' : 'flex');
+        });
+    }
+
+    const mobTopPlayers = document.getElementById('mob-top-players');
+    if (mobTopPlayers) {
+        mobTopPlayers.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const lb = document.getElementById('leaderboard-ui');
+            const rl = document.getElementById('role-list-ui');
+            if (rl) rl.style.display = 'none';
+            if (lb) lb.style.display = (lb.style.display === 'flex' ? 'none' : 'flex');
+        });
+    }
+
+    const mobTopHelp = document.getElementById('mob-top-help');
+    if (mobTopHelp) {
+        mobTopHelp.addEventListener('click', (e) => {
             e.stopPropagation();
             const guideUI = document.getElementById('guide-ui');
-            if (guideUI) {
-                guideUI.style.display = guideUI.style.display === 'flex' ? 'none' : 'flex';
-            }
+            if (guideUI) guideUI.style.display = guideUI.style.display === 'flex' ? 'none' : 'flex';
         });
     }
 
