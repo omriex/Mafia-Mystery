@@ -717,9 +717,23 @@ function connectToServer() {
     ws.onclose = (e) => {
         if (e.code === 4001) {
             document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been kicked.</div>';
-        } else if (e.code === 4002 || e.code === 4003) {
-            document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been banned.</div>';
+            return;
         }
+        if (e.code === 4002 || e.code === 4003) {
+            document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been banned.</div>';
+            return;
+        }
+        let disconnectOverlay = document.getElementById('disconnect-overlay');
+        if (!disconnectOverlay) {
+            disconnectOverlay = document.createElement('div');
+            disconnectOverlay.id = 'disconnect-overlay';
+            disconnectOverlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;font-size:22px;font-weight:bold;z-index:99999;text-align:center;padding:20px;';
+            disconnectOverlay.innerHTML = '<div style="font-size:32px;margin-bottom:12px;color:#ff4444;">Server Disconnected</div><div style="font-size:16px;color:#aaa;font-weight:normal;">Refreshing game...</div>';
+            document.body.appendChild(disconnectOverlay);
+        }
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     };
 
     ws.onmessage = (event) => {
