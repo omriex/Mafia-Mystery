@@ -75,16 +75,16 @@ function updateRoleListUI(list, mode) {
     });
 }
 
-let _$x050b54 = null;
-let _0x8d6fc4 = null;
+let _0xcd919b = null;
+let _Ox55f60b = null;
 const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
-let _$xc4e97d = 'Player???';
-let _ox33dcef = false;
-let _Ox55f60b = {};
-let __xfc6336 = null;
+let _0x8d6fc4 = 'Player???';
+let __xfc6336 = false;
+let _ox1e7c52 = {};
+let _$xc4e97d = null;
+let _Ox6b56a8 = 0;
 let _0xa2d061 = 0;
-let _$xda4a1a = 0;
-let _Ox6b56a8 = new Set();
+let _ox33dcef = new Set();
 let abilityUIOpenedThisNight = false;
 let mouseRelativeMovement = localStorage.getItem('mouseRelativeMovement') === 'true';
 let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
@@ -272,7 +272,7 @@ const HeartbeatManager = (() => {
     function _lerp(a, b, t) { return a + (b - a) * t; }
 
     function tick(now) {
-        if (__xe70299.GAME_STATE !== 'NIGHT' || _$xaf88e0.isDead || __xfc6336 === 'Skinwalker') {
+        if (__xe70299.GAME_STATE !== 'NIGHT' || _$xaf88e0.isDead || _$xc4e97d === 'Skinwalker') {
             _lastDist = Infinity;
             return;
         }
@@ -281,8 +281,8 @@ const HeartbeatManager = (() => {
         const my = _$xaf88e0.y + 22.5;
 
         let closest = Infinity;
-        for (const id in _Ox55f60b) {
-            const p = _Ox55f60b[id];
+        for (const id in _ox1e7c52) {
+            const p = _ox1e7c52[id];
             if (!p.isDark || p.isDead) continue;
             const dx = (p.renderX + 22.5) - mx;
             const dy = (p.renderY + 22.5) - my;
@@ -313,7 +313,7 @@ function updateAbilityButtonVisibility() {
     const btn = document.getElementById('mob-ability-btn');
     if (!btn) return;
     const canUseNight = __xe70299.GAME_STATE === 'NIGHT' && !_$xaf88e0.isDead;
-    const canUseMayor = __xfc6336 === 'Mayor' && !_Ox6b56a8.has(_0x8d6fc4) && !_$xaf88e0.isDead;
+    const canUseMayor = _$xc4e97d === 'Mayor' && !_ox33dcef.has(_Ox55f60b) && !_$xaf88e0.isDead;
     if (canUseNight || canUseMayor) {
         btn.style.display = 'flex';
     } else {
@@ -326,7 +326,7 @@ function updateMobileVisibility() {
     const topBar = document.getElementById('mobile-top-bar');
     const actBar = document.getElementById('mobile-action-bar');
     if (!joy || !topBar || !actBar) return;
-    if (!_ox5e9e29 && isTouchDevice) {
+    if (!__x272470 && isTouchDevice) {
         joy.style.display = 'flex';
         topBar.style.display = 'flex';
         actBar.style.display = 'flex';
@@ -341,17 +341,17 @@ function updateMobileVisibility() {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 
-const __x3c850d = 1280;
-const _ox73fec6 = 720;
+const _$x050b54 = 1280;
+const __x3c850d = 720;
 
 const __xe70299 = {
-    _ox1e7c52: {
+    MAP: {
         tileSize: 64, chunkSize: 1024,
         columns: 0, rows: 0,
         tilesetCols: 0, layers: [],
         bgChunks: [], wallChunks: [], fgChunks: []
     },
-    CAMERA: { x: null, y: null, width: __x3c850d, height: _ox73fec6 },
+    CAMERA: { x: null, y: null, width: _$x050b54, height: __x3c850d },
     INPUTS: {
         keys: { w: false, a: false, s: false, d: false, shift: false,
                 arrowup: false, arrowleft: false, arrowdown: false, arrowright: false },
@@ -388,12 +388,12 @@ mayorCosmeticImg.src = 'assets/mayor cosmetic.png';
 const ALL_BODIES = ['body00.png', 'body01.png', 'body02.png', 'body03.png', 'body04.png', 'body05.png', 'body06.png', 'body07.png', 'body08.png', 'body09.png', 'body10.png'];
 const ALL_EYES = ['eyes0.png', 'eyes1.png', 'eyes2.png', 'eyes3.png', 'eyes4.png', 'eyes5.png', 'eyes6.png'];
 
-let _Ox9617e2 = localStorage.getItem('selectedBody') || 'body01.png';
-if (_Ox9617e2 === 'body1.png' || _Ox9617e2 === 'body1') _Ox9617e2 = 'body01.png';
+let _ox5e9e29 = localStorage.getItem('selectedBody') || 'body01.png';
+if (_ox5e9e29 === 'body1.png' || _ox5e9e29 === 'body1') _ox5e9e29 = 'body01.png';
+if (!_ox5e9e29.endsWith('.png')) _ox5e9e29 += '.png';
+let _Ox9617e2 = localStorage.getItem('selectedEyes') || 'eyes4.png';
 if (!_Ox9617e2.endsWith('.png')) _Ox9617e2 += '.png';
-let _0xcd919b = localStorage.getItem('selectedEyes') || 'eyes4.png';
-if (!_0xcd919b.endsWith('.png')) _0xcd919b += '.png';
-let _ox5e9e29 = true;
+let __x272470 = true;
 
 let menuCamX = null;
 let menuCamY = null;
@@ -434,12 +434,12 @@ function initCustomizationUI() {
     bodyGrid.innerHTML = '';
     ALL_BODIES.forEach(b => {
         const btn = document.createElement('button');
-        btn.className = 'skin-btn' + (b === _Ox9617e2 ? ' selected' : '');
+        btn.className = 'skin-btn' + (b === _ox5e9e29 ? ' selected' : '');
         const img = document.createElement('img');
         img.src = 'assets/' + b;
         btn.appendChild(img);
         btn.onclick = () => {
-            _Ox9617e2 = b;
+            _ox5e9e29 = b;
             localStorage.setItem('selectedBody', b);
             bodyGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
             btn.classList.add('selected');
@@ -450,12 +450,12 @@ function initCustomizationUI() {
     eyesGrid.innerHTML = '';
     ALL_EYES.forEach(e => {
         const btn = document.createElement('button');
-        btn.className = 'skin-btn' + (e === _0xcd919b ? ' selected' : '');
+        btn.className = 'skin-btn' + (e === _Ox9617e2 ? ' selected' : '');
         const img = document.createElement('img');
         img.src = 'assets/' + e;
         btn.appendChild(img);
         btn.onclick = () => {
-            _0xcd919b = e;
+            _Ox9617e2 = e;
             localStorage.setItem('selectedEyes', e);
             eyesGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
             btn.classList.add('selected');
@@ -519,9 +519,9 @@ window.addEventListener('DOMContentLoaded', () => {
         playBtn.addEventListener('click', () => {
             const rawInp = usernameInput.value;
             const cleanInp = rawInp.replace(/<[^>]*>/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().substring(0, 14);
-            _$xc4e97d = cleanInp || 'Player';
-            localStorage.setItem('playerName', _$xc4e97d);
-            _ox5e9e29 = false;
+            _0x8d6fc4 = cleanInp || 'Player';
+            localStorage.setItem('playerName', _0x8d6fc4);
+            __x272470 = false;
             __xe70299.CAMERA.x = null;
             __xe70299.CAMERA.y = null;
             document.getElementById('main-menu-ui').style.display = 'none';
@@ -537,9 +537,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 const rlToggle = document.getElementById('role-list-toggle');
                 if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
             }
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                _$x050b54.send(JSON.stringify({ type: 'join', name: _$xc4e97d, token: _pageToken, body: _Ox9617e2, eyes: _0xcd919b }));
-            } else if (!_$x050b54 || _$x050b54.readyState === WebSocket.CLOSED || _$x050b54.readyState === WebSocket.CLOSING) {
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                _0xcd919b.send(JSON.stringify({ type: 'join', name: _0x8d6fc4, token: _pageToken, body: _ox5e9e29, eyes: _Ox9617e2 }));
+            } else if (!_0xcd919b || _0xcd919b.readyState === WebSocket.CLOSED || _0xcd919b.readyState === WebSocket.CLOSING) {
                 connectToServer();
             }
         });
@@ -613,8 +613,8 @@ function initSettingsUI() {
 
     if (mayorYes && mayorDialog) {
         mayorYes.addEventListener('click', () => {
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                _$x050b54.send(JSON.stringify({ type: 'mayor_reveal_self' }));
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                _0xcd919b.send(JSON.stringify({ type: 'mayor_reveal_self' }));
             }
             mayorDialog.style.display = 'none';
         });
@@ -651,10 +651,10 @@ function updateVoteTally(gameState) {
     panel.style.display = 'block';
 
     const counts = {};
-    for (const id in _Ox55f60b) {
-        if (!_Ox55f60b[id].isDead) counts[id] = 0;
+    for (const id in _ox1e7c52) {
+        if (!_ox1e7c52[id].isDead) counts[id] = 0;
     }
-    if (_0x8d6fc4 && !_$xaf88e0.isDead) counts[_0x8d6fc4] = 0;
+    if (_Ox55f60b && !_$xaf88e0.isDead) counts[_Ox55f60b] = 0;
 
     const votes = gameState.votes || {};
     for (const voterId in votes) {
@@ -677,7 +677,7 @@ function updateVoteTally(gameState) {
 
     for (const id in counts) {
         const pIdNum = parseInt(id);
-        const pName = (pIdNum === _0x8d6fc4) ? _$xc4e97d : (_Ox55f60b[id] ? _Ox55f60b[id].name : `Player ${id}`);
+        const pName = (pIdNum === _Ox55f60b) ? myName : (_ox1e7c52[id] ? _ox1e7c52[id].name : `Player ${id}`);
         const row = document.createElement('div');
         row.className = 'vote-tally-entry';
         const nameSpan = document.createElement('span');
@@ -687,13 +687,13 @@ function updateVoteTally(gameState) {
         countSpan.textContent = `${counts[id]} vote${counts[id] === 1 ? '' : 's'}`;
         row.appendChild(nameSpan);
         row.appendChild(countSpan);
-        if (pIdNum !== _0x8d6fc4 && !_$xaf88e0.isDead) {
+        if (pIdNum !== _Ox55f60b && !_$xaf88e0.isDead) {
             row.style.cursor = 'pointer';
             row.title = `Vote for ${pName}`;
             row.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                    _$x050b54.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
+                if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                    _0xcd919b.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
                 }
             });
         }
@@ -708,8 +708,8 @@ function updateVoteTally(gameState) {
         skipRow.title = 'Click to skip vote';
         skipRow.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                _$x050b54.send(JSON.stringify({ type: 'chat', text: '/skip' }));
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                _0xcd919b.send(JSON.stringify({ type: 'chat', text: '/skip' }));
             }
         });
     }
@@ -721,8 +721,8 @@ let skinwalkerChosenAbilityTarget = null;
 let skinwalkerChosenKillTarget = null;
 
 function sendSkinwalkerAction() {
-    if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-        _$x050b54.send(JSON.stringify({
+    if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+        _0xcd919b.send(JSON.stringify({
             type: 'skinwalker_action',
             transformRole: skinwalkerChosenTransform,
             abilityTarget: skinwalkerChosenAbilityTarget,
@@ -736,7 +736,7 @@ function populateAbilityUI() {
     if (!body) return;
     body.innerHTML = '';
 
-    if (__xfc6336 === 'Celebrity' || __xfc6336 === 'Mayor') {
+    if (_$xc4e97d === 'Celebrity' || _$xc4e97d === 'Mayor') {
         const msg = document.createElement('div');
         msg.style.cssText = 'color: #aaa; font-style: italic; text-align: center; padding: 24px 0; font-size: 13px;';
         msg.innerText = 'Your role has a passive ability. No night action required.';
@@ -744,7 +744,7 @@ function populateAbilityUI() {
         return;
     }
 
-    if (__xfc6336 === 'Skinwalker') {
+    if (_$xc4e97d === 'Skinwalker') {
         const tHead = document.createElement('div');
         tHead.style.cssText = 'color: #ffffff; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
         tHead.innerText = 'Transform into:';
@@ -811,8 +811,8 @@ function populateAbilityUI() {
             };
             aList.appendChild(noTargetBtn);
 
-            for (const id in _Ox55f60b) {
-                const sp = _Ox55f60b[id];
+            for (const id in _ox1e7c52) {
+                const sp = _ox1e7c52[id];
                 if (sp.isDead) continue;
                 const pBtn = document.createElement('button');
                 pBtn.className = 'layer-btn';
@@ -849,8 +849,8 @@ function populateAbilityUI() {
         };
         kList.appendChild(noKillBtn);
 
-        for (const id in _Ox55f60b) {
-            const sp = _Ox55f60b[id];
+        for (const id in _ox1e7c52) {
+            const sp = _ox1e7c52[id];
             if (sp.isDead) continue;
             const kBtn = document.createElement('button');
             kBtn.className = 'layer-btn';
@@ -871,18 +871,18 @@ function populateAbilityUI() {
     let roleDesc = '';
     let allowSelf = false;
 
-    if (__xfc6336 === 'Doctor') {
+    if (_$xc4e97d === 'Doctor') {
         roleDesc = 'Select a player to heal and protect tonight:';
         allowSelf = true;
-    } else if (__xfc6336 === 'Investigator') {
+    } else if (_$xc4e97d === 'Investigator') {
         roleDesc = 'Select a player to investigate tonight:';
-    } else if (__xfc6336 === 'Tracker') {
+    } else if (_$xc4e97d === 'Tracker') {
         roleDesc = 'Select a player to track visits tonight:';
-    } else if (__xfc6336 === 'Archer') {
+    } else if (_$xc4e97d === 'Archer') {
         roleDesc = 'Select a player to guard from harmful visitors:';
-    } else if (__xfc6336 === 'Escort') {
+    } else if (_$xc4e97d === 'Escort') {
         roleDesc = 'Select a player to roleblock tonight:';
-    } else if (__xfc6336 === 'Vigilante') {
+    } else if (_$xc4e97d === 'Vigilante') {
         roleDesc = 'Select a player to shoot tonight:';
     }
 
@@ -901,15 +901,15 @@ function populateAbilityUI() {
     if (__xe70299.CURRENT_TARGET === null) noOneBtn.classList.add('active');
     noOneBtn.onclick = () => {
         __xe70299.CURRENT_TARGET = null;
-        if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-            _$x050b54.send(JSON.stringify({ type: 'action_target', targetId: null }));
+        if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+            _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: null }));
         }
         populateAbilityUI();
     };
     listDiv.appendChild(noOneBtn);
 
-    for (const id in _Ox55f60b) {
-        const sp = _Ox55f60b[id];
+    for (const id in _ox1e7c52) {
+        const sp = _ox1e7c52[id];
         if (sp.isDead) continue;
         const btn = document.createElement('button');
         btn.className = 'layer-btn';
@@ -917,8 +917,8 @@ function populateAbilityUI() {
         if (__xe70299.CURRENT_TARGET === parseInt(id)) btn.classList.add('active');
         btn.onclick = () => {
             __xe70299.CURRENT_TARGET = parseInt(id);
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                _$x050b54.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
             }
             populateAbilityUI();
         };
@@ -929,12 +929,12 @@ function populateAbilityUI() {
         const selfBtn = document.createElement('button');
         selfBtn.className = 'layer-btn';
         selfBtn.style.cssText = 'grid-column: span 2;';
-        selfBtn.innerText = _$xc4e97d + ' (Self)';
-        if (__xe70299.CURRENT_TARGET === _0x8d6fc4) selfBtn.classList.add('active');
+        selfBtn.innerText = _0x8d6fc4 + ' (Self)';
+        if (__xe70299.CURRENT_TARGET === _Ox55f60b) selfBtn.classList.add('active');
         selfBtn.onclick = () => {
-            __xe70299.CURRENT_TARGET = _0x8d6fc4;
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-                _$x050b54.send(JSON.stringify({ type: 'action_target', targetId: _0x8d6fc4 }));
+            __xe70299.CURRENT_TARGET = _Ox55f60b;
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+                _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: _Ox55f60b }));
             }
             populateAbilityUI();
         };
@@ -945,7 +945,7 @@ function populateAbilityUI() {
 }
 
 function connectToServer() {
-    if (_$x050b54 && (_$x050b54.readyState === WebSocket.OPEN || _$x050b54.readyState === WebSocket.CONNECTING)) {
+    if (_0xcd919b && (_0xcd919b.readyState === WebSocket.OPEN || _0xcd919b.readyState === WebSocket.CONNECTING)) {
         return;
     }
 
@@ -959,21 +959,21 @@ function connectToServer() {
         : _ngrokURL;
     const _wsURL = _wsHost + '/?' + _params.toString();
 
-    _$x050b54 = new WebSocket(_wsURL);
+    _0xcd919b = new WebSocket(_wsURL);
 
-    _$x050b54.onopen = function () {
-        if (!_ox5e9e29 && this.readyState === WebSocket.OPEN) {
-            this.send(JSON.stringify({ type: 'join', name: _$xc4e97d, token: _pageToken, body: _Ox9617e2, eyes: _0xcd919b }));
+    _0xcd919b.onopen = function () {
+        if (!__x272470 && this.readyState === WebSocket.OPEN) {
+            this.send(JSON.stringify({ type: 'join', name: _0x8d6fc4, token: _pageToken, body: _ox5e9e29, eyes: _Ox9617e2 }));
         }
     };
 
     window.addEventListener('beforeunload', () => {
-        if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-            _$x050b54.send(JSON.stringify({ type: 'leave' }));
+        if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+            _0xcd919b.send(JSON.stringify({ type: 'leave' }));
         }
     });
 
-    _$x050b54.onclose = (e) => {
+    _0xcd919b.onclose = (e) => {
         if (e.code === 4001) {
             document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been kicked.</div>';
             return;
@@ -995,7 +995,7 @@ function connectToServer() {
         }, 1500);
     };
 
-    _$x050b54.onmessage = (event) => {
+    _0xcd919b.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         if (data.type === 'map_data') {
@@ -1024,8 +1024,8 @@ function connectToServer() {
         }
 
         if (data.type === 'init') {
-            _0x8d6fc4 = data.id;
-            _ox5e9e29 = false;
+            _Ox55f60b = data.id;
+            __x272470 = false;
             updateMobileVisibility();
             if (isTouchDevice) {
                 const lbList = document.getElementById('leaderboard-list');
@@ -1035,8 +1035,8 @@ function connectToServer() {
                 const rlToggle = document.getElementById('role-list-toggle');
                 if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
             }
-            _ox33dcef = data.isOwner || false;
-            _$xc4e97d = data.name || _$xc4e97d;
+            __xfc6336 = data.isOwner || false;
+            _0x8d6fc4 = data.name || _0x8d6fc4;
 
             __xe70299.MAP.tileSize = data.map.tileSize;
             __xe70299.MAP.columns = data.map.columns;
@@ -1060,7 +1060,7 @@ function connectToServer() {
             __xe70299.CAMERA.x = _$xaf88e0.x + _$xaf88e0.width / 2 - __xe70299.CAMERA.width / 2;
             __xe70299.CAMERA.y = _$xaf88e0.y + _$xaf88e0.height / 2 - __xe70299.CAMERA.height / 2;
 
-            if (_ox33dcef) {
+            if (__xfc6336) {
                 document.getElementById('editor-ui').style.display = 'flex';
                 initEditorUI();
             }
@@ -1079,9 +1079,9 @@ function connectToServer() {
         } else if (data.type === 'state') {
             const next = {};
             for (const id in data.players) {
-                if (parseInt(id) === _0x8d6fc4) continue;
+                if (parseInt(id) === _Ox55f60b) continue;
                 const incoming = data.players[id];
-                const existing = _Ox55f60b[id];
+                const existing = _ox1e7c52[id];
                 if (existing) {
                     const dx = incoming.x - existing.renderX;
                     const dy = incoming.y - existing.renderY;
@@ -1096,13 +1096,13 @@ function connectToServer() {
                     next[id] = { ...incoming, renderX: incoming.x, renderY: incoming.y, renderAngle: incoming.angle || 0 };
                 }
             }
-            _Ox55f60b = next;
+            _ox1e7c52 = next;
 
-            if (data.players[_0x8d6fc4]) {
-                const sMe = data.players[_0x8d6fc4];
+            if (data.players[_Ox55f60b]) {
+                const sMe = data.players[_Ox55f60b];
                 _$xaf88e0.chats = sMe.chats || [];
                 _$xaf88e0.isDead = sMe.isDead;
-                if (sMe.name) _$xc4e97d = sMe.name;
+                if (sMe.name) _0x8d6fc4 = sMe.name;
                 updateLeaderboard();
                 const sDist = Math.hypot(sMe.x - _$xaf88e0.x, sMe.y - _$xaf88e0.y);
                 if (sDist > 50) {
@@ -1119,7 +1119,7 @@ function connectToServer() {
 
                 if (data.game.mayorRevealed) {
                     for (const mId in data.game.mayorRevealed) {
-                        _Ox6b56a8.add(parseInt(mId));
+                        _ox33dcef.add(parseInt(mId));
                     }
                 }
 
@@ -1134,8 +1134,8 @@ function connectToServer() {
                     }
                     if (__xe70299.GAME_STATE === 'NIGHT') {
                         _$xaf88e0.chats = [];
-                        for (const id in _Ox55f60b) {
-                            _Ox55f60b[id].chats = [];
+                        for (const id in _ox1e7c52) {
+                            _ox1e7c52[id].chats = [];
                         }
                     }
                     __xe70299.LAST_STATE = __xe70299.GAME_STATE;
@@ -1204,16 +1204,16 @@ function connectToServer() {
             _$xaf88e0.vx = 0;
             _$xaf88e0.vy = 0;
             __xe70299.CAMERA.x = null;
-            if (data.teleportId !== undefined) _$xda4a1a = data.teleportId;
+            if (data.teleportId !== undefined) _0xa2d061 = data.teleportId;
         } else if (data.type === 'bulk_teleport') {
             for (const id in data.positions) {
                 const pos = data.positions[id];
-                if (parseInt(id) === _0x8d6fc4) {
+                if (parseInt(id) === _Ox55f60b) {
                     _$xaf88e0.x = pos.x; _$xaf88e0.y = pos.y; _$xaf88e0.vx = 0; _$xaf88e0.vy = 0;
                     __xe70299.CAMERA.x = null;
                     continue;
                 }
-                const sp = _Ox55f60b[id];
+                const sp = _ox1e7c52[id];
                 if (sp) {
                     sp.x = pos.x; sp.y = pos.y;
                     sp.renderX = pos.x; sp.renderY = pos.y;
@@ -1221,8 +1221,8 @@ function connectToServer() {
                 }
             }
         } else if (data.type === 'player_left') {
-            delete _Ox55f60b[data.id];
-            _Ox6b56a8.delete(parseInt(data.id));
+            delete _ox1e7c52[data.id];
+            _ox33dcef.delete(parseInt(data.id));
         } else if (data.type === 'map_update') {
             const layer = __xe70299.MAP.layers.find(l => l.name === data.layer);
             if (layer) {
@@ -1237,9 +1237,9 @@ function connectToServer() {
                 renderChunk(cx, cy);
             }
         } else if (data.type === 'role_assign') {
-            __xfc6336 = data.role;
-            _$xaf88e0.isDead = (__xfc6336 === 'Spectator');
-            _Ox6b56a8.clear();
+            _$xc4e97d = data.role;
+            _$xaf88e0.isDead = (_$xc4e97d === 'Spectator');
+            _ox33dcef.clear();
             __xe70299.CURRENT_TARGET = null;
             skinwalkerChosenTransform = null;
             skinwalkerChosenAbilityTarget = null;
@@ -1248,24 +1248,24 @@ function connectToServer() {
             const abilityUiOnAssign = document.getElementById('ability-ui');
             if (abilityUiOnAssign) abilityUiOnAssign.style.display = 'none';
             document.getElementById('role-ui').style.display = 'block';
-            document.getElementById('my-role-name').innerText = __xfc6336;
+            document.getElementById('my-role-name').innerText = _$xc4e97d;
             updateAbilityButtonVisibility();
-            addChatLog(__xfc6336 === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
+            addChatLog(_$xc4e97d === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
 
             let info = "";
-            if (__xfc6336 === 'Investigator') info = "Investigate during the first 15s of night to narrow down roles.";
-            if (__xfc6336 === 'Tracker') info = "Track during the first 15s of night to see who someone visits.";
-            if (__xfc6336 === 'Doctor') info = "Heal during the first 15s of night to protect someone from death.";
-            if (__xfc6336 === 'Archer') info = "Guard during the first 15s of night to shoot harmful visitors.";
-            if (__xfc6336 === 'Escort') info = "Roleblock during the first 15s of night to stop someone's action.";
-            if (__xfc6336 === 'Vigilante') info = "Shoot during the first 15s of night to kill. Don't shoot townies!";
-            if (__xfc6336 === 'Skinwalker') info = "Choose your role transform, ability target, and kill target in the Night Ability UI!";
-            if (__xfc6336 === 'Celebrity') info = "Passive ability. If you die, the killer's name letter is revealed.";
-            if (__xfc6336 === 'Mayor') info = "Passive ability. Press [T] at any time to publicly reveal as Mayor. Your vote counts as double!";
+            if (_$xc4e97d === 'Investigator') info = "Investigate during the first 15s of night to narrow down roles.";
+            if (_$xc4e97d === 'Tracker') info = "Track during the first 15s of night to see who someone visits.";
+            if (_$xc4e97d === 'Doctor') info = "Heal during the first 15s of night to protect someone from death.";
+            if (_$xc4e97d === 'Archer') info = "Guard during the first 15s of night to shoot harmful visitors.";
+            if (_$xc4e97d === 'Escort') info = "Roleblock during the first 15s of night to stop someone's action.";
+            if (_$xc4e97d === 'Vigilante') info = "Shoot during the first 15s of night to kill. Don't shoot townies!";
+            if (_$xc4e97d === 'Skinwalker') info = "Choose your role transform, ability target, and kill target in the Night Ability UI!";
+            if (_$xc4e97d === 'Celebrity') info = "Passive ability. If you die, the killer's name letter is revealed.";
+            if (_$xc4e97d === 'Mayor') info = "Passive ability. Press [T] at any time to publicly reveal as Mayor. Your vote counts as double!";
             addChatLog(info, true);
 
         } else if (data.type === 'mayor_reveal') {
-            _Ox6b56a8.add(parseInt(data.playerId));
+            _ox33dcef.add(parseInt(data.playerId));
             updateLeaderboard();
             updateAbilityButtonVisibility();
         } else if (data.type === 'rolelist_update') {
@@ -1278,9 +1278,9 @@ function connectToServer() {
         } else if (data.type === 'game_over') {
             AudioManager.onStateChange('LOBBY', false);   
             updateRoleListUI([], 'off');
-            __xfc6336 = null;
+            _$xc4e97d = null;
             _$xaf88e0.isDead = false;
-            _Ox6b56a8.clear();
+            _ox33dcef.clear();
             __xe70299.CURRENT_TARGET = null;
             skinwalkerChosenTransform = null;
             skinwalkerChosenAbilityTarget = null;
@@ -1318,8 +1318,8 @@ function addChatLog(text, isSys = false) {
 }
 
 let _lastSentX = -1, _lastSentY = -1, _lastSentAngle = -1, _lastSentTime = 0;
-function __x11c3d3() {
-    if (!_0x8d6fc4 || !_$x050b54 || _$x050b54.readyState !== WebSocket.OPEN) return;
+function _$xda4a1a() {
+    if (!_Ox55f60b || !_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
     const now = performance.now();
     const dt = now - _lastSentTime;
     const moved = Math.abs(_$xaf88e0.x - _lastSentX) > 0.05 || Math.abs(_$xaf88e0.y - _lastSentY) > 0.05 || Math.abs(_$xaf88e0.angle - _lastSentAngle) > 0.02;
@@ -1329,8 +1329,8 @@ function __x11c3d3() {
     _lastSentX = _$xaf88e0.x;
     _lastSentY = _$xaf88e0.y;
     _lastSentAngle = _$xaf88e0.angle;
-    if (!_0x8d6fc4 || !_$x050b54 || _$x050b54.readyState !== WebSocket.OPEN) return;
-    _$x050b54.send(JSON.stringify({
+    if (!_Ox55f60b || !_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
+    _0xcd919b.send(JSON.stringify({
         type: 'position_update',
         x: _$xaf88e0.x,
         y: _$xaf88e0.y,
@@ -1338,11 +1338,11 @@ function __x11c3d3() {
         vy: _$xaf88e0.vy,
         angle: _$xaf88e0.angle,
         scale: _$xaf88e0.scale,
-        teleportId: _$xda4a1a
+        teleportId: _0xa2d061
     }));
 }
 
-function _ox493d8c() {
+function __x11c3d3() {
     if (_$xaf88e0.isDead) return;
 
     const wallLayer = __xe70299.MAP.layers.find(l => l.name === 'walls');
@@ -1405,7 +1405,7 @@ function _ox493d8c() {
     }
 }
 
-function _$xefaab7(p) {
+function _0xb830fe(p) {
     const wallLayer = __xe70299.MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) return;
 
@@ -1460,7 +1460,7 @@ function _$xefaab7(p) {
     }
 }
 
-function __x272470(p) {
+function _$xefaab7(p) {
     const radius = p.width / 2;
     for (let iter = 0; iter < 2; iter++) {
         let pX = p.x + p.width / 2;
@@ -1494,15 +1494,15 @@ function __x272470(p) {
     }
 }
 
-function _0xb830fe() {
+function _Ox80b745() {
     if (_$xaf88e0.isDead) return;
 
     const meR = _$xaf88e0.width / 2;
     const mecx = _$xaf88e0.x + _$xaf88e0.width / 2;
     const mecy = _$xaf88e0.y + _$xaf88e0.height / 2;
 
-    for (const id in _Ox55f60b) {
-        const p = _Ox55f60b[id];
+    for (const id in _ox1e7c52) {
+        const p = _ox1e7c52[id];
         if (p.isDead) continue;
 
         const pR = p.width / 2;
@@ -1526,8 +1526,8 @@ function _0xb830fe() {
             p.x -= nx * (overlap * 0.75);
             p.y -= ny * (overlap * 0.75);
 
+            _0xb830fe(p);
             _$xefaab7(p);
-            __x272470(p);
 
             if (p.renderX !== undefined) {
                 p.renderX = p.x;
@@ -1541,11 +1541,11 @@ function _0xb830fe() {
             }
         }
     }
+    __x11c3d3();
     _ox493d8c();
-    _Ox80b745();
 }
 
-function _Ox80b745() {
+function _ox493d8c() {
     if (_$xaf88e0.isDead) return;
     const scale = _$xaf88e0.scale;
     const radius = (_$xaf88e0.width * scale) / 2;
@@ -1598,13 +1598,13 @@ function isOnHaybale(worldX, worldY) {
 let _shadowMapCache = null;
 
 function _rebuildShadowMapCache() {
-    const _ox1e7c52 = __xe70299.MAP;
-    const floorLayer = _ox1e7c52.layers.find(l => l.name === 'floor2');
-    const wallLayer = _ox1e7c52.layers.find(l => l.name === 'walls');
+    const MAP = __xe70299.MAP;
+    const floorLayer = MAP.layers.find(l => l.name === 'floor2');
+    const wallLayer = MAP.layers.find(l => l.name === 'walls');
     if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
 
-    const cols = _ox1e7c52.columns;
-    const rows = _ox1e7c52.rows;
+    const cols = MAP.columns;
+    const rows = MAP.rows;
     const floorTiles = [];
     const wallTiles = [];
     const wallSet = new Set();
@@ -1648,9 +1648,9 @@ function isPlayerInsideHouse() {
 function computeShadowVisibility() {
     if (_$xaf88e0.isDead) { __xe70299.SHADOW.polygon = null; return; }
 
-    const _ox1e7c52 = __xe70299.MAP;
+    const MAP = __xe70299.MAP;
     const S = __xe70299.SHADOW;
-    const TILE = _ox1e7c52.tileSize;
+    const TILE = MAP.tileSize;
 
     if (!_shadowMapCache) _rebuildShadowMapCache();
     if (!_shadowMapCache) { S.polygon = null; return; }
@@ -1671,9 +1671,9 @@ function computeShadowVisibility() {
         }
         _shadowMapCache._bounds = {
             minC: Math.max(0, minC - 1),
-            maxC: Math.min(_ox1e7c52.columns - 1, maxC + 1),
+            maxC: Math.min(MAP.columns - 1, maxC + 1),
             minR: Math.max(0, minR - 1),
-            maxR: Math.min(_ox1e7c52.rows - 1, maxR + 1)
+            maxR: Math.min(MAP.rows - 1, maxR + 1)
         };
         const wallArr = [];
         for (let r = _shadowMapCache._bounds.minR; r <= _shadowMapCache._bounds.maxR; r++) {
@@ -1862,7 +1862,7 @@ function update(dt) {
         }
     }
 
-    if (__xe70299.GAME_STATE === 'NIGHT' && __xfc6336 === 'Skinwalker') {
+    if (__xe70299.GAME_STATE === 'NIGHT' && _$xc4e97d === 'Skinwalker') {
         if (__xe70299.NIGHT_ABILITY_OPEN || !__xe70299.CURRENT_TARGET) {
             inputX = 0;
             inputY = 0;
@@ -1888,9 +1888,9 @@ function update(dt) {
     _$xaf88e0.x += _$xaf88e0.vx * dt;
     _$xaf88e0.y += _$xaf88e0.vy * dt;
 
-    for (let i = 0; i < 3; i++) _ox493d8c();
+    for (let i = 0; i < 3; i++) __x11c3d3();
+    for (let i = 0; i < 2; i++) _ox493d8c();
     for (let i = 0; i < 2; i++) _Ox80b745();
-    for (let i = 0; i < 2; i++) _0xb830fe();
 
     if (_$xaf88e0.x < 0) _$xaf88e0.x = 0;
     if (_$xaf88e0.y < 0) _$xaf88e0.y = 0;
@@ -1916,8 +1916,8 @@ function update(dt) {
         __xe70299.CAMERA.y += (targetCamY - __xe70299.CAMERA.y) * lf;
     }
 
-    for (const id in _Ox55f60b) {
-        const p = _Ox55f60b[id];
+    for (const id in _ox1e7c52) {
+        const p = _ox1e7c52[id];
         if (p.renderX === undefined) { p.renderX = p.x; p.renderY = p.y; p.renderAngle = p.angle || 0; }
         const _lerpF = 0.12;
         const _rdx = p.x - p.renderX, _rdy = p.y - p.renderY;
@@ -1933,13 +1933,13 @@ function update(dt) {
     }
 
     if (__xe70299.GAME_STATE === 'NIGHT') {
-        _0xa2d061 = Math.min(0.6, _0xa2d061 + dt * 0.5);
+        _Ox6b56a8 = Math.min(0.6, _Ox6b56a8 + dt * 0.5);
     } else {
-        _0xa2d061 = Math.max(0, _0xa2d061 - dt * 0.5);
+        _Ox6b56a8 = Math.max(0, _Ox6b56a8 - dt * 0.5);
     }
 
     computeShadowVisibility();
-    __x11c3d3();
+    _$xda4a1a();
 }
 
 function drawChatBubble(ctx, text, x, y, hasTail = true) {
@@ -2046,7 +2046,7 @@ function render() {
         });
     }
 
-    if (_ox5e9e29) {
+    if (__x272470) {
         for (let cy = startCY; cy <= endCY; cy++) {
             for (let cx = startCX; cx <= endCX; cx++) {
                 const dx = cx * __xe70299.MAP.chunkSize - camX;
@@ -2057,14 +2057,14 @@ function render() {
         return;
     }
 
-    const amIDark = __xe70299.GAME_STATE === 'NIGHT' && __xfc6336 === 'Skinwalker' && !_$xaf88e0.isDead;
+    const amIDark = __xe70299.GAME_STATE === 'NIGHT' && _$xc4e97d === 'Skinwalker' && !_$xaf88e0.isDead;
     const pRenderX = _$xaf88e0.x - camX + _$xaf88e0.width / 2;
     const pRenderY = _$xaf88e0.y - camY + _$xaf88e0.height / 2;
     const pScaledW = _$xaf88e0.width * _$xaf88e0.scale * 1.3;
     const pScaledH = _$xaf88e0.height * _$xaf88e0.scale * 1.3;
 
-    for (const id in _Ox55f60b) {
-        const p = _Ox55f60b[id];
+    for (const id in _ox1e7c52) {
+        const p = _ox1e7c52[id];
         if (p.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
@@ -2077,7 +2077,7 @@ function render() {
             ctx.rotate(p.renderAngle ?? 0);
             if (p.isDark) ctx.filter = 'brightness(0)';
             drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
-            if (_Ox6b56a8.has(parseInt(id)) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            if (_ox33dcef.has(parseInt(id)) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
                 ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
             }
             if (p.isDark) ctx.filter = 'none';
@@ -2090,7 +2090,7 @@ function render() {
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
-            ctx.fillStyle = _Ox6b56a8.has(parseInt(id)) ? '#cc88ff' : '#ffffff';
+            ctx.fillStyle = _ox33dcef.has(parseInt(id)) ? '#cc88ff' : '#ffffff';
             const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
             ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
             ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
@@ -2103,8 +2103,8 @@ function render() {
             ctx.translate(pRenderX, pRenderY);
             ctx.rotate(_$xaf88e0.angle);
             if (amIDark) ctx.filter = 'brightness(0)';
-            drawPlayerLayers(ctx, _Ox9617e2, _0xcd919b, pScaledW, pScaledH);
-            if (_Ox6b56a8.has(_0x8d6fc4) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            drawPlayerLayers(ctx, _ox5e9e29, _Ox9617e2, pScaledW, pScaledH);
+            if (_ox33dcef.has(_Ox55f60b) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
                 ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
             }
             if (amIDark) ctx.filter = 'none';
@@ -2117,8 +2117,8 @@ function render() {
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
-            ctx.fillStyle = (_Ox6b56a8.has(_0x8d6fc4)) ? '#cc88ff' : '#ffffff';
-            const myLabel = amIDark ? '???' : (_$xc4e97d + (_ox33dcef ? ' [🗝️]' : ''));
+            ctx.fillStyle = (_ox33dcef.has(_Ox55f60b)) ? '#cc88ff' : '#ffffff';
+            const myLabel = amIDark ? '???' : (_0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : ''));
             ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
         }
@@ -2135,8 +2135,8 @@ function render() {
     }
 
     if (_$xaf88e0.isDead) {
-        for (const id in _Ox55f60b) {
-            const p = _Ox55f60b[id];
+        for (const id in _ox1e7c52) {
+            const p = _ox1e7c52[id];
             if (!p.isDead) continue;
             const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
             const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
@@ -2171,7 +2171,7 @@ function render() {
             ctx.translate(pRenderX, pRenderY);
             ctx.rotate(_$xaf88e0.angle);
             ctx.globalAlpha = 0.3;
-            drawPlayerLayers(ctx, _Ox9617e2, _0xcd919b, pScaledW, pScaledH);
+            drawPlayerLayers(ctx, _ox5e9e29, _Ox9617e2, pScaledW, pScaledH);
         } finally {
             ctx.restore();
         }
@@ -2184,7 +2184,7 @@ function render() {
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
             ctx.fillStyle = '#ffffff';
-            const myLabel = _$xc4e97d + (_ox33dcef ? ' [🗝️]' : '');
+            const myLabel = _0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : '');
             ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.restore();
@@ -2226,13 +2226,13 @@ function render() {
 
     drawShadowOverlay(ctx, camX, camY);
 
-    if (_0xa2d061 > 0) {
+    if (_Ox6b56a8 > 0) {
         ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
         ctx.fillRect(0, 0, __xe70299.CAMERA.width, __xe70299.CAMERA.height);
     }
 
-    for (const id in _Ox55f60b) {
-        const p = _Ox55f60b[id];
+    for (const id in _ox1e7c52) {
+        const p = _ox1e7c52[id];
         if (p.isDead && !_$xaf88e0.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
@@ -2253,13 +2253,13 @@ function gameLoop(now) {
     if (dt > 0.1) dt = 0.1;
     if (dt < 0 || isNaN(dt)) dt = 0.016;
 
-    if (_ox5e9e29) {
+    if (__x272470) {
         updateMenuCamera(dt);
         render();
         return;
     }
 
-    if (!_0x8d6fc4) return;
+    if (!_Ox55f60b) return;
     update(dt);
     HeartbeatManager.tick(now);
     render();
@@ -2396,13 +2396,13 @@ function onAssetLoad() {
 }
 
 function handleMapEdit(screenX, screenY) {
-    if (!_ox33dcef || !_$x050b54) return;
+    if (!__xfc6336 || !_0xcd919b) return;
     const worldX = (screenX / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.x;
     const worldY = (screenY / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.y;
     const col = Math.floor(worldX / __xe70299.MAP.tileSize);
     const row = Math.floor(worldY / __xe70299.MAP.tileSize);
     if (col >= 0 && col < __xe70299.MAP.columns && row >= 0 && row < __xe70299.MAP.rows)
-        _$x050b54.send(JSON.stringify({ type: 'edit', layer: __xe70299.EDITOR.selectedLayer, col, row, gid: __xe70299.EDITOR.selectedTileGid }));
+        _0xcd919b.send(JSON.stringify({ type: 'edit', layer: __xe70299.EDITOR.selectedLayer, col, row, gid: __xe70299.EDITOR.selectedTileGid }));
 }
 
 function initEditorUI() {
@@ -2522,7 +2522,7 @@ function initEditorUI() {
     const startBtn = document.getElementById('start-game-btn');
     if (startBtn) {
         startBtn.addEventListener('click', () => {
-            if (_$x050b54) _$x050b54.send(JSON.stringify({ type: 'start_game' }));
+            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'start_game' }));
         });
     }
 
@@ -2534,7 +2534,7 @@ function initEditorUI() {
             else if (currentMode === 'precise') currentMode = 'off';
             else currentMode = 'subalignments';
             rolelistBtn.innerText = 'Role List: ' + currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
-            if (_$x050b54) _$x050b54.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
+            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
         });
     }
 
@@ -2548,8 +2548,8 @@ function initEditorUI() {
     });
 }
 
-function sendKick(targetId) { if(_$x050b54) _$x050b54.send(JSON.stringify({ type: 'kick', targetId })); }
-function sendBan(targetId) { if(_$x050b54) _$x050b54.send(JSON.stringify({ type: 'ban', targetId })); }
+function sendKick(targetId) { if(_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'kick', targetId })); }
+function sendBan(targetId) { if(_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'ban', targetId })); }
 
 function showAdminPanel(targetId, targetName, mouseX, mouseY) {
     const existing = document.getElementById('admin-panel');
@@ -2603,25 +2603,25 @@ function updateLeaderboard() {
     const selfDiv = document.createElement('div');
     selfDiv.className = 'leaderboard-entry';
     const selfSpan = document.createElement('span');
-    selfSpan.textContent = _$xc4e97d + (_ox33dcef ? ' [🗝️]' : '');
-    if (_Ox6b56a8.has(_0x8d6fc4) && !_$xaf88e0.isDead) {
+    selfSpan.textContent = _0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : '');
+    if (_ox33dcef.has(_Ox55f60b) && !_$xaf88e0.isDead) {
         selfSpan.style.color = '#cc88ff';
     }
     selfDiv.appendChild(selfSpan);
     list.appendChild(selfDiv);
 
-    for (const id in _Ox55f60b) {
+    for (const id in _ox1e7c52) {
         const div = document.createElement('div');
         div.className = 'leaderboard-entry';
         const span = document.createElement('span');
-        span.textContent = _Ox55f60b[id].name + (_Ox55f60b[id].isOwner ? ' [🗝️]' : '');
-        if (_Ox6b56a8.has(parseInt(id)) && !_Ox55f60b[id].isDead) {
+        span.textContent = _ox1e7c52[id].name + (_ox1e7c52[id].isOwner ? ' [🗝️]' : '');
+        if (_ox33dcef.has(parseInt(id)) && !_ox1e7c52[id].isDead) {
             span.style.color = '#cc88ff';
         }
         div.appendChild(span);
-        if (_ox33dcef && !_Ox55f60b[id].isOwner) {
-            const pId = _Ox55f60b[id].id;
-            const pName = _Ox55f60b[id].name;
+        if (__xfc6336 && !_ox1e7c52[id].isOwner) {
+            const pId = _ox1e7c52[id].id;
+            const pName = _ox1e7c52[id].name;
             div.style.cursor = 'context-menu';
             div.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -2637,7 +2637,7 @@ window.addEventListener('resize', resizeCanvas);
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    __xe70299.SYSTEM.viewScale = Math.max(canvas.width / __x3c850d, canvas.height / _ox73fec6);
+    __xe70299.SYSTEM.viewScale = Math.max(canvas.width / _$x050b54, canvas.height / __x3c850d);
     __xe70299.CAMERA.width = canvas.width / __xe70299.SYSTEM.viewScale;
     __xe70299.CAMERA.height = canvas.height / __xe70299.SYSTEM.viewScale;
     ctx.imageSmoothingEnabled = false;
@@ -2662,7 +2662,7 @@ window.addEventListener('keydown', e => {
         const willInput = document.getElementById('will-input');
         if (willUI.style.display === 'flex') {
             willUI.style.display = 'none';
-            if (_$x050b54) _$x050b54.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
             willInput.blur();
         } else {
             willUI.style.display = 'flex';
@@ -2673,13 +2673,13 @@ window.addEventListener('keydown', e => {
     }
 
     if (e.key === 'Enter') {
-        if (_ox5e9e29) {
+        if (__x272470) {
             const playBtn = document.getElementById('play-btn');
             if (playBtn) playBtn.click();
             return;
         }
 
-        if (!_$x050b54 || _$x050b54.readyState !== WebSocket.OPEN) return;
+        if (!_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
 
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
@@ -2687,7 +2687,7 @@ window.addEventListener('keydown', e => {
         if (document.activeElement === chatInput) {
             const msg = chatInput.value.trim();
             if (msg.length > 0) {
-                _$x050b54.send(JSON.stringify({ type: 'chat', text: msg }));
+                _0xcd919b.send(JSON.stringify({ type: 'chat', text: msg }));
             }
             chatInput.value = '';
             chatUI.style.display = 'none';
@@ -2741,7 +2741,7 @@ window.addEventListener('keydown', e => {
     if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         if (__xe70299.INPUTS.keys.hasOwnProperty(key)) __xe70299.INPUTS.keys[key] = true;
 
-        if (!_$x050b54 || _$x050b54.readyState !== WebSocket.OPEN) return;
+        if (!_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
 
         if (key === 'h' && !e.repeat) {
             const guideUI = document.getElementById('guide-ui');
@@ -2754,8 +2754,8 @@ window.addEventListener('keydown', e => {
         if (key === 't' && !e.repeat) {
             if (_$xaf88e0.isDead) return;
 
-            if (__xfc6336 === 'Mayor') {
-                if (_Ox6b56a8.has(_0x8d6fc4)) {
+            if (_$xc4e97d === 'Mayor') {
+                if (_ox33dcef.has(_Ox55f60b)) {
                     addChatLog("You have already revealed yourself as the Mayor.", true);
                     return;
                 }
@@ -2791,7 +2791,7 @@ window.addEventListener('keydown', e => {
             const _nowDoor = Date.now();
             if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
                 window._lastDoorSend = _nowDoor;
-                _$x050b54.send(JSON.stringify({ type: 'interact' }));
+                _0xcd919b.send(JSON.stringify({ type: 'interact' }));
             }
         }
     }
@@ -2955,7 +2955,7 @@ function initMobileControls() {
     };
 
     canvas.addEventListener('touchstart', (e) => {
-        if (_ox5e9e29) return;
+        if (__x272470) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             if (t.identifier !== joystickTouchId && touchAimId === null) {
@@ -2967,7 +2967,7 @@ function initMobileControls() {
     }, { passive: true });
 
     canvas.addEventListener('touchmove', (e) => {
-        if (_ox5e9e29) return;
+        if (__x272470) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             if (t.identifier === touchAimId) {
@@ -3007,7 +3007,7 @@ function initMobileControls() {
                 const _nowDoor = Date.now();
                 if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
                     window._lastDoorSend = _nowDoor;
-                    if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN) _$x050b54.send(JSON.stringify({ type: 'interact' }));
+                    if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) _0xcd919b.send(JSON.stringify({ type: 'interact' }));
                 }
             }
         });
@@ -3019,8 +3019,8 @@ function initMobileControls() {
             e.stopPropagation();
             if (_$xaf88e0.isDead) return;
 
-            if (__xfc6336 === 'Mayor') {
-                if (_Ox6b56a8.has(_0x8d6fc4)) {
+            if (_$xc4e97d === 'Mayor') {
+                if (_ox33dcef.has(_Ox55f60b)) {
                     addChatLog("You have already revealed yourself as the Mayor.", true);
                     return;
                 }
@@ -3062,8 +3062,8 @@ function initMobileControls() {
         if (!willUI) return;
         if (willUI.style.display === 'flex') {
             willUI.style.display = 'none';
-            if (_$x050b54 && _$x050b54.readyState === WebSocket.OPEN && willInput) {
-                _$x050b54.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN && willInput) {
+                _0xcd919b.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
             }
             if (willInput) willInput.blur();
         } else {
@@ -3097,8 +3097,8 @@ function initMobileControls() {
     const sendMobChat = () => {
         if (!mobChatInput) return;
         const msg = mobChatInput.value.trim();
-        if (msg.length > 0 && _$x050b54 && _$x050b54.readyState === WebSocket.OPEN) {
-            _$x050b54.send(JSON.stringify({ type: 'chat', text: msg }));
+        if (msg.length > 0 && _0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
+            _0xcd919b.send(JSON.stringify({ type: 'chat', text: msg }));
         }
         mobChatInput.value = '';
         closeMobChat();
