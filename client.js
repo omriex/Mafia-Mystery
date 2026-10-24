@@ -386,6 +386,8 @@ function initSettingsUI() {
     }
 }
 
+let lastVoteTallyHash = '';
+
 function updateVoteTally(gameState) {
     const panel = document.getElementById('vote-tally-panel');
     const list = document.getElementById('vote-tally-list');
@@ -393,11 +395,11 @@ function updateVoteTally(gameState) {
 
     if (gameState.state !== 'DAY_VOTE') {
         panel.style.display = 'none';
+        lastVoteTallyHash = '';
         return;
     }
 
     panel.style.display = 'block';
-    list.innerHTML = '';
 
     const counts = {};
     for (const id in serverPlayers) {
@@ -418,6 +420,12 @@ function updateVoteTally(gameState) {
         totalSkips += Number(skips[sId]) || 1;
     }
 
+    const hash = JSON.stringify(counts) + '_' + totalSkips + '_' + ME.isDead;
+    if (hash === lastVoteTallyHash) return;
+    lastVoteTallyHash = hash;
+
+    list.innerHTML = '';
+
     for (const id in counts) {
         const pIdNum = parseInt(id);
         const pName = (pIdNum === myId) ? myName : (serverPlayers[id] ? serverPlayers[id].name : `Player ${id}`);
@@ -433,11 +441,12 @@ function updateVoteTally(gameState) {
         if (pIdNum !== myId && !ME.isDead) {
             row.style.cursor = 'pointer';
             row.title = `Vote for ${pName}`;
-            row.onclick = () => {
+            row.addEventListener('click', (e) => {
+                e.stopPropagation();
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
                 }
-            };
+            });
         }
         list.appendChild(row);
     }
@@ -448,11 +457,12 @@ function updateVoteTally(gameState) {
     if (!ME.isDead) {
         skipRow.style.cursor = 'pointer';
         skipRow.title = 'Click to skip vote';
-        skipRow.onclick = () => {
+        skipRow.addEventListener('click', (e) => {
+            e.stopPropagation();
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'chat', text: '/skip' }));
             }
-        };
+        });
     }
     list.appendChild(skipRow);
 }
@@ -2544,7 +2554,7 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-action-bar') || e.target.closest('#mobile-top-bar') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-action-bar') || e.target.closest('#mobile-top-bar') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui') || e.target.closest('#vote-tally-panel')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
