@@ -251,6 +251,64 @@ const AudioManager = (() => {
     return { play, onStateChange, onSoundEvent, setVolume, getVolume, setMuted, isMuted };
 })();
 
+const HeartbeatManager = (() => {
+    const DANGER_OUTER = 600;
+    const DANGER_INNER = 180;
+    const INTERVAL_FAR  = 1800;
+    const INTERVAL_NEAR = 320;
+    const VOL_FAR  = 0.18;
+    const VOL_NEAR = 0.95;
+
+    const _hb = new Audio('audio/heartbeat.mp3');
+    _hb.loop    = false;
+    _hb.preload = 'auto';
+    _hb.volume  = 0;
+
+    let _nextBeat   = 0;
+    let _lastDist   = Infinity;
+
+    function _clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+    function _lerp(a, b, t) { return a + (b - a) * t; }
+
+    function tick(now) {
+        if (WORLD.GAME_STATE !== 'NIGHT' || ME.isDead || myRole === 'Skinwalker') {
+            _lastDist = Infinity;
+            return;
+        }
+
+        const mx = ME.x + 22.5;
+        const my = ME.y + 22.5;
+
+        let closest = Infinity;
+        for (const id in serverPlayers) {
+            const p = serverPlayers[id];
+            if (!p.isDark || p.isDead) continue;
+            const dx = (p.renderX + 22.5) - mx;
+            const dy = (p.renderY + 22.5) - my;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < closest) closest = d;
+        }
+
+        _lastDist = closest;
+
+        if (closest > DANGER_OUTER) return;
+
+        const t = 1 - _clamp((closest - DANGER_INNER) / (DANGER_OUTER - DANGER_INNER), 0, 1);
+        const interval = _lerp(INTERVAL_FAR, INTERVAL_NEAR, t);
+        const vol      = _lerp(VOL_FAR,      VOL_NEAR,      t);
+
+        if (now >= _nextBeat) {
+            _hb.currentTime = 0;
+            _hb.volume = AudioManager.isMuted() ? 0 : _clamp(vol * AudioManager.getVolume() / 0.7, 0, 1);
+            _hb.play().catch(() => {});
+            _nextBeat = now + interval;
+        }
+    }
+
+    return { tick };
+})();
+
 function updateAbilityButtonVisibility() {
     const btn = document.getElementById('mob-ability-btn');
     if (!btn) return;
@@ -2199,6 +2257,7 @@ function gameLoop(now) {
 
     if (!myId) return;
     update(dt);
+    HeartbeatManager.tick(now);
     render();
 }
 
