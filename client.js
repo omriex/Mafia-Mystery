@@ -75,16 +75,16 @@ function updateRoleListUI(list, mode) {
     });
 }
 
-let _0xcd919b = null;
-let _Ox55f60b = null;
+let ws = null;
+let myId = null;
 const _pageToken = new URLSearchParams(window.location.search).get('token') || '';
-let _0x8d6fc4 = 'Player???';
-let __xfc6336 = false;
-let _ox1e7c52 = {};
-let _$xc4e97d = null;
-let _Ox6b56a8 = 0;
-let _0xa2d061 = 0;
-let _ox33dcef = new Set();
+let myName = 'Player???';
+let isOwner = false;
+let serverPlayers = {};
+let myRole = null;
+let nightAlpha = 0;
+let myTeleportId = 0;
+let revealedMayors = new Set();
 let abilityUIOpenedThisNight = false;
 let mouseRelativeMovement = localStorage.getItem('mouseRelativeMovement') === 'true';
 let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
@@ -272,17 +272,17 @@ const HeartbeatManager = (() => {
     function _lerp(a, b, t) { return a + (b - a) * t; }
 
     function tick(now) {
-        if (__xe70299.GAME_STATE !== 'NIGHT' || _$xaf88e0.isDead || _$xc4e97d === 'Skinwalker') {
+        if (WORLD.GAME_STATE !== 'NIGHT' || ME.isDead || myRole === 'Skinwalker') {
             _lastDist = Infinity;
             return;
         }
 
-        const mx = _$xaf88e0.x + 22.5;
-        const my = _$xaf88e0.y + 22.5;
+        const mx = ME.x + 22.5;
+        const my = ME.y + 22.5;
 
         let closest = Infinity;
-        for (const id in _ox1e7c52) {
-            const p = _ox1e7c52[id];
+        for (const id in serverPlayers) {
+            const p = serverPlayers[id];
             if (!p.isDark || p.isDead) continue;
             const dx = (p.renderX + 22.5) - mx;
             const dy = (p.renderY + 22.5) - my;
@@ -312,8 +312,8 @@ const HeartbeatManager = (() => {
 function updateAbilityButtonVisibility() {
     const btn = document.getElementById('mob-ability-btn');
     if (!btn) return;
-    const canUseNight = __xe70299.GAME_STATE === 'NIGHT' && !_$xaf88e0.isDead;
-    const canUseMayor = _$xc4e97d === 'Mayor' && !_ox33dcef.has(_Ox55f60b) && !_$xaf88e0.isDead;
+    const canUseNight = WORLD.GAME_STATE === 'NIGHT' && !ME.isDead;
+    const canUseMayor = myRole === 'Mayor' && !revealedMayors.has(myId) && !ME.isDead;
     if (canUseNight || canUseMayor) {
         btn.style.display = 'flex';
     } else {
@@ -326,7 +326,7 @@ function updateMobileVisibility() {
     const topBar = document.getElementById('mobile-top-bar');
     const actBar = document.getElementById('mobile-action-bar');
     if (!joy || !topBar || !actBar) return;
-    if (!__x272470 && isTouchDevice) {
+    if (!inMainMenu && isTouchDevice) {
         joy.style.display = 'flex';
         topBar.style.display = 'flex';
         actBar.style.display = 'flex';
@@ -341,17 +341,17 @@ function updateMobileVisibility() {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
 
-const _$x050b54 = 1280;
-const __x3c850d = 720;
+const LOGICAL_WIDTH = 1280;
+const LOGICAL_HEIGHT = 720;
 
-const __xe70299 = {
+const WORLD = {
     MAP: {
         tileSize: 64, chunkSize: 1024,
         columns: 0, rows: 0,
         tilesetCols: 0, layers: [],
         bgChunks: [], wallChunks: [], fgChunks: []
     },
-    CAMERA: { x: null, y: null, width: _$x050b54, height: __x3c850d },
+    CAMERA: { x: null, y: null, width: LOGICAL_WIDTH, height: LOGICAL_HEIGHT },
     INPUTS: {
         keys: { w: false, a: false, s: false, d: false, shift: false,
                 arrowup: false, arrowleft: false, arrowdown: false, arrowright: false },
@@ -370,7 +370,7 @@ const __xe70299 = {
     }
 };
 
-const _$xaf88e0 = {
+const ME = {
     x: 0, y: 0,
     width: 45, height: 45,
     vx: 0, vy: 0,
@@ -388,12 +388,12 @@ mayorCosmeticImg.src = 'assets/mayor cosmetic.png';
 const ALL_BODIES = ['body00.png', 'body01.png', 'body02.png', 'body03.png', 'body04.png', 'body05.png', 'body06.png', 'body07.png', 'body08.png', 'body09.png', 'body10.png'];
 const ALL_EYES = ['eyes0.png', 'eyes1.png', 'eyes2.png', 'eyes3.png', 'eyes4.png', 'eyes5.png', 'eyes6.png'];
 
-let _ox5e9e29 = localStorage.getItem('selectedBody') || 'body01.png';
-if (_ox5e9e29 === 'body1.png' || _ox5e9e29 === 'body1') _ox5e9e29 = 'body01.png';
-if (!_ox5e9e29.endsWith('.png')) _ox5e9e29 += '.png';
-let _Ox9617e2 = localStorage.getItem('selectedEyes') || 'eyes4.png';
-if (!_Ox9617e2.endsWith('.png')) _Ox9617e2 += '.png';
-let __x272470 = true;
+let selectedBody = localStorage.getItem('selectedBody') || 'body01.png';
+if (selectedBody === 'body1.png' || selectedBody === 'body1') selectedBody = 'body01.png';
+if (!selectedBody.endsWith('.png')) selectedBody += '.png';
+let selectedEyes = localStorage.getItem('selectedEyes') || 'eyes4.png';
+if (!selectedEyes.endsWith('.png')) selectedEyes += '.png';
+let inMainMenu = true;
 
 let menuCamX = null;
 let menuCamY = null;
@@ -434,12 +434,12 @@ function initCustomizationUI() {
     bodyGrid.innerHTML = '';
     ALL_BODIES.forEach(b => {
         const btn = document.createElement('button');
-        btn.className = 'skin-btn' + (b === _ox5e9e29 ? ' selected' : '');
+        btn.className = 'skin-btn' + (b === selectedBody ? ' selected' : '');
         const img = document.createElement('img');
         img.src = 'assets/' + b;
         btn.appendChild(img);
         btn.onclick = () => {
-            _ox5e9e29 = b;
+            selectedBody = b;
             localStorage.setItem('selectedBody', b);
             bodyGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
             btn.classList.add('selected');
@@ -450,12 +450,12 @@ function initCustomizationUI() {
     eyesGrid.innerHTML = '';
     ALL_EYES.forEach(e => {
         const btn = document.createElement('button');
-        btn.className = 'skin-btn' + (e === _Ox9617e2 ? ' selected' : '');
+        btn.className = 'skin-btn' + (e === selectedEyes ? ' selected' : '');
         const img = document.createElement('img');
         img.src = 'assets/' + e;
         btn.appendChild(img);
         btn.onclick = () => {
-            _Ox9617e2 = e;
+            selectedEyes = e;
             localStorage.setItem('selectedEyes', e);
             eyesGrid.querySelectorAll('.skin-btn').forEach(el => el.classList.remove('selected'));
             btn.classList.add('selected');
@@ -465,9 +465,9 @@ function initCustomizationUI() {
 }
 
 function updateMenuCamera(dt) {
-    if (!__xe70299.MAP.columns || !__xe70299.CAMERA.width) return;
-    const maxCamX = Math.max(0, __xe70299.MAP.columns * __xe70299.MAP.tileSize - __xe70299.CAMERA.width);
-    const maxCamY = Math.max(0, __xe70299.MAP.rows * __xe70299.MAP.tileSize - __xe70299.CAMERA.height);
+    if (!WORLD.MAP.columns || !WORLD.CAMERA.width) return;
+    const maxCamX = Math.max(0, WORLD.MAP.columns * WORLD.MAP.tileSize - WORLD.CAMERA.width);
+    const maxCamY = Math.max(0, WORLD.MAP.rows * WORLD.MAP.tileSize - WORLD.CAMERA.height);
     if (menuCamX === null) {
         menuCamX = maxCamX / 2;
         menuCamY = maxCamY / 2;
@@ -491,8 +491,8 @@ function updateMenuCamera(dt) {
         menuCamVY = -Math.abs(menuCamVY);
     }
 
-    __xe70299.CAMERA.x = menuCamX;
-    __xe70299.CAMERA.y = menuCamY;
+    WORLD.CAMERA.x = menuCamX;
+    WORLD.CAMERA.y = menuCamY;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -519,11 +519,11 @@ window.addEventListener('DOMContentLoaded', () => {
         playBtn.addEventListener('click', () => {
             const rawInp = usernameInput.value;
             const cleanInp = rawInp.replace(/<[^>]*>/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().substring(0, 14);
-            _0x8d6fc4 = cleanInp || 'Player';
-            localStorage.setItem('playerName', _0x8d6fc4);
-            __x272470 = false;
-            __xe70299.CAMERA.x = null;
-            __xe70299.CAMERA.y = null;
+            myName = cleanInp || 'Player';
+            localStorage.setItem('playerName', myName);
+            inMainMenu = false;
+            WORLD.CAMERA.x = null;
+            WORLD.CAMERA.y = null;
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
             const hint = document.getElementById('controls-hint');
@@ -537,9 +537,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 const rlToggle = document.getElementById('role-list-toggle');
                 if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
             }
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                _0xcd919b.send(JSON.stringify({ type: 'join', name: _0x8d6fc4, token: _pageToken, body: _ox5e9e29, eyes: _Ox9617e2 }));
-            } else if (!_0xcd919b || _0xcd919b.readyState === WebSocket.CLOSED || _0xcd919b.readyState === WebSocket.CLOSING) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
+            } else if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
                 connectToServer();
             }
         });
@@ -613,8 +613,8 @@ function initSettingsUI() {
 
     if (mayorYes && mayorDialog) {
         mayorYes.addEventListener('click', () => {
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                _0xcd919b.send(JSON.stringify({ type: 'mayor_reveal_self' }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'mayor_reveal_self' }));
             }
             mayorDialog.style.display = 'none';
         });
@@ -651,10 +651,10 @@ function updateVoteTally(gameState) {
     panel.style.display = 'block';
 
     const counts = {};
-    for (const id in _ox1e7c52) {
-        if (!_ox1e7c52[id].isDead) counts[id] = 0;
+    for (const id in serverPlayers) {
+        if (!serverPlayers[id].isDead) counts[id] = 0;
     }
-    if (_Ox55f60b && !_$xaf88e0.isDead) counts[_Ox55f60b] = 0;
+    if (myId && !ME.isDead) counts[myId] = 0;
 
     const votes = gameState.votes || {};
     for (const voterId in votes) {
@@ -669,7 +669,7 @@ function updateVoteTally(gameState) {
         totalSkips += Number(skips[sId]) || 1;
     }
 
-    const hash = JSON.stringify(counts) + '_' + totalSkips + '_' + _$xaf88e0.isDead;
+    const hash = JSON.stringify(counts) + '_' + totalSkips + '_' + ME.isDead;
     if (hash === lastVoteTallyHash) return;
     lastVoteTallyHash = hash;
 
@@ -677,7 +677,7 @@ function updateVoteTally(gameState) {
 
     for (const id in counts) {
         const pIdNum = parseInt(id);
-        const pName = (pIdNum === _Ox55f60b) ? myName : (_ox1e7c52[id] ? _ox1e7c52[id].name : `Player ${id}`);
+        const pName = (pIdNum === myId) ? myName : (serverPlayers[id] ? serverPlayers[id].name : `Player ${id}`);
         const row = document.createElement('div');
         row.className = 'vote-tally-entry';
         const nameSpan = document.createElement('span');
@@ -687,13 +687,13 @@ function updateVoteTally(gameState) {
         countSpan.textContent = `${counts[id]} vote${counts[id] === 1 ? '' : 's'}`;
         row.appendChild(nameSpan);
         row.appendChild(countSpan);
-        if (pIdNum !== _Ox55f60b && !_$xaf88e0.isDead) {
+        if (pIdNum !== myId && !ME.isDead) {
             row.style.cursor = 'pointer';
             row.title = `Vote for ${pName}`;
             row.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                    _0xcd919b.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
                 }
             });
         }
@@ -703,13 +703,13 @@ function updateVoteTally(gameState) {
     const skipRow = document.createElement('div');
     skipRow.className = 'vote-tally-skip';
     skipRow.innerHTML = `<span>Skips:</span> <span style="color:#ffcc00;float:right;">${totalSkips}</span>`;
-    if (!_$xaf88e0.isDead) {
+    if (!ME.isDead) {
         skipRow.style.cursor = 'pointer';
         skipRow.title = 'Click to skip vote';
         skipRow.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                _0xcd919b.send(JSON.stringify({ type: 'chat', text: '/skip' }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'chat', text: '/skip' }));
             }
         });
     }
@@ -721,8 +721,8 @@ let skinwalkerChosenAbilityTarget = null;
 let skinwalkerChosenKillTarget = null;
 
 function sendSkinwalkerAction() {
-    if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-        _0xcd919b.send(JSON.stringify({
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
             type: 'skinwalker_action',
             transformRole: skinwalkerChosenTransform,
             abilityTarget: skinwalkerChosenAbilityTarget,
@@ -736,7 +736,7 @@ function populateAbilityUI() {
     if (!body) return;
     body.innerHTML = '';
 
-    if (_$xc4e97d === 'Celebrity' || _$xc4e97d === 'Mayor') {
+    if (myRole === 'Celebrity' || myRole === 'Mayor') {
         const msg = document.createElement('div');
         msg.style.cssText = 'color: #aaa; font-style: italic; text-align: center; padding: 24px 0; font-size: 13px;';
         msg.innerText = 'Your role has a passive ability. No night action required.';
@@ -744,7 +744,7 @@ function populateAbilityUI() {
         return;
     }
 
-    if (_$xc4e97d === 'Skinwalker') {
+    if (myRole === 'Skinwalker') {
         const tHead = document.createElement('div');
         tHead.style.cssText = 'color: #ffffff; font-weight: bold; font-size: 13px; margin-bottom: 2px;';
         tHead.innerText = 'Transform into:';
@@ -754,8 +754,8 @@ function populateAbilityUI() {
         roleGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;';
         const _allTransRoles = ['Doctor', 'Investigator', 'Tracker', 'Archer', 'Escort', 'Celebrity', 'Vigilante'];
         const isRoleAvailable = (r) => {
-            if (!__xe70299.ROLE_LIST_RAW || __xe70299.ROLE_LIST_RAW.length === 0) return true;
-            return __xe70299.ROLE_LIST_RAW.some(item => {
+            if (!WORLD.ROLE_LIST_RAW || WORLD.ROLE_LIST_RAW.length === 0) return true;
+            return WORLD.ROLE_LIST_RAW.some(item => {
                 if (item.name === r) return !item.isDead;
                 if (SUBALIGNMENT_ROLES[item.name] && SUBALIGNMENT_ROLES[item.name].includes(r)) return true;
                 return false;
@@ -811,8 +811,8 @@ function populateAbilityUI() {
             };
             aList.appendChild(noTargetBtn);
 
-            for (const id in _ox1e7c52) {
-                const sp = _ox1e7c52[id];
+            for (const id in serverPlayers) {
+                const sp = serverPlayers[id];
                 if (sp.isDead) continue;
                 const pBtn = document.createElement('button');
                 pBtn.className = 'layer-btn';
@@ -840,25 +840,25 @@ function populateAbilityUI() {
         noKillBtn.className = 'layer-btn';
         noKillBtn.style.cssText = 'grid-column: span 2; color: #aaa; font-style: italic;';
         noKillBtn.innerText = 'No one';
-        if (!skinwalkerChosenKillTarget && !__xe70299.CURRENT_TARGET) noKillBtn.classList.add('active');
+        if (!skinwalkerChosenKillTarget && !WORLD.CURRENT_TARGET) noKillBtn.classList.add('active');
         noKillBtn.onclick = () => {
             skinwalkerChosenKillTarget = null;
-            __xe70299.CURRENT_TARGET = null;
+            WORLD.CURRENT_TARGET = null;
             sendSkinwalkerAction();
             populateAbilityUI();
         };
         kList.appendChild(noKillBtn);
 
-        for (const id in _ox1e7c52) {
-            const sp = _ox1e7c52[id];
+        for (const id in serverPlayers) {
+            const sp = serverPlayers[id];
             if (sp.isDead) continue;
             const kBtn = document.createElement('button');
             kBtn.className = 'layer-btn';
             kBtn.innerText = sp.name;
-            if (skinwalkerChosenKillTarget === parseInt(id) || __xe70299.CURRENT_TARGET === parseInt(id)) kBtn.classList.add('active');
+            if (skinwalkerChosenKillTarget === parseInt(id) || WORLD.CURRENT_TARGET === parseInt(id)) kBtn.classList.add('active');
             kBtn.onclick = () => {
                 skinwalkerChosenKillTarget = parseInt(id);
-                __xe70299.CURRENT_TARGET = parseInt(id);
+                WORLD.CURRENT_TARGET = parseInt(id);
                 sendSkinwalkerAction();
                 populateAbilityUI();
             };
@@ -871,18 +871,18 @@ function populateAbilityUI() {
     let roleDesc = '';
     let allowSelf = false;
 
-    if (_$xc4e97d === 'Doctor') {
+    if (myRole === 'Doctor') {
         roleDesc = 'Select a player to heal and protect tonight:';
         allowSelf = true;
-    } else if (_$xc4e97d === 'Investigator') {
+    } else if (myRole === 'Investigator') {
         roleDesc = 'Select a player to investigate tonight:';
-    } else if (_$xc4e97d === 'Tracker') {
+    } else if (myRole === 'Tracker') {
         roleDesc = 'Select a player to track visits tonight:';
-    } else if (_$xc4e97d === 'Archer') {
+    } else if (myRole === 'Archer') {
         roleDesc = 'Select a player to guard from harmful visitors:';
-    } else if (_$xc4e97d === 'Escort') {
+    } else if (myRole === 'Escort') {
         roleDesc = 'Select a player to roleblock tonight:';
-    } else if (_$xc4e97d === 'Vigilante') {
+    } else if (myRole === 'Vigilante') {
         roleDesc = 'Select a player to shoot tonight:';
     }
 
@@ -898,43 +898,43 @@ function populateAbilityUI() {
     noOneBtn.className = 'layer-btn';
     noOneBtn.style.cssText = 'grid-column: span 2; color: #aaa; font-style: italic;';
     noOneBtn.innerText = 'No one';
-    if (__xe70299.CURRENT_TARGET === null) noOneBtn.classList.add('active');
+    if (WORLD.CURRENT_TARGET === null) noOneBtn.classList.add('active');
     noOneBtn.onclick = () => {
-        __xe70299.CURRENT_TARGET = null;
-        if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-            _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: null }));
+        WORLD.CURRENT_TARGET = null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'action_target', targetId: null }));
         }
         populateAbilityUI();
     };
     listDiv.appendChild(noOneBtn);
 
-    for (const id in _ox1e7c52) {
-        const sp = _ox1e7c52[id];
+    for (const id in serverPlayers) {
+        const sp = serverPlayers[id];
         if (sp.isDead) continue;
         const btn = document.createElement('button');
         btn.className = 'layer-btn';
         btn.innerText = sp.name;
-        if (__xe70299.CURRENT_TARGET === parseInt(id)) btn.classList.add('active');
+        if (WORLD.CURRENT_TARGET === parseInt(id)) btn.classList.add('active');
         btn.onclick = () => {
-            __xe70299.CURRENT_TARGET = parseInt(id);
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
+            WORLD.CURRENT_TARGET = parseInt(id);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'action_target', targetId: parseInt(id) }));
             }
             populateAbilityUI();
         };
         listDiv.appendChild(btn);
     }
 
-    if (allowSelf && !_$xaf88e0.isDead) {
+    if (allowSelf && !ME.isDead) {
         const selfBtn = document.createElement('button');
         selfBtn.className = 'layer-btn';
         selfBtn.style.cssText = 'grid-column: span 2;';
-        selfBtn.innerText = _0x8d6fc4 + ' (Self)';
-        if (__xe70299.CURRENT_TARGET === _Ox55f60b) selfBtn.classList.add('active');
+        selfBtn.innerText = myName + ' (Self)';
+        if (WORLD.CURRENT_TARGET === myId) selfBtn.classList.add('active');
         selfBtn.onclick = () => {
-            __xe70299.CURRENT_TARGET = _Ox55f60b;
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-                _0xcd919b.send(JSON.stringify({ type: 'action_target', targetId: _Ox55f60b }));
+            WORLD.CURRENT_TARGET = myId;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'action_target', targetId: myId }));
             }
             populateAbilityUI();
         };
@@ -945,7 +945,7 @@ function populateAbilityUI() {
 }
 
 function connectToServer() {
-    if (_0xcd919b && (_0xcd919b.readyState === WebSocket.OPEN || _0xcd919b.readyState === WebSocket.CONNECTING)) {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         return;
     }
 
@@ -959,21 +959,21 @@ function connectToServer() {
         : _ngrokURL;
     const _wsURL = _wsHost + '/?' + _params.toString();
 
-    _0xcd919b = new WebSocket(_wsURL);
+    ws = new WebSocket(_wsURL);
 
-    _0xcd919b.onopen = function () {
-        if (!__x272470 && this.readyState === WebSocket.OPEN) {
-            this.send(JSON.stringify({ type: 'join', name: _0x8d6fc4, token: _pageToken, body: _ox5e9e29, eyes: _Ox9617e2 }));
+    ws.onopen = function () {
+        if (!inMainMenu && this.readyState === WebSocket.OPEN) {
+            this.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
         }
     };
 
     window.addEventListener('beforeunload', () => {
-        if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-            _0xcd919b.send(JSON.stringify({ type: 'leave' }));
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'leave' }));
         }
     });
 
-    _0xcd919b.onclose = (e) => {
+    ws.onclose = (e) => {
         if (e.code === 4001) {
             document.body.innerHTML = '<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:white;display:flex;align-items:center;justify-content:center;font-family:Segoe UI;font-size:24px;font-weight:bold;">You have been kicked.</div>';
             return;
@@ -995,37 +995,37 @@ function connectToServer() {
         }, 1500);
     };
 
-    _0xcd919b.onmessage = (event) => {
+    ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         if (data.type === 'map_data') {
-            __xe70299.MAP.tileSize = data.map.tileSize;
-            __xe70299.MAP.columns = data.map.columns;
-            __xe70299.MAP.rows = data.map.rows;
-            __xe70299.MAP.layers = data.map.layers;
+            WORLD.MAP.tileSize = data.map.tileSize;
+            WORLD.MAP.columns = data.map.columns;
+            WORLD.MAP.rows = data.map.rows;
+            WORLD.MAP.layers = data.map.layers;
             if (data.map.doors) {
-                __xe70299.MAP.doors = data.map.doors;
-                const f2Layer = __xe70299.MAP.layers.find(l => l.name === 'floor2');
+                WORLD.MAP.doors = data.map.doors;
+                const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
                 if (f2Layer) {
-                    for (const dIdx in __xe70299.MAP.doors) {
+                    for (const dIdx in WORLD.MAP.doors) {
                         f2Layer.data[parseInt(dIdx)] = 2;
                     }
                 }
             }
-            if (data.entities) __xe70299.ENTITIES = data.entities;
+            if (data.entities) WORLD.ENTITIES = data.entities;
             preRenderMap();
-            __xe70299.SYSTEM.isReady = true;
+            WORLD.SYSTEM.isReady = true;
             resizeCanvas();
-            if (!__xe70299.SYSTEM._gameLoopRunning) {
-                __xe70299.SYSTEM._gameLoopRunning = true;
+            if (!WORLD.SYSTEM._gameLoopRunning) {
+                WORLD.SYSTEM._gameLoopRunning = true;
                 requestAnimationFrame(gameLoop);
             }
             return;
         }
 
         if (data.type === 'init') {
-            _Ox55f60b = data.id;
-            __x272470 = false;
+            myId = data.id;
+            inMainMenu = false;
             updateMobileVisibility();
             if (isTouchDevice) {
                 const lbList = document.getElementById('leaderboard-list');
@@ -1035,32 +1035,32 @@ function connectToServer() {
                 const rlToggle = document.getElementById('role-list-toggle');
                 if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
             }
-            __xfc6336 = data.isOwner || false;
-            _0x8d6fc4 = data.name || _0x8d6fc4;
+            isOwner = data.isOwner || false;
+            myName = data.name || myName;
 
-            __xe70299.MAP.tileSize = data.map.tileSize;
-            __xe70299.MAP.columns = data.map.columns;
-            __xe70299.MAP.rows = data.map.rows;
-            __xe70299.MAP.layers = data.map.layers;
+            WORLD.MAP.tileSize = data.map.tileSize;
+            WORLD.MAP.columns = data.map.columns;
+            WORLD.MAP.rows = data.map.rows;
+            WORLD.MAP.layers = data.map.layers;
             if (data.map.doors) {
-                __xe70299.MAP.doors = data.map.doors;
-                const f2Layer = __xe70299.MAP.layers.find(l => l.name === 'floor2');
+                WORLD.MAP.doors = data.map.doors;
+                const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
                 if (f2Layer) {
-                    for (const dIdx in __xe70299.MAP.doors) {
+                    for (const dIdx in WORLD.MAP.doors) {
                         f2Layer.data[parseInt(dIdx)] = 2;
                     }
                 }
             }
-            if (data.entities) __xe70299.ENTITIES = data.entities;
+            if (data.entities) WORLD.ENTITIES = data.entities;
 
             preRenderMap();
 
-            _$xaf88e0.x = (__xe70299.MAP.columns * __xe70299.MAP.tileSize) / 2;
-            _$xaf88e0.y = (__xe70299.MAP.rows * __xe70299.MAP.tileSize) / 2;
-            __xe70299.CAMERA.x = _$xaf88e0.x + _$xaf88e0.width / 2 - __xe70299.CAMERA.width / 2;
-            __xe70299.CAMERA.y = _$xaf88e0.y + _$xaf88e0.height / 2 - __xe70299.CAMERA.height / 2;
+            ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2;
+            ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2;
+            WORLD.CAMERA.x = ME.x + ME.width / 2 - WORLD.CAMERA.width / 2;
+            WORLD.CAMERA.y = ME.y + ME.height / 2 - WORLD.CAMERA.height / 2;
 
-            if (__xfc6336) {
+            if (isOwner) {
                 document.getElementById('editor-ui').style.display = 'flex';
                 initEditorUI();
             }
@@ -1068,20 +1068,20 @@ function connectToServer() {
             document.getElementById('settings-btn-wrap').style.display = 'block';
             document.getElementById('leaderboard-ui').style.display = 'flex';
             document.getElementById('role-list-ui').style.display = 'flex';
-            __xe70299.SYSTEM.lastTime = performance.now();
-            __xe70299.SYSTEM.isReady = true;
+            WORLD.SYSTEM.lastTime = performance.now();
+            WORLD.SYSTEM.isReady = true;
             updateLeaderboard();
-            if (!__xe70299.SYSTEM._gameLoopRunning) {
-                __xe70299.SYSTEM._gameLoopRunning = true;
+            if (!WORLD.SYSTEM._gameLoopRunning) {
+                WORLD.SYSTEM._gameLoopRunning = true;
                 requestAnimationFrame(gameLoop);
             }
             return;
         } else if (data.type === 'state') {
             const next = {};
             for (const id in data.players) {
-                if (parseInt(id) === _Ox55f60b) continue;
+                if (parseInt(id) === myId) continue;
                 const incoming = data.players[id];
-                const existing = _ox1e7c52[id];
+                const existing = serverPlayers[id];
                 if (existing) {
                     const dx = incoming.x - existing.renderX;
                     const dy = incoming.y - existing.renderY;
@@ -1096,52 +1096,52 @@ function connectToServer() {
                     next[id] = { ...incoming, renderX: incoming.x, renderY: incoming.y, renderAngle: incoming.angle || 0 };
                 }
             }
-            _ox1e7c52 = next;
+            serverPlayers = next;
 
-            if (data.players[_Ox55f60b]) {
-                const sMe = data.players[_Ox55f60b];
-                _$xaf88e0.chats = sMe.chats || [];
-                _$xaf88e0.isDead = sMe.isDead;
-                if (sMe.name) _0x8d6fc4 = sMe.name;
+            if (data.players[myId]) {
+                const sMe = data.players[myId];
+                ME.chats = sMe.chats || [];
+                ME.isDead = sMe.isDead;
+                if (sMe.name) myName = sMe.name;
                 updateLeaderboard();
-                const sDist = Math.hypot(sMe.x - _$xaf88e0.x, sMe.y - _$xaf88e0.y);
+                const sDist = Math.hypot(sMe.x - ME.x, sMe.y - ME.y);
                 if (sDist > 50) {
-                    _$xaf88e0.x += (sMe.x - _$xaf88e0.x) * 0.35;
-                    _$xaf88e0.y += (sMe.y - _$xaf88e0.y) * 0.35;
+                    ME.x += (sMe.x - ME.x) * 0.35;
+                    ME.y += (sMe.y - ME.y) * 0.35;
                 }
             }
 
-            if (data.entities) __xe70299.ENTITIES = data.entities;
+            if (data.entities) WORLD.ENTITIES = data.entities;
 
             if (data.game) {
-                __xe70299.GAME_STATE = data.game.state;
-                __xe70299.NIGHT_ABILITY_OPEN = data.game.nightAbilityOpen;
+                WORLD.GAME_STATE = data.game.state;
+                WORLD.NIGHT_ABILITY_OPEN = data.game.nightAbilityOpen;
 
                 if (data.game.mayorRevealed) {
                     for (const mId in data.game.mayorRevealed) {
-                        _ox33dcef.add(parseInt(mId));
+                        revealedMayors.add(parseInt(mId));
                     }
                 }
 
-                if (__xe70299.LAST_STATE !== __xe70299.GAME_STATE) {
-                    if (__xe70299.GAME_STATE !== 'NIGHT') {
-                        __xe70299.CURRENT_TARGET = null;
+                if (WORLD.LAST_STATE !== WORLD.GAME_STATE) {
+                    if (WORLD.GAME_STATE !== 'NIGHT') {
+                        WORLD.CURRENT_TARGET = null;
                         skinwalkerChosenTransform = null;
                         skinwalkerChosenAbilityTarget = null;
                         skinwalkerChosenKillTarget = null;
                         const abilityUI = document.getElementById('ability-ui');
                         if (abilityUI) abilityUI.style.display = 'none';
                     }
-                    if (__xe70299.GAME_STATE === 'NIGHT') {
-                        _$xaf88e0.chats = [];
-                        for (const id in _ox1e7c52) {
-                            _ox1e7c52[id].chats = [];
+                    if (WORLD.GAME_STATE === 'NIGHT') {
+                        ME.chats = [];
+                        for (const id in serverPlayers) {
+                            serverPlayers[id].chats = [];
                         }
                     }
-                    __xe70299.LAST_STATE = __xe70299.GAME_STATE;
+                    WORLD.LAST_STATE = WORLD.GAME_STATE;
                     updateAbilityButtonVisibility();
                     
-                    AudioManager.onStateChange(__xe70299.GAME_STATE, data.game.nightAbilityOpen);
+                    AudioManager.onStateChange(WORLD.GAME_STATE, data.game.nightAbilityOpen);
                 }
 
                 const pUi = document.getElementById('phase-ui');
@@ -1174,7 +1174,7 @@ function connectToServer() {
                         const aTimer = data.game.abilityTimer !== undefined ? data.game.abilityTimer : data.game.timer;
                         timerLbl.innerText = data.game.nightAbilityOpen ? `${aTimer}s` : '';
                     }
-                    if (data.game.nightAbilityOpen && !abilityUIOpenedThisNight && !_$xaf88e0.isDead) {
+                    if (data.game.nightAbilityOpen && !abilityUIOpenedThisNight && !ME.isDead) {
                         abilityUIOpenedThisNight = true;
                         populateAbilityUI();
                         const ui = document.getElementById('ability-ui');
@@ -1193,27 +1193,27 @@ function connectToServer() {
                 updateVoteTally(data.game);
 
                 if (data.game.roleListMode !== undefined) {
-                    __xe70299.ROLE_LIST_RAW = data.game.roleList || [];
+                    WORLD.ROLE_LIST_RAW = data.game.roleList || [];
                     updateRoleListUI(data.game.roleList, data.game.roleListMode);
                 }
             }
 
         } else if (data.type === 'teleport') {
-            _$xaf88e0.x = data.x;
-            _$xaf88e0.y = data.y;
-            _$xaf88e0.vx = 0;
-            _$xaf88e0.vy = 0;
-            __xe70299.CAMERA.x = null;
-            if (data.teleportId !== undefined) _0xa2d061 = data.teleportId;
+            ME.x = data.x;
+            ME.y = data.y;
+            ME.vx = 0;
+            ME.vy = 0;
+            WORLD.CAMERA.x = null;
+            if (data.teleportId !== undefined) myTeleportId = data.teleportId;
         } else if (data.type === 'bulk_teleport') {
             for (const id in data.positions) {
                 const pos = data.positions[id];
-                if (parseInt(id) === _Ox55f60b) {
-                    _$xaf88e0.x = pos.x; _$xaf88e0.y = pos.y; _$xaf88e0.vx = 0; _$xaf88e0.vy = 0;
-                    __xe70299.CAMERA.x = null;
+                if (parseInt(id) === myId) {
+                    ME.x = pos.x; ME.y = pos.y; ME.vx = 0; ME.vy = 0;
+                    WORLD.CAMERA.x = null;
                     continue;
                 }
-                const sp = _ox1e7c52[id];
+                const sp = serverPlayers[id];
                 if (sp) {
                     sp.x = pos.x; sp.y = pos.y;
                     sp.renderX = pos.x; sp.renderY = pos.y;
@@ -1221,26 +1221,26 @@ function connectToServer() {
                 }
             }
         } else if (data.type === 'player_left') {
-            delete _ox1e7c52[data.id];
-            _ox33dcef.delete(parseInt(data.id));
+            delete serverPlayers[data.id];
+            revealedMayors.delete(parseInt(data.id));
         } else if (data.type === 'map_update') {
-            const layer = __xe70299.MAP.layers.find(l => l.name === data.layer);
+            const layer = WORLD.MAP.layers.find(l => l.name === data.layer);
             if (layer) {
-                layer.data[data.row * __xe70299.MAP.columns + data.col] = data.gid;
-                const dIdx = data.row * __xe70299.MAP.columns + data.col;
-                if (__xe70299.MAP.doors && __xe70299.MAP.doors[dIdx]) {
-                    const f2Layer = __xe70299.MAP.layers.find(l => l.name === 'floor2');
+                layer.data[data.row * WORLD.MAP.columns + data.col] = data.gid;
+                const dIdx = data.row * WORLD.MAP.columns + data.col;
+                if (WORLD.MAP.doors && WORLD.MAP.doors[dIdx]) {
+                    const f2Layer = WORLD.MAP.layers.find(l => l.name === 'floor2');
                     if (f2Layer) f2Layer.data[dIdx] = 2;
                 }
-                const cx = Math.floor((data.col * __xe70299.MAP.tileSize) / __xe70299.MAP.chunkSize);
-                const cy = Math.floor((data.row * __xe70299.MAP.tileSize) / __xe70299.MAP.chunkSize);
+                const cx = Math.floor((data.col * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+                const cy = Math.floor((data.row * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
                 renderChunk(cx, cy);
             }
         } else if (data.type === 'role_assign') {
-            _$xc4e97d = data.role;
-            _$xaf88e0.isDead = (_$xc4e97d === 'Spectator');
-            _ox33dcef.clear();
-            __xe70299.CURRENT_TARGET = null;
+            myRole = data.role;
+            ME.isDead = (myRole === 'Spectator');
+            revealedMayors.clear();
+            WORLD.CURRENT_TARGET = null;
             skinwalkerChosenTransform = null;
             skinwalkerChosenAbilityTarget = null;
             skinwalkerChosenKillTarget = null;
@@ -1248,28 +1248,28 @@ function connectToServer() {
             const abilityUiOnAssign = document.getElementById('ability-ui');
             if (abilityUiOnAssign) abilityUiOnAssign.style.display = 'none';
             document.getElementById('role-ui').style.display = 'block';
-            document.getElementById('my-role-name').innerText = _$xc4e97d;
+            document.getElementById('my-role-name').innerText = myRole;
             updateAbilityButtonVisibility();
-            addChatLog(_$xc4e97d === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
+            addChatLog(myRole === 'Spectator' ? "You are spectating this match." : `Game started! Your role is: ${myRole}`, true);
 
             let info = "";
-            if (_$xc4e97d === 'Investigator') info = "Investigate during the first 15s of night to narrow down roles.";
-            if (_$xc4e97d === 'Tracker') info = "Track during the first 15s of night to see who someone visits.";
-            if (_$xc4e97d === 'Doctor') info = "Heal during the first 15s of night to protect someone from death.";
-            if (_$xc4e97d === 'Archer') info = "Guard during the first 15s of night to shoot harmful visitors.";
-            if (_$xc4e97d === 'Escort') info = "Roleblock during the first 15s of night to stop someone's action.";
-            if (_$xc4e97d === 'Vigilante') info = "Shoot during the first 15s of night to kill. Don't shoot townies!";
-            if (_$xc4e97d === 'Skinwalker') info = "Choose your role transform, ability target, and kill target in the Night Ability UI!";
-            if (_$xc4e97d === 'Celebrity') info = "Passive ability. If you die, the killer's name letter is revealed.";
-            if (_$xc4e97d === 'Mayor') info = "Passive ability. Press [T] at any time to publicly reveal as Mayor. Your vote counts as double!";
+            if (myRole === 'Investigator') info = "Investigate during the first 15s of night to narrow down roles.";
+            if (myRole === 'Tracker') info = "Track during the first 15s of night to see who someone visits.";
+            if (myRole === 'Doctor') info = "Heal during the first 15s of night to protect someone from death.";
+            if (myRole === 'Archer') info = "Guard during the first 15s of night to shoot harmful visitors.";
+            if (myRole === 'Escort') info = "Roleblock during the first 15s of night to stop someone's action.";
+            if (myRole === 'Vigilante') info = "Shoot during the first 15s of night to kill. Don't shoot townies!";
+            if (myRole === 'Skinwalker') info = "Choose your role transform, ability target, and kill target in the Night Ability UI!";
+            if (myRole === 'Celebrity') info = "Passive ability. If you die, the killer's name letter is revealed.";
+            if (myRole === 'Mayor') info = "Passive ability. Press [T] at any time to publicly reveal as Mayor. Your vote counts as double!";
             addChatLog(info, true);
 
         } else if (data.type === 'mayor_reveal') {
-            _ox33dcef.add(parseInt(data.playerId));
+            revealedMayors.add(parseInt(data.playerId));
             updateLeaderboard();
             updateAbilityButtonVisibility();
         } else if (data.type === 'rolelist_update') {
-            __xe70299.ROLE_LIST_RAW = data.list || [];
+            WORLD.ROLE_LIST_RAW = data.list || [];
             updateRoleListUI(data.list, data.mode);
         } else if (data.type === 'sound_event') {
             
@@ -1278,10 +1278,10 @@ function connectToServer() {
         } else if (data.type === 'game_over') {
             AudioManager.onStateChange('LOBBY', false);   
             updateRoleListUI([], 'off');
-            _$xc4e97d = null;
-            _$xaf88e0.isDead = false;
-            _ox33dcef.clear();
-            __xe70299.CURRENT_TARGET = null;
+            myRole = null;
+            ME.isDead = false;
+            revealedMayors.clear();
+            WORLD.CURRENT_TARGET = null;
             skinwalkerChosenTransform = null;
             skinwalkerChosenAbilityTarget = null;
             skinwalkerChosenKillTarget = null;
@@ -1318,58 +1318,58 @@ function addChatLog(text, isSys = false) {
 }
 
 let _lastSentX = -1, _lastSentY = -1, _lastSentAngle = -1, _lastSentTime = 0;
-function _$xda4a1a() {
-    if (!_Ox55f60b || !_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
+function sendPositionUpdate() {
+    if (!myId || !ws || ws.readyState !== WebSocket.OPEN) return;
     const now = performance.now();
     const dt = now - _lastSentTime;
-    const moved = Math.abs(_$xaf88e0.x - _lastSentX) > 0.05 || Math.abs(_$xaf88e0.y - _lastSentY) > 0.05 || Math.abs(_$xaf88e0.angle - _lastSentAngle) > 0.02;
+    const moved = Math.abs(ME.x - _lastSentX) > 0.05 || Math.abs(ME.y - _lastSentY) > 0.05 || Math.abs(ME.angle - _lastSentAngle) > 0.02;
     if (!moved && dt < 200) return;
     if (dt < 25) return;
     _lastSentTime = now;
-    _lastSentX = _$xaf88e0.x;
-    _lastSentY = _$xaf88e0.y;
-    _lastSentAngle = _$xaf88e0.angle;
-    if (!_Ox55f60b || !_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
-    _0xcd919b.send(JSON.stringify({
+    _lastSentX = ME.x;
+    _lastSentY = ME.y;
+    _lastSentAngle = ME.angle;
+    if (!myId || !ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
         type: 'position_update',
-        x: _$xaf88e0.x,
-        y: _$xaf88e0.y,
-        vx: _$xaf88e0.vx,
-        vy: _$xaf88e0.vy,
-        angle: _$xaf88e0.angle,
-        scale: _$xaf88e0.scale,
-        teleportId: _0xa2d061
+        x: ME.x,
+        y: ME.y,
+        vx: ME.vx,
+        vy: ME.vy,
+        angle: ME.angle,
+        scale: ME.scale,
+        teleportId: myTeleportId
     }));
 }
 
-function __x11c3d3() {
-    if (_$xaf88e0.isDead) return;
+function resolveCircleCollisions() {
+    if (ME.isDead) return;
 
-    const wallLayer = __xe70299.MAP.layers.find(l => l.name === 'walls');
+    const wallLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) return;
 
-    const scale = _$xaf88e0.scale;
-    const radius = (_$xaf88e0.width * scale) / 2;
+    const scale = ME.scale;
+    const radius = (ME.width * scale) / 2;
 
     for (let iter = 0; iter < 3; iter++) {
-        let pX = _$xaf88e0.x + _$xaf88e0.width / 2;
-        let pY = _$xaf88e0.y + _$xaf88e0.height / 2;
+        let pX = ME.x + ME.width / 2;
+        let pY = ME.y + ME.height / 2;
 
-        const left = Math.floor((pX - radius) / __xe70299.MAP.tileSize);
-        const right = Math.floor((pX + radius) / __xe70299.MAP.tileSize);
-        const top = Math.floor((pY - radius) / __xe70299.MAP.tileSize);
-        const bottom = Math.floor((pY + radius) / __xe70299.MAP.tileSize);
+        const left = Math.floor((pX - radius) / WORLD.MAP.tileSize);
+        const right = Math.floor((pX + radius) / WORLD.MAP.tileSize);
+        const top = Math.floor((pY - radius) / WORLD.MAP.tileSize);
+        const bottom = Math.floor((pY + radius) / WORLD.MAP.tileSize);
 
         for (let r = top; r <= bottom; r++) {
             for (let c = left; c <= right; c++) {
-                if (c < 0 || c >= __xe70299.MAP.columns || r < 0 || r >= __xe70299.MAP.rows) continue;
-                if (wallLayer.data[r * __xe70299.MAP.columns + c] === 0) continue;
+                if (c < 0 || c >= WORLD.MAP.columns || r < 0 || r >= WORLD.MAP.rows) continue;
+                if (wallLayer.data[r * WORLD.MAP.columns + c] === 0) continue;
 
-                const tileX = c * __xe70299.MAP.tileSize;
-                const tileY = r * __xe70299.MAP.tileSize;
+                const tileX = c * WORLD.MAP.tileSize;
+                const tileY = r * WORLD.MAP.tileSize;
 
-                const testX = pX < tileX ? tileX : (pX > tileX + __xe70299.MAP.tileSize ? tileX + __xe70299.MAP.tileSize : pX);
-                const testY = pY < tileY ? tileY : (pY > tileY + __xe70299.MAP.tileSize ? tileY + __xe70299.MAP.tileSize : pY);
+                const testX = pX < tileX ? tileX : (pX > tileX + WORLD.MAP.tileSize ? tileX + WORLD.MAP.tileSize : pX);
+                const testY = pY < tileY ? tileY : (pY > tileY + WORLD.MAP.tileSize ? tileY + WORLD.MAP.tileSize : pY);
 
                 const dX = pX - testX;
                 const dY = pY - testY;
@@ -1378,35 +1378,35 @@ function __x11c3d3() {
                 if (dist < radius) {
                     if (dist === 0) {
                         const lD = pX - tileX;
-                        const rD = (tileX + __xe70299.MAP.tileSize) - pX;
+                        const rD = (tileX + WORLD.MAP.tileSize) - pX;
                         const tD = pY - tileY;
-                        const bD = (tileY + __xe70299.MAP.tileSize) - pY;
+                        const bD = (tileY + WORLD.MAP.tileSize) - pY;
                         const mD = Math.min(lD, rD, tD, bD);
                         if (mD === lD) pX = tileX - radius;
-                        else if (mD === rD) pX = tileX + __xe70299.MAP.tileSize + radius;
+                        else if (mD === rD) pX = tileX + WORLD.MAP.tileSize + radius;
                         else if (mD === tD) pY = tileY - radius;
-                        else pY = tileY + __xe70299.MAP.tileSize + radius;
+                        else pY = tileY + WORLD.MAP.tileSize + radius;
                     } else {
                         const overlap = radius - dist;
                         pX += (dX / dist) * overlap;
                         pY += (dY / dist) * overlap;
-                        const dot = _$xaf88e0.vx * (dX / dist) + _$xaf88e0.vy * (dY / dist);
+                        const dot = ME.vx * (dX / dist) + ME.vy * (dY / dist);
                         if (dot < 0) {
-                            _$xaf88e0.vx -= dot * (dX / dist);
-                            _$xaf88e0.vy -= dot * (dY / dist);
+                            ME.vx -= dot * (dX / dist);
+                            ME.vy -= dot * (dY / dist);
                         }
                     }
                 }
             }
         }
 
-        _$xaf88e0.x = pX - _$xaf88e0.width / 2;
-        _$xaf88e0.y = pY - _$xaf88e0.height / 2;
+        ME.x = pX - ME.width / 2;
+        ME.y = pY - ME.height / 2;
     }
 }
 
-function _0xb830fe(p) {
-    const wallLayer = __xe70299.MAP.layers.find(l => l.name === 'walls');
+function resolveCircleVsWalls(p) {
+    const wallLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) return;
 
     const radius = p.width / 2;
@@ -1415,21 +1415,21 @@ function _0xb830fe(p) {
         let pX = p.x + p.width / 2;
         let pY = p.y + p.height / 2;
 
-        const left = Math.floor((pX - radius) / __xe70299.MAP.tileSize);
-        const right = Math.floor((pX + radius) / __xe70299.MAP.tileSize);
-        const top = Math.floor((pY - radius) / __xe70299.MAP.tileSize);
-        const bottom = Math.floor((pY + radius) / __xe70299.MAP.tileSize);
+        const left = Math.floor((pX - radius) / WORLD.MAP.tileSize);
+        const right = Math.floor((pX + radius) / WORLD.MAP.tileSize);
+        const top = Math.floor((pY - radius) / WORLD.MAP.tileSize);
+        const bottom = Math.floor((pY + radius) / WORLD.MAP.tileSize);
 
         for (let r = top; r <= bottom; r++) {
             for (let c = left; c <= right; c++) {
-                if (c < 0 || c >= __xe70299.MAP.columns || r < 0 || r >= __xe70299.MAP.rows) continue;
-                if (wallLayer.data[r * __xe70299.MAP.columns + c] === 0) continue;
+                if (c < 0 || c >= WORLD.MAP.columns || r < 0 || r >= WORLD.MAP.rows) continue;
+                if (wallLayer.data[r * WORLD.MAP.columns + c] === 0) continue;
 
-                const tileX = c * __xe70299.MAP.tileSize;
-                const tileY = r * __xe70299.MAP.tileSize;
+                const tileX = c * WORLD.MAP.tileSize;
+                const tileY = r * WORLD.MAP.tileSize;
 
-                const testX = pX < tileX ? tileX : (pX > tileX + __xe70299.MAP.tileSize ? tileX + __xe70299.MAP.tileSize : pX);
-                const testY = pY < tileY ? tileY : (pY > tileY + __xe70299.MAP.tileSize ? tileY + __xe70299.MAP.tileSize : pY);
+                const testX = pX < tileX ? tileX : (pX > tileX + WORLD.MAP.tileSize ? tileX + WORLD.MAP.tileSize : pX);
+                const testY = pY < tileY ? tileY : (pY > tileY + WORLD.MAP.tileSize ? tileY + WORLD.MAP.tileSize : pY);
 
                 const dX = pX - testX;
                 const dY = pY - testY;
@@ -1438,14 +1438,14 @@ function _0xb830fe(p) {
                 if (dist < radius) {
                     if (dist === 0) {
                         const lD = pX - tileX;
-                        const rD = (tileX + __xe70299.MAP.tileSize) - pX;
+                        const rD = (tileX + WORLD.MAP.tileSize) - pX;
                         const tD = pY - tileY;
-                        const bD = (tileY + __xe70299.MAP.tileSize) - pY;
+                        const bD = (tileY + WORLD.MAP.tileSize) - pY;
                         const mD = Math.min(lD, rD, tD, bD);
                         if (mD === lD) pX = tileX - radius;
-                        else if (mD === rD) pX = tileX + __xe70299.MAP.tileSize + radius;
+                        else if (mD === rD) pX = tileX + WORLD.MAP.tileSize + radius;
                         else if (mD === tD) pY = tileY - radius;
-                        else pY = tileY + __xe70299.MAP.tileSize + radius;
+                        else pY = tileY + WORLD.MAP.tileSize + radius;
                     } else {
                         const overlap = radius - dist;
                         pX += (dX / dist) * overlap;
@@ -1460,12 +1460,12 @@ function _0xb830fe(p) {
     }
 }
 
-function _$xefaab7(p) {
+function resolveCircleVsEntities(p) {
     const radius = p.width / 2;
     for (let iter = 0; iter < 2; iter++) {
         let pX = p.x + p.width / 2;
         let pY = p.y + p.height / 2;
-        for (const ent of __xe70299.ENTITIES) {
+        for (const ent of WORLD.ENTITIES) {
             const nearX = pX < ent.x ? ent.x : (pX > ent.x + ent.w ? ent.x + ent.w : pX);
             const nearY = pY < ent.y ? ent.y : (pY > ent.y + ent.h ? ent.y + ent.h : pY);
             const dX = pX - nearX;
@@ -1494,15 +1494,15 @@ function _$xefaab7(p) {
     }
 }
 
-function _Ox80b745() {
-    if (_$xaf88e0.isDead) return;
+function resolvePlayerCollisionsLocal() {
+    if (ME.isDead) return;
 
-    const meR = _$xaf88e0.width / 2;
-    const mecx = _$xaf88e0.x + _$xaf88e0.width / 2;
-    const mecy = _$xaf88e0.y + _$xaf88e0.height / 2;
+    const meR = ME.width / 2;
+    const mecx = ME.x + ME.width / 2;
+    const mecy = ME.y + ME.height / 2;
 
-    for (const id in _ox1e7c52) {
-        const p = _ox1e7c52[id];
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
         if (p.isDead) continue;
 
         const pR = p.width / 2;
@@ -1520,39 +1520,39 @@ function _Ox80b745() {
             const nx = dX / dist;
             const ny = dY / dist;
 
-            _$xaf88e0.x += nx * (overlap * 0.25);
-            _$xaf88e0.y += ny * (overlap * 0.25);
+            ME.x += nx * (overlap * 0.25);
+            ME.y += ny * (overlap * 0.25);
 
             p.x -= nx * (overlap * 0.75);
             p.y -= ny * (overlap * 0.75);
 
-            _0xb830fe(p);
-            _$xefaab7(p);
+            resolveCircleVsWalls(p);
+            resolveCircleVsEntities(p);
 
             if (p.renderX !== undefined) {
                 p.renderX = p.x;
                 p.renderY = p.y;
             }
 
-            const dot = _$xaf88e0.vx * nx + _$xaf88e0.vy * ny;
+            const dot = ME.vx * nx + ME.vy * ny;
             if (dot < 0) {
-                _$xaf88e0.vx -= dot * nx * 0.25;
-                _$xaf88e0.vy -= dot * ny * 0.25;
+                ME.vx -= dot * nx * 0.25;
+                ME.vy -= dot * ny * 0.25;
             }
         }
     }
-    __x11c3d3();
-    _ox493d8c();
+    resolveCircleCollisions();
+    resolveEntityCollisions();
 }
 
-function _ox493d8c() {
-    if (_$xaf88e0.isDead) return;
-    const scale = _$xaf88e0.scale;
-    const radius = (_$xaf88e0.width * scale) / 2;
+function resolveEntityCollisions() {
+    if (ME.isDead) return;
+    const scale = ME.scale;
+    const radius = (ME.width * scale) / 2;
     for (let iter = 0; iter < 2; iter++) {
-        let pX = _$xaf88e0.x + _$xaf88e0.width / 2;
-        let pY = _$xaf88e0.y + _$xaf88e0.height / 2;
-        for (const ent of __xe70299.ENTITIES) {
+        let pX = ME.x + ME.width / 2;
+        let pY = ME.y + ME.height / 2;
+        for (const ent of WORLD.ENTITIES) {
             const nearX = pX < ent.x ? ent.x : (pX > ent.x + ent.w ? ent.x + ent.w : pX);
             const nearY = pY < ent.y ? ent.y : (pY > ent.y + ent.h ? ent.y + ent.h : pY);
             const dX = pX - nearX;
@@ -1564,10 +1564,10 @@ function _ox493d8c() {
                 const ny = dY / dist;
                 pX += nx * overlap;
                 pY += ny * overlap;
-                const dot = _$xaf88e0.vx * nx + _$xaf88e0.vy * ny;
+                const dot = ME.vx * nx + ME.vy * ny;
                 if (dot < 0) {
-                    _$xaf88e0.vx -= dot * nx;
-                    _$xaf88e0.vy -= dot * ny;
+                    ME.vx -= dot * nx;
+                    ME.vy -= dot * ny;
                 }
             } else if (dist === 0) {
                 const lD = pX - ent.x;
@@ -1581,24 +1581,24 @@ function _ox493d8c() {
                 else pY = ent.y + ent.h + radius;
             }
         }
-        _$xaf88e0.x = pX - _$xaf88e0.width / 2;
-        _$xaf88e0.y = pY - _$xaf88e0.height / 2;
+        ME.x = pX - ME.width / 2;
+        ME.y = pY - ME.height / 2;
     }
 }
 
 function isOnHaybale(worldX, worldY) {
-    const treesLayer = __xe70299.MAP.layers.find(l => l.name === 'trees');
+    const treesLayer = WORLD.MAP.layers.find(l => l.name === 'trees');
     if (!treesLayer) return false;
-    const col = Math.floor(worldX / __xe70299.MAP.tileSize);
-    const row = Math.floor(worldY / __xe70299.MAP.tileSize);
-    if (col < 0 || col >= __xe70299.MAP.columns || row < 0 || row >= __xe70299.MAP.rows) return false;
-    return treesLayer.data[row * __xe70299.MAP.columns + col] === 11;
+    const col = Math.floor(worldX / WORLD.MAP.tileSize);
+    const row = Math.floor(worldY / WORLD.MAP.tileSize);
+    if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
+    return treesLayer.data[row * WORLD.MAP.columns + col] === 11;
 }
 
 let _shadowMapCache = null;
 
 function _rebuildShadowMapCache() {
-    const MAP = __xe70299.MAP;
+    const MAP = WORLD.MAP;
     const floorLayer = MAP.layers.find(l => l.name === 'floor2');
     const wallLayer = MAP.layers.find(l => l.name === 'walls');
     if (!floorLayer || !wallLayer) { _shadowMapCache = null; return; }
@@ -1636,20 +1636,20 @@ function _rebuildShadowMapCache() {
 }
 
 function isPlayerInsideHouse() {
-    const floorLayer = __xe70299.MAP.layers.find(l => l.name === 'floor2');
+    const floorLayer = WORLD.MAP.layers.find(l => l.name === 'floor2');
     if (!floorLayer) return false;
-    const col = Math.floor((_$xaf88e0.x + _$xaf88e0.width / 2) / __xe70299.MAP.tileSize);
-    const row = Math.floor((_$xaf88e0.y + _$xaf88e0.height / 2) / __xe70299.MAP.tileSize);
-    if (col < 0 || col >= __xe70299.MAP.columns || row < 0 || row >= __xe70299.MAP.rows) return false;
-    const gid = floorLayer.data[row * __xe70299.MAP.columns + col];
+    const col = Math.floor((ME.x + ME.width / 2) / WORLD.MAP.tileSize);
+    const row = Math.floor((ME.y + ME.height / 2) / WORLD.MAP.tileSize);
+    if (col < 0 || col >= WORLD.MAP.columns || row < 0 || row >= WORLD.MAP.rows) return false;
+    const gid = floorLayer.data[row * WORLD.MAP.columns + col];
     return gid === 2;
 }
 
 function computeShadowVisibility() {
-    if (_$xaf88e0.isDead) { __xe70299.SHADOW.polygon = null; return; }
+    if (ME.isDead) { WORLD.SHADOW.polygon = null; return; }
 
-    const MAP = __xe70299.MAP;
-    const S = __xe70299.SHADOW;
+    const MAP = WORLD.MAP;
+    const S = WORLD.SHADOW;
     const TILE = MAP.tileSize;
 
     if (!_shadowMapCache) _rebuildShadowMapCache();
@@ -1660,8 +1660,8 @@ function computeShadowVisibility() {
 
     if (!isPlayerInsideHouse()) { S.polygon = null; return; }
 
-    const ox = _$xaf88e0.x + _$xaf88e0.width / 2;
-    const oy = _$xaf88e0.y + _$xaf88e0.height / 2;
+    const ox = ME.x + ME.width / 2;
+    const oy = ME.y + ME.height / 2;
 
     if (!_shadowMapCache._bounds) {
         let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
@@ -1768,22 +1768,22 @@ function computeShadowVisibility() {
 }
 
 function drawShadowOverlay(ctx, camX, camY) {
-    if (_$xaf88e0.isDead) return;
+    if (ME.isDead) return;
     if (!_shadowMapCache) return;
     const { floorTiles, wallTiles } = _shadowMapCache;
     if (floorTiles.length === 0) return;
 
-    const S = __xe70299.SHADOW;
-    const TILE = __xe70299.MAP.tileSize;
-    const W = __xe70299.CAMERA.width;
-    const H = __xe70299.CAMERA.height;
+    const S = WORLD.SHADOW;
+    const TILE = WORLD.MAP.tileSize;
+    const W = WORLD.CAMERA.width;
+    const H = WORLD.CAMERA.height;
 
-    if (!__xe70299.SHADOW._buf || __xe70299.SHADOW._buf.width !== W || __xe70299.SHADOW._buf.height !== H) {
-        __xe70299.SHADOW._buf = document.createElement('canvas');
-        __xe70299.SHADOW._buf.width = W;
-        __xe70299.SHADOW._buf.height = H;
+    if (!WORLD.SHADOW._buf || WORLD.SHADOW._buf.width !== W || WORLD.SHADOW._buf.height !== H) {
+        WORLD.SHADOW._buf = document.createElement('canvas');
+        WORLD.SHADOW._buf.width = W;
+        WORLD.SHADOW._buf.height = H;
     }
-    const buf = __xe70299.SHADOW._buf;
+    const buf = WORLD.SHADOW._buf;
     const bufCtx = buf.getContext('2d');
     bufCtx.clearRect(0, 0, W, H);
 
@@ -1828,10 +1828,10 @@ function drawShadowOverlay(ctx, camX, camY) {
 function update(dt) {
     let inputX = 0, inputY = 0;
 
-    const smX = __xe70299.INPUTS.mouseX / __xe70299.SYSTEM.viewScale;
-    const smY = __xe70299.INPUTS.mouseY / __xe70299.SYSTEM.viewScale;
-    const psX = _$xaf88e0.x - __xe70299.CAMERA.x + _$xaf88e0.width / 2;
-    const psY = _$xaf88e0.y - __xe70299.CAMERA.y + _$xaf88e0.height / 2;
+    const smX = WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale;
+    const smY = WORLD.INPUTS.mouseY / WORLD.SYSTEM.viewScale;
+    const psX = ME.x - WORLD.CAMERA.x + ME.width / 2;
+    const psY = ME.y - WORLD.CAMERA.y + ME.height / 2;
     const mouseAngle = Math.atan2(smY - psY, smX - psX);
 
     if (joystickX !== 0 || joystickY !== 0) {
@@ -1839,10 +1839,10 @@ function update(dt) {
         inputY = joystickY;
     } else if (mouseRelativeMovement) {
         let forward = 0, strafe = 0;
-        if (__xe70299.INPUTS.keys.w || __xe70299.INPUTS.keys.arrowup) forward += 1;
-        if (__xe70299.INPUTS.keys.s || __xe70299.INPUTS.keys.arrowdown) forward -= 1;
-        if (__xe70299.INPUTS.keys.d || __xe70299.INPUTS.keys.arrowright) strafe += 1;
-        if (__xe70299.INPUTS.keys.a || __xe70299.INPUTS.keys.arrowleft) strafe -= 1;
+        if (WORLD.INPUTS.keys.w || WORLD.INPUTS.keys.arrowup) forward += 1;
+        if (WORLD.INPUTS.keys.s || WORLD.INPUTS.keys.arrowdown) forward -= 1;
+        if (WORLD.INPUTS.keys.d || WORLD.INPUTS.keys.arrowright) strafe += 1;
+        if (WORLD.INPUTS.keys.a || WORLD.INPUTS.keys.arrowleft) strafe -= 1;
 
         if (forward !== 0 || strafe !== 0) {
             const relativeMoveAngle = mouseAngle + Math.atan2(strafe, forward);
@@ -1850,10 +1850,10 @@ function update(dt) {
             inputY = Math.sin(relativeMoveAngle);
         }
     } else {
-        if (__xe70299.INPUTS.keys.w || __xe70299.INPUTS.keys.arrowup) inputY -= 1;
-        if (__xe70299.INPUTS.keys.s || __xe70299.INPUTS.keys.arrowdown) inputY += 1;
-        if (__xe70299.INPUTS.keys.a || __xe70299.INPUTS.keys.arrowleft) inputX -= 1;
-        if (__xe70299.INPUTS.keys.d || __xe70299.INPUTS.keys.arrowright) inputX += 1;
+        if (WORLD.INPUTS.keys.w || WORLD.INPUTS.keys.arrowup) inputY -= 1;
+        if (WORLD.INPUTS.keys.s || WORLD.INPUTS.keys.arrowdown) inputY += 1;
+        if (WORLD.INPUTS.keys.a || WORLD.INPUTS.keys.arrowleft) inputX -= 1;
+        if (WORLD.INPUTS.keys.d || WORLD.INPUTS.keys.arrowright) inputX += 1;
 
         const isMoving = inputX !== 0 || inputY !== 0;
         if (isMoving) {
@@ -1862,62 +1862,62 @@ function update(dt) {
         }
     }
 
-    if (__xe70299.GAME_STATE === 'NIGHT' && _$xc4e97d === 'Skinwalker') {
-        if (__xe70299.NIGHT_ABILITY_OPEN || !__xe70299.CURRENT_TARGET) {
+    if (WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker') {
+        if (WORLD.NIGHT_ABILITY_OPEN || !WORLD.CURRENT_TARGET) {
             inputX = 0;
             inputY = 0;
-            _$xaf88e0.vx = 0;
-            _$xaf88e0.vy = 0;
-            _$xaf88e0.x = (__xe70299.MAP.columns * __xe70299.MAP.tileSize) / 2 - _$xaf88e0.width / 2;
-            _$xaf88e0.y = (__xe70299.MAP.rows * __xe70299.MAP.tileSize) / 2 - _$xaf88e0.height / 2;
+            ME.vx = 0;
+            ME.vy = 0;
+            ME.x = (WORLD.MAP.columns * WORLD.MAP.tileSize) / 2 - ME.width / 2;
+            ME.y = (WORLD.MAP.rows * WORLD.MAP.tileSize) / 2 - ME.height / 2;
         }
     }
 
     const isMoving = inputX !== 0 || inputY !== 0;
-    const intentSprint = (__xe70299.INPUTS.keys.shift || mobileSprintActive || joystickAutoSprint) && isMoving;
-    _$xaf88e0.bopTimer = intentSprint ? _$xaf88e0.bopTimer + dt : 0;
-    _$xaf88e0.scale = 1 + (_$xaf88e0.bopTimer > 0 ? Math.sin(_$xaf88e0.bopTimer * 15) * 0.05 : 0);
+    const intentSprint = (WORLD.INPUTS.keys.shift || mobileSprintActive || joystickAutoSprint) && isMoving;
+    ME.bopTimer = intentSprint ? ME.bopTimer + dt : 0;
+    ME.scale = 1 + (ME.bopTimer > 0 ? Math.sin(ME.bopTimer * 15) * 0.05 : 0);
 
     const friction = Math.pow(0.001, dt);
     const accel = intentSprint ? 1866 : 1493;
 
-    _$xaf88e0.vx += inputX * accel * dt;
-    _$xaf88e0.vy += inputY * accel * dt;
-    _$xaf88e0.vx *= friction;
-    _$xaf88e0.vy *= friction;
-    _$xaf88e0.x += _$xaf88e0.vx * dt;
-    _$xaf88e0.y += _$xaf88e0.vy * dt;
+    ME.vx += inputX * accel * dt;
+    ME.vy += inputY * accel * dt;
+    ME.vx *= friction;
+    ME.vy *= friction;
+    ME.x += ME.vx * dt;
+    ME.y += ME.vy * dt;
 
-    for (let i = 0; i < 3; i++) __x11c3d3();
-    for (let i = 0; i < 2; i++) _ox493d8c();
-    for (let i = 0; i < 2; i++) _Ox80b745();
+    for (let i = 0; i < 3; i++) resolveCircleCollisions();
+    for (let i = 0; i < 2; i++) resolveEntityCollisions();
+    for (let i = 0; i < 2; i++) resolvePlayerCollisionsLocal();
 
-    if (_$xaf88e0.x < 0) _$xaf88e0.x = 0;
-    if (_$xaf88e0.y < 0) _$xaf88e0.y = 0;
-    if (_$xaf88e0.x + _$xaf88e0.width > __xe70299.MAP.columns * __xe70299.MAP.tileSize) _$xaf88e0.x = __xe70299.MAP.columns * __xe70299.MAP.tileSize - _$xaf88e0.width;
-    if (_$xaf88e0.y + _$xaf88e0.height > __xe70299.MAP.rows * __xe70299.MAP.tileSize) _$xaf88e0.y = __xe70299.MAP.rows * __xe70299.MAP.tileSize - _$xaf88e0.height;
+    if (ME.x < 0) ME.x = 0;
+    if (ME.y < 0) ME.y = 0;
+    if (ME.x + ME.width > WORLD.MAP.columns * WORLD.MAP.tileSize) ME.x = WORLD.MAP.columns * WORLD.MAP.tileSize - ME.width;
+    if (ME.y + ME.height > WORLD.MAP.rows * WORLD.MAP.tileSize) ME.y = WORLD.MAP.rows * WORLD.MAP.tileSize - ME.height;
 
     if (touchAimActive) {
-        _$xaf88e0.angle = touchAimAngle + (Math.PI / 2);
+        ME.angle = touchAimAngle + (Math.PI / 2);
     } else if (joystickX !== 0 || joystickY !== 0) {
-        _$xaf88e0.angle = Math.atan2(joystickY, joystickX) + (Math.PI / 2);
+        ME.angle = Math.atan2(joystickY, joystickX) + (Math.PI / 2);
     } else if (!isTouchDevice) {
-        _$xaf88e0.angle = mouseAngle + (Math.PI / 2);
+        ME.angle = mouseAngle + (Math.PI / 2);
     }
 
-    const targetCamX = _$xaf88e0.x + _$xaf88e0.width / 2 - __xe70299.CAMERA.width / 2;
-    const targetCamY = _$xaf88e0.y + _$xaf88e0.height / 2 - __xe70299.CAMERA.height / 2;
-    if (__xe70299.CAMERA.x === null || isNaN(__xe70299.CAMERA.x) || !isFinite(__xe70299.CAMERA.x)) {
-        __xe70299.CAMERA.x = targetCamX;
-        __xe70299.CAMERA.y = targetCamY;
+    const targetCamX = ME.x + ME.width / 2 - WORLD.CAMERA.width / 2;
+    const targetCamY = ME.y + ME.height / 2 - WORLD.CAMERA.height / 2;
+    if (WORLD.CAMERA.x === null || isNaN(WORLD.CAMERA.x) || !isFinite(WORLD.CAMERA.x)) {
+        WORLD.CAMERA.x = targetCamX;
+        WORLD.CAMERA.y = targetCamY;
     } else {
         const lf = 1 - Math.exp(-Math.max(0, dt) * 40);
-        __xe70299.CAMERA.x += (targetCamX - __xe70299.CAMERA.x) * lf;
-        __xe70299.CAMERA.y += (targetCamY - __xe70299.CAMERA.y) * lf;
+        WORLD.CAMERA.x += (targetCamX - WORLD.CAMERA.x) * lf;
+        WORLD.CAMERA.y += (targetCamY - WORLD.CAMERA.y) * lf;
     }
 
-    for (const id in _ox1e7c52) {
-        const p = _ox1e7c52[id];
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
         if (p.renderX === undefined) { p.renderX = p.x; p.renderY = p.y; p.renderAngle = p.angle || 0; }
         const _lerpF = 0.25;
         const _rdx = p.x - p.renderX, _rdy = p.y - p.renderY;
@@ -1932,14 +1932,14 @@ function update(dt) {
         p.renderAngle += diff * 0.3;
     }
 
-    if (__xe70299.GAME_STATE === 'NIGHT') {
-        _Ox6b56a8 = Math.min(0.6, _Ox6b56a8 + dt * 0.5);
+    if (WORLD.GAME_STATE === 'NIGHT') {
+        nightAlpha = Math.min(0.6, nightAlpha + dt * 0.5);
     } else {
-        _Ox6b56a8 = Math.max(0, _Ox6b56a8 - dt * 0.5);
+        nightAlpha = Math.max(0, nightAlpha - dt * 0.5);
     }
 
     computeShadowVisibility();
-    _$xda4a1a();
+    sendPositionUpdate();
 }
 
 function drawChatBubble(ctx, text, x, y, hasTail = true) {
@@ -1982,41 +1982,41 @@ function renderChatHistory(ctx, chats, x, bottomY) {
 }
 
 function render() {
-    if (!__xe70299.SYSTEM.isReady) return;
+    if (!WORLD.SYSTEM.isReady) return;
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.save();
     try {
-        ctx.scale(__xe70299.SYSTEM.viewScale, __xe70299.SYSTEM.viewScale);
+        ctx.scale(WORLD.SYSTEM.viewScale, WORLD.SYSTEM.viewScale);
         ctx.imageSmoothingEnabled = false;
 
-        const camX = Math.floor(__xe70299.CAMERA.x || 0);
-        const camY = Math.floor(__xe70299.CAMERA.y || 0);
+        const camX = Math.floor(WORLD.CAMERA.x || 0);
+        const camY = Math.floor(WORLD.CAMERA.y || 0);
 
-    const startCX = Math.max(0, Math.floor(camX / __xe70299.MAP.chunkSize));
-    const endCX = Math.min(__xe70299.MAP.bgChunks[0].length - 1, Math.floor((camX + __xe70299.CAMERA.width) / __xe70299.MAP.chunkSize));
-    const startCY = Math.max(0, Math.floor(camY / __xe70299.MAP.chunkSize));
-    const endCY = Math.min(__xe70299.MAP.bgChunks.length - 1, Math.floor((camY + __xe70299.CAMERA.height) / __xe70299.MAP.chunkSize));
+    const startCX = Math.max(0, Math.floor(camX / WORLD.MAP.chunkSize));
+    const endCX = Math.min(WORLD.MAP.bgChunks[0].length - 1, Math.floor((camX + WORLD.CAMERA.width) / WORLD.MAP.chunkSize));
+    const startCY = Math.max(0, Math.floor(camY / WORLD.MAP.chunkSize));
+    const endCY = Math.min(WORLD.MAP.bgChunks.length - 1, Math.floor((camY + WORLD.CAMERA.height) / WORLD.MAP.chunkSize));
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++) {
-            const dx = cx * __xe70299.MAP.chunkSize - camX;
-            const dy = cy * __xe70299.MAP.chunkSize - camY;
-            ctx.drawImage(__xe70299.MAP.bgChunks[cy][cx], dx, dy, __xe70299.MAP.chunkSize + 1, __xe70299.MAP.chunkSize + 1);
+            const dx = cx * WORLD.MAP.chunkSize - camX;
+            const dy = cy * WORLD.MAP.chunkSize - camY;
+            ctx.drawImage(WORLD.MAP.bgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
         }
 
     if (centerImg.complete && centerImg.naturalWidth > 0) {
-        const TILE = __xe70299.MAP.tileSize;
+        const TILE = WORLD.MAP.tileSize;
         const imgSize = TILE * 10;
-        const imgX = (__xe70299.MAP.columns / 2) * TILE - imgSize / 2 - camX;
-        const imgY = (__xe70299.MAP.rows / 2) * TILE - imgSize / 2 - camY;
+        const imgX = (WORLD.MAP.columns / 2) * TILE - imgSize / 2 - camX;
+        const imgY = (WORLD.MAP.rows / 2) * TILE - imgSize / 2 - camY;
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(centerImg, imgX, imgY, imgSize, imgSize);
     }
 
     if (tableImg.complete && tableImg.naturalWidth > 0) {
-        __xe70299.ENTITIES.forEach(ent => {
+        WORLD.ENTITIES.forEach(ent => {
             if (ent.type !== 'table') return;
             ctx.save();
             ctx.imageSmoothingEnabled = false;
@@ -2032,7 +2032,7 @@ function render() {
             ctx.restore();
         });
     } else {
-        __xe70299.ENTITIES.forEach(ent => {
+        WORLD.ENTITIES.forEach(ent => {
             if (ent.type !== 'table') return;
             ctx.save();
             ctx.fillStyle = '#6b4423';
@@ -2046,25 +2046,25 @@ function render() {
         });
     }
 
-    if (__x272470) {
+    if (inMainMenu) {
         for (let cy = startCY; cy <= endCY; cy++) {
             for (let cx = startCX; cx <= endCX; cx++) {
-                const dx = cx * __xe70299.MAP.chunkSize - camX;
-                const dy = cy * __xe70299.MAP.chunkSize - camY;
-                ctx.drawImage(__xe70299.MAP.fgChunks[cy][cx], dx, dy, __xe70299.MAP.chunkSize + 1, __xe70299.MAP.chunkSize + 1);
+                const dx = cx * WORLD.MAP.chunkSize - camX;
+                const dy = cy * WORLD.MAP.chunkSize - camY;
+                ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
             }
         }
         return;
     }
 
-    const amIDark = __xe70299.GAME_STATE === 'NIGHT' && _$xc4e97d === 'Skinwalker' && !_$xaf88e0.isDead;
-    const pRenderX = _$xaf88e0.x - camX + _$xaf88e0.width / 2;
-    const pRenderY = _$xaf88e0.y - camY + _$xaf88e0.height / 2;
-    const pScaledW = _$xaf88e0.width * _$xaf88e0.scale * 1.3;
-    const pScaledH = _$xaf88e0.height * _$xaf88e0.scale * 1.3;
+    const amIDark = WORLD.GAME_STATE === 'NIGHT' && myRole === 'Skinwalker' && !ME.isDead;
+    const pRenderX = ME.x - camX + ME.width / 2;
+    const pRenderY = ME.y - camY + ME.height / 2;
+    const pScaledW = ME.width * ME.scale * 1.3;
+    const pScaledH = ME.height * ME.scale * 1.3;
 
-    for (const id in _ox1e7c52) {
-        const p = _ox1e7c52[id];
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
         if (p.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
@@ -2077,7 +2077,7 @@ function render() {
             ctx.rotate(p.renderAngle ?? 0);
             if (p.isDark) ctx.filter = 'brightness(0)';
             drawPlayerLayers(ctx, p.body, p.eyes, sW, sH);
-            if (_ox33dcef.has(parseInt(id)) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            if (revealedMayors.has(parseInt(id)) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
                 ctx.drawImage(mayorCosmeticImg, -sW / 2, -sH / 2, sW, sH);
             }
             if (p.isDark) ctx.filter = 'none';
@@ -2090,53 +2090,53 @@ function render() {
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
-            ctx.fillStyle = _ox33dcef.has(parseInt(id)) ? '#cc88ff' : '#ffffff';
+            ctx.fillStyle = revealedMayors.has(parseInt(id)) ? '#cc88ff' : '#ffffff';
             const pLabel = p.isDark ? '???' : (p.name + (p.isOwner ? ' [🗝️]' : ''));
             ctx.strokeText(pLabel, pRX, pRY - sH / 2 - 16);
             ctx.fillText(pLabel, pRX, pRY - sH / 2 - 16);
         }
     }
 
-    if (!_$xaf88e0.isDead) {
+    if (!ME.isDead) {
         ctx.save();
         try {
             ctx.translate(pRenderX, pRenderY);
-            ctx.rotate(_$xaf88e0.angle);
+            ctx.rotate(ME.angle);
             if (amIDark) ctx.filter = 'brightness(0)';
-            drawPlayerLayers(ctx, _ox5e9e29, _Ox9617e2, pScaledW, pScaledH);
-            if (_ox33dcef.has(_Ox55f60b) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
+            drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
+            if (revealedMayors.has(myId) && mayorCosmeticImg.complete && mayorCosmeticImg.naturalWidth > 0) {
                 ctx.drawImage(mayorCosmeticImg, -pScaledW / 2, -pScaledH / 2, pScaledW, pScaledH);
             }
             if (amIDark) ctx.filter = 'none';
         } finally {
             ctx.restore();
         }
-        if (!isOnHaybale(_$xaf88e0.x + _$xaf88e0.width / 2, _$xaf88e0.y + _$xaf88e0.height / 2)) {
+        if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
             ctx.textAlign = 'center';
             ctx.lineJoin = 'round';
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
-            ctx.fillStyle = (_ox33dcef.has(_Ox55f60b)) ? '#cc88ff' : '#ffffff';
-            const myLabel = amIDark ? '???' : (_0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : ''));
+            ctx.fillStyle = (revealedMayors.has(myId)) ? '#cc88ff' : '#ffffff';
+            const myLabel = amIDark ? '???' : (myName + (isOwner ? ' [🗝️]' : ''));
             ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
         }
     }
 
-    if (__xe70299.MAP.wallChunks && __xe70299.MAP.wallChunks.length > 0) {
+    if (WORLD.MAP.wallChunks && WORLD.MAP.wallChunks.length > 0) {
         for (let cy = startCY; cy <= endCY; cy++)
             for (let cx = startCX; cx <= endCX; cx++) {
-                if (!__xe70299.MAP.wallChunks[cy] || !__xe70299.MAP.wallChunks[cy][cx]) continue;
-                const dx = cx * __xe70299.MAP.chunkSize - camX;
-                const dy = cy * __xe70299.MAP.chunkSize - camY;
-                ctx.drawImage(__xe70299.MAP.wallChunks[cy][cx], dx, dy, __xe70299.MAP.chunkSize + 1, __xe70299.MAP.chunkSize + 1);
+                if (!WORLD.MAP.wallChunks[cy] || !WORLD.MAP.wallChunks[cy][cx]) continue;
+                const dx = cx * WORLD.MAP.chunkSize - camX;
+                const dy = cy * WORLD.MAP.chunkSize - camY;
+                ctx.drawImage(WORLD.MAP.wallChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
             }
     }
 
-    if (_$xaf88e0.isDead) {
-        for (const id in _ox1e7c52) {
-            const p = _ox1e7c52[id];
+    if (ME.isDead) {
+        for (const id in serverPlayers) {
+            const p = serverPlayers[id];
             if (!p.isDead) continue;
             const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
             const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
@@ -2169,13 +2169,13 @@ function render() {
         ctx.save();
         try {
             ctx.translate(pRenderX, pRenderY);
-            ctx.rotate(_$xaf88e0.angle);
+            ctx.rotate(ME.angle);
             ctx.globalAlpha = 0.3;
-            drawPlayerLayers(ctx, _ox5e9e29, _Ox9617e2, pScaledW, pScaledH);
+            drawPlayerLayers(ctx, selectedBody, selectedEyes, pScaledW, pScaledH);
         } finally {
             ctx.restore();
         }
-        if (!isOnHaybale(_$xaf88e0.x + _$xaf88e0.width / 2, _$xaf88e0.y + _$xaf88e0.height / 2)) {
+        if (!isOnHaybale(ME.x + ME.width / 2, ME.y + ME.height / 2)) {
             ctx.save();
             ctx.globalAlpha = 0.3;
             ctx.textAlign = 'center';
@@ -2184,7 +2184,7 @@ function render() {
             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
             ctx.font = "bold 13px 'Segoe UI'";
             ctx.fillStyle = '#ffffff';
-            const myLabel = _0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : '');
+            const myLabel = myName + (isOwner ? ' [🗝️]' : '');
             ctx.strokeText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.fillText(myLabel, pRenderX, pRenderY - pScaledH / 2 - 16);
             ctx.restore();
@@ -2193,32 +2193,32 @@ function render() {
 
     for (let cy = startCY; cy <= endCY; cy++)
         for (let cx = startCX; cx <= endCX; cx++) {
-            const dx = cx * __xe70299.MAP.chunkSize - camX;
-            const dy = cy * __xe70299.MAP.chunkSize - camY;
-            ctx.drawImage(__xe70299.MAP.fgChunks[cy][cx], dx, dy, __xe70299.MAP.chunkSize + 1, __xe70299.MAP.chunkSize + 1);
+            const dx = cx * WORLD.MAP.chunkSize - camX;
+            const dy = cy * WORLD.MAP.chunkSize - camY;
+            ctx.drawImage(WORLD.MAP.fgChunks[cy][cx], dx, dy, WORLD.MAP.chunkSize + 1, WORLD.MAP.chunkSize + 1);
         }
 
-    if (__xe70299.EDITOR.enabled && __xe70299.EDITOR.selectedTileGid >= 0) {
-        const wX = (__xe70299.INPUTS.mouseX / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.x;
-        const wY = (__xe70299.INPUTS.mouseY / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.y;
-        const col = Math.floor(wX / __xe70299.MAP.tileSize);
-        const row = Math.floor(wY / __xe70299.MAP.tileSize);
+    if (WORLD.EDITOR.enabled && WORLD.EDITOR.selectedTileGid >= 0) {
+        const wX = (WORLD.INPUTS.mouseX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
+        const wY = (WORLD.INPUTS.mouseY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
+        const col = Math.floor(wX / WORLD.MAP.tileSize);
+        const row = Math.floor(wY / WORLD.MAP.tileSize);
 
-        if (col >= 0 && col < __xe70299.MAP.columns && row >= 0 && row < __xe70299.MAP.rows) {
-            const drawX = col * __xe70299.MAP.tileSize - camX;
-            const drawY = row * __xe70299.MAP.tileSize - camY;
+        if (col >= 0 && col < WORLD.MAP.columns && row >= 0 && row < WORLD.MAP.rows) {
+            const drawX = col * WORLD.MAP.tileSize - camX;
+            const drawY = row * WORLD.MAP.tileSize - camY;
             ctx.save();
             ctx.globalAlpha = 0.5;
-            if (__xe70299.EDITOR.selectedTileGid > 0) {
-                const tId = __xe70299.EDITOR.selectedTileGid - 1;
+            if (WORLD.EDITOR.selectedTileGid > 0) {
+                const tId = WORLD.EDITOR.selectedTileGid - 1;
                 ctx.drawImage(tilesheetImg,
-                    (tId % __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize,
-                    Math.floor(tId / __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize,
-                    __xe70299.MAP.tileSize, __xe70299.MAP.tileSize,
-                    drawX, drawY, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                    (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                    Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize,
+                    WORLD.MAP.tileSize, WORLD.MAP.tileSize,
+                    drawX, drawY, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
             } else {
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                ctx.fillRect(drawX, drawY, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                ctx.fillRect(drawX, drawY, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
             }
             ctx.restore();
         }
@@ -2226,116 +2226,116 @@ function render() {
 
     drawShadowOverlay(ctx, camX, camY);
 
-    if (_Ox6b56a8 > 0) {
+    if (nightAlpha > 0) {
         ctx.fillStyle = `rgba(0, 0, 40, ${nightAlpha})`;
-        ctx.fillRect(0, 0, __xe70299.CAMERA.width, __xe70299.CAMERA.height);
+        ctx.fillRect(0, 0, WORLD.CAMERA.width, WORLD.CAMERA.height);
     }
 
-    for (const id in _ox1e7c52) {
-        const p = _ox1e7c52[id];
-        if (p.isDead && !_$xaf88e0.isDead) continue;
+    for (const id in serverPlayers) {
+        const p = serverPlayers[id];
+        if (p.isDead && !ME.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
         renderChatHistory(ctx, p.chats, pRX, pRY - p.height / 2 - 32);
     }
-    renderChatHistory(ctx, _$xaf88e0.chats, pRenderX, pRenderY - _$xaf88e0.height / 2 - 32);
+    renderChatHistory(ctx, ME.chats, pRenderX, pRenderY - ME.height / 2 - 32);
     } finally {
         ctx.restore();
     }
 }
 
 function gameLoop(now) {
-    if (!__xe70299.SYSTEM.isReady) return;
+    if (!WORLD.SYSTEM.isReady) return;
     requestAnimationFrame(gameLoop);
 
-    let dt = (now - __xe70299.SYSTEM.lastTime) / 1000;
-    __xe70299.SYSTEM.lastTime = now;
+    let dt = (now - WORLD.SYSTEM.lastTime) / 1000;
+    WORLD.SYSTEM.lastTime = now;
     if (dt > 0.1) dt = 0.1;
     if (dt < 0 || isNaN(dt)) dt = 0.016;
 
-    if (__x272470) {
+    if (inMainMenu) {
         updateMenuCamera(dt);
         render();
         return;
     }
 
-    if (!_Ox55f60b) return;
+    if (!myId) return;
     update(dt);
     HeartbeatManager.tick(now);
     render();
 }
 
 function preRenderMap() {
-    const numCX = Math.ceil((__xe70299.MAP.columns * __xe70299.MAP.tileSize) / __xe70299.MAP.chunkSize);
-    const numCY = Math.ceil((__xe70299.MAP.rows * __xe70299.MAP.tileSize) / __xe70299.MAP.chunkSize);
+    const numCX = Math.ceil((WORLD.MAP.columns * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
+    const numCY = Math.ceil((WORLD.MAP.rows * WORLD.MAP.tileSize) / WORLD.MAP.chunkSize);
 
-    __xe70299.MAP.bgChunks = [];
-    __xe70299.MAP.fgChunks = [];
-    __xe70299.MAP.wallChunks = [];
+    WORLD.MAP.bgChunks = [];
+    WORLD.MAP.fgChunks = [];
+    WORLD.MAP.wallChunks = [];
     for (let cy = 0; cy < numCY; cy++) {
-        __xe70299.MAP.bgChunks[cy] = [];
-        __xe70299.MAP.fgChunks[cy] = [];
-        __xe70299.MAP.wallChunks[cy] = [];
+        WORLD.MAP.bgChunks[cy] = [];
+        WORLD.MAP.fgChunks[cy] = [];
+        WORLD.MAP.wallChunks[cy] = [];
         for (let cx = 0; cx < numCX; cx++) {
-            const bg = document.createElement('canvas'); bg.width = bg.height = __xe70299.MAP.chunkSize;
-            const fg = document.createElement('canvas'); fg.width = fg.height = __xe70299.MAP.chunkSize;
-            const wc = document.createElement('canvas'); wc.width = wc.height = __xe70299.MAP.chunkSize;
-            __xe70299.MAP.bgChunks[cy][cx] = bg;
-            __xe70299.MAP.fgChunks[cy][cx] = fg;
-            __xe70299.MAP.wallChunks[cy][cx] = wc;
+            const bg = document.createElement('canvas'); bg.width = bg.height = WORLD.MAP.chunkSize;
+            const fg = document.createElement('canvas'); fg.width = fg.height = WORLD.MAP.chunkSize;
+            const wc = document.createElement('canvas'); wc.width = wc.height = WORLD.MAP.chunkSize;
+            WORLD.MAP.bgChunks[cy][cx] = bg;
+            WORLD.MAP.fgChunks[cy][cx] = fg;
+            WORLD.MAP.wallChunks[cy][cx] = wc;
             renderChunk(cx, cy);
         }
     }
 }
 
 function renderChunk(cx, cy) {
-    const bgCtx = __xe70299.MAP.bgChunks[cy][cx].getContext('2d', { alpha: true });
-    const fgCtx = __xe70299.MAP.fgChunks[cy][cx].getContext('2d', { alpha: true });
-    const wcCtx = __xe70299.MAP.wallChunks[cy] && __xe70299.MAP.wallChunks[cy][cx] ? __xe70299.MAP.wallChunks[cy][cx].getContext('2d', { alpha: true }) : null;
+    const bgCtx = WORLD.MAP.bgChunks[cy][cx].getContext('2d', { alpha: true });
+    const fgCtx = WORLD.MAP.fgChunks[cy][cx].getContext('2d', { alpha: true });
+    const wcCtx = WORLD.MAP.wallChunks[cy] && WORLD.MAP.wallChunks[cy][cx] ? WORLD.MAP.wallChunks[cy][cx].getContext('2d', { alpha: true }) : null;
     bgCtx.imageSmoothingEnabled = fgCtx.imageSmoothingEnabled = false;
     if (wcCtx) wcCtx.imageSmoothingEnabled = false;
-    bgCtx.clearRect(0, 0, __xe70299.MAP.chunkSize, __xe70299.MAP.chunkSize);
-    fgCtx.clearRect(0, 0, __xe70299.MAP.chunkSize, __xe70299.MAP.chunkSize);
-    if (wcCtx) wcCtx.clearRect(0, 0, __xe70299.MAP.chunkSize, __xe70299.MAP.chunkSize);
+    bgCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+    fgCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
+    if (wcCtx) wcCtx.clearRect(0, 0, WORLD.MAP.chunkSize, WORLD.MAP.chunkSize);
 
-    const startCol = Math.floor((cx * __xe70299.MAP.chunkSize) / __xe70299.MAP.tileSize);
-    const endCol = Math.ceil(((cx + 1) * __xe70299.MAP.chunkSize) / __xe70299.MAP.tileSize);
-    const startRow = Math.floor((cy * __xe70299.MAP.chunkSize) / __xe70299.MAP.tileSize);
-    const endRow = Math.ceil(((cy + 1) * __xe70299.MAP.chunkSize) / __xe70299.MAP.tileSize);
+    const startCol = Math.floor((cx * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
+    const endCol = Math.ceil(((cx + 1) * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
+    const startRow = Math.floor((cy * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
+    const endRow = Math.ceil(((cy + 1) * WORLD.MAP.chunkSize) / WORLD.MAP.tileSize);
 
     const sInset = 0.5;
-    const sSize = __xe70299.MAP.tileSize - (sInset * 2);
+    const sSize = WORLD.MAP.tileSize - (sInset * 2);
 
-    __xe70299.MAP.layers.forEach(layer => {
+    WORLD.MAP.layers.forEach(layer => {
         const isWallLayer = layer.name === 'walls';
         const tCtx = layer.name === 'trees' ? fgCtx : (isWallLayer ? (wcCtx || bgCtx) : bgCtx);
-        for (let r = Math.max(0, startRow); r < Math.min(__xe70299.MAP.rows, endRow); r++) {
-            for (let c = Math.max(0, startCol); c < Math.min(__xe70299.MAP.columns, endCol); c++) {
-                let gid = layer.data[r * __xe70299.MAP.columns + c];
-                if (layer.name === 'floor2' && __xe70299.MAP.doors && __xe70299.MAP.doors[r * __xe70299.MAP.columns + c]) {
+        for (let r = Math.max(0, startRow); r < Math.min(WORLD.MAP.rows, endRow); r++) {
+            for (let c = Math.max(0, startCol); c < Math.min(WORLD.MAP.columns, endCol); c++) {
+                let gid = layer.data[r * WORLD.MAP.columns + c];
+                if (layer.name === 'floor2' && WORLD.MAP.doors && WORLD.MAP.doors[r * WORLD.MAP.columns + c]) {
                     gid = 2;
                 }
                 if (gid > 0) {
                     const tId = gid - 1;
-                    const sx = (tId % __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize + sInset;
-                    const sy = Math.floor(tId / __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize + sInset;
-                    const dx = (c * __xe70299.MAP.tileSize) - (cx * __xe70299.MAP.chunkSize);
-                    const dy = (r * __xe70299.MAP.tileSize) - (cy * __xe70299.MAP.chunkSize);
+                    const sx = (tId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                    const sy = Math.floor(tId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                    const dx = (c * WORLD.MAP.tileSize) - (cx * WORLD.MAP.chunkSize);
+                    const dy = (r * WORLD.MAP.tileSize) - (cy * WORLD.MAP.chunkSize);
                     if (gid === 4) {
                         const floorTId = 1;
-                        const fsx = (floorTId % __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize + sInset;
-                        const fsy = Math.floor(floorTId / __xe70299.MAP.tilesetCols) * __xe70299.MAP.tileSize + sInset;
-                        bgCtx.drawImage(tilesheetImg, fsx, fsy, sSize, sSize, dx, dy, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                        const fsx = (floorTId % WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                        const fsy = Math.floor(floorTId / WORLD.MAP.tilesetCols) * WORLD.MAP.tileSize + sInset;
+                        bgCtx.drawImage(tilesheetImg, fsx, fsy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
 
-                        let side = __xe70299.MAP.doors ? __xe70299.MAP.doors[r * __xe70299.MAP.columns + c] : null;
+                        let side = WORLD.MAP.doors ? WORLD.MAP.doors[r * WORLD.MAP.columns + c] : null;
                         if (!side) {
-                            const wLayer = __xe70299.MAP.layers.find(l => l.name === 'walls');
-                            const topW = (r > 0 && wLayer && wLayer.data[(r - 1) * __xe70299.MAP.columns + c] > 0);
-                            const botW = (r < __xe70299.MAP.rows - 1 && wLayer && wLayer.data[(r + 1) * __xe70299.MAP.columns + c] > 0);
-                            const leftW = (c > 0 && wLayer && wLayer.data[r * __xe70299.MAP.columns + c - 1] > 0);
-                            const rightW = (c < __xe70299.MAP.columns - 1 && wLayer && wLayer.data[r * __xe70299.MAP.columns + c + 1] > 0);
-                            if (leftW && rightW) side = (r < __xe70299.MAP.rows / 2) ? 'bottom' : 'top';
-                            else if (topW && botW) side = (c < __xe70299.MAP.columns / 2) ? 'right' : 'left';
+                            const wLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
+                            const topW = (r > 0 && wLayer && wLayer.data[(r - 1) * WORLD.MAP.columns + c] > 0);
+                            const botW = (r < WORLD.MAP.rows - 1 && wLayer && wLayer.data[(r + 1) * WORLD.MAP.columns + c] > 0);
+                            const leftW = (c > 0 && wLayer && wLayer.data[r * WORLD.MAP.columns + c - 1] > 0);
+                            const rightW = (c < WORLD.MAP.columns - 1 && wLayer && wLayer.data[r * WORLD.MAP.columns + c + 1] > 0);
+                            if (leftW && rightW) side = (r < WORLD.MAP.rows / 2) ? 'bottom' : 'top';
+                            else if (topW && botW) side = (c < WORLD.MAP.columns / 2) ? 'right' : 'left';
                         }
                         let rot = 0;
                         if (side === 'bottom') rot = Math.PI / 2;
@@ -2345,15 +2345,15 @@ function renderChunk(cx, cy) {
 
                         if (rot !== 0) {
                             tCtx.save();
-                            tCtx.translate(dx + __xe70299.MAP.tileSize / 2, dy + __xe70299.MAP.tileSize / 2);
+                            tCtx.translate(dx + WORLD.MAP.tileSize / 2, dy + WORLD.MAP.tileSize / 2);
                             tCtx.rotate(rot);
-                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -__xe70299.MAP.tileSize / 2, -__xe70299.MAP.tileSize / 2, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, -WORLD.MAP.tileSize / 2, -WORLD.MAP.tileSize / 2, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                             tCtx.restore();
                         } else {
-                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                            tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                         }
                     } else {
-                        tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, __xe70299.MAP.tileSize, __xe70299.MAP.tileSize);
+                        tCtx.drawImage(tilesheetImg, sx, sy, sSize, sSize, dx, dy, WORLD.MAP.tileSize, WORLD.MAP.tileSize);
                     }
                 }
             }
@@ -2364,11 +2364,11 @@ function renderChunk(cx, cy) {
 function loadImages() {
     tilesheetImg.crossOrigin = 'Anonymous';
     tilesheetImg.onload = () => {
-        __xe70299.MAP.tilesetCols = 3;
+        WORLD.MAP.tilesetCols = 3;
         onAssetLoad();
     };
     tilesheetImg.onerror = () => {
-        __xe70299.MAP.tilesetCols = 1;
+        WORLD.MAP.tilesetCols = 1;
         onAssetLoad();
     };
     tilesheetImg.src = 'assets/tilesheet.png';
@@ -2387,8 +2387,8 @@ function loadImages() {
 }
 
 function onAssetLoad() {
-    __xe70299.SYSTEM.assetsLoaded++;
-    if (__xe70299.SYSTEM.assetsLoaded === 3) {
+    WORLD.SYSTEM.assetsLoaded++;
+    if (WORLD.SYSTEM.assetsLoaded === 3) {
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('main-menu-ui').style.display = 'flex';
         resizeCanvas();
@@ -2396,13 +2396,13 @@ function onAssetLoad() {
 }
 
 function handleMapEdit(screenX, screenY) {
-    if (!__xfc6336 || !_0xcd919b) return;
-    const worldX = (screenX / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.x;
-    const worldY = (screenY / __xe70299.SYSTEM.viewScale) + __xe70299.CAMERA.y;
-    const col = Math.floor(worldX / __xe70299.MAP.tileSize);
-    const row = Math.floor(worldY / __xe70299.MAP.tileSize);
-    if (col >= 0 && col < __xe70299.MAP.columns && row >= 0 && row < __xe70299.MAP.rows)
-        _0xcd919b.send(JSON.stringify({ type: 'edit', layer: __xe70299.EDITOR.selectedLayer, col, row, gid: __xe70299.EDITOR.selectedTileGid }));
+    if (!isOwner || !ws) return;
+    const worldX = (screenX / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.x;
+    const worldY = (screenY / WORLD.SYSTEM.viewScale) + WORLD.CAMERA.y;
+    const col = Math.floor(worldX / WORLD.MAP.tileSize);
+    const row = Math.floor(worldY / WORLD.MAP.tileSize);
+    if (col >= 0 && col < WORLD.MAP.columns && row >= 0 && row < WORLD.MAP.rows)
+        ws.send(JSON.stringify({ type: 'edit', layer: WORLD.EDITOR.selectedLayer, col, row, gid: WORLD.EDITOR.selectedTileGid }));
 }
 
 function initEditorUI() {
@@ -2451,7 +2451,7 @@ function initEditorUI() {
 
     function updateHighlight() {
         const tsCols = Math.max(1, Math.ceil(tsImg.naturalWidth / TILE));
-        const gid = __xe70299.EDITOR.selectedTileGid;
+        const gid = WORLD.EDITOR.selectedTileGid;
         if (gid <= 0) { highlight.style.display = 'none'; return; }
         const tileIdx = gid - 1;
         const tCol = tileIdx % tsCols;
@@ -2497,7 +2497,7 @@ function initEditorUI() {
         const col = Math.floor(mx / TILE);
         const row = Math.floor(my / TILE);
         const gid = row * tsCols + col + 1;
-        __xe70299.EDITOR.selectedTileGid = gid;
+        WORLD.EDITOR.selectedTileGid = gid;
         updateHighlight();
     });
 
@@ -2507,22 +2507,22 @@ function initEditorUI() {
     eraser.className = 'tile-btn eraser-btn';
     eraser.title = 'Eraser (gid 0)';
     eraser.onclick = () => {
-        __xe70299.EDITOR.selectedTileGid = 0;
+        WORLD.EDITOR.selectedTileGid = 0;
         highlight.style.display = 'none';
     };
     palette.appendChild(eraser);
 
     document.getElementById('editor-toggle-btn').addEventListener('click', function () {
-        __xe70299.EDITOR.enabled = !__xe70299.EDITOR.enabled;
+        WORLD.EDITOR.enabled = !WORLD.EDITOR.enabled;
         const tools = document.getElementById('editor-tools');
-        if (__xe70299.EDITOR.enabled) { this.innerText = 'Editor: ON'; this.classList.add('active'); tools.style.display = 'flex'; }
+        if (WORLD.EDITOR.enabled) { this.innerText = 'Editor: ON'; this.classList.add('active'); tools.style.display = 'flex'; }
         else { this.innerText = 'Editor: OFF'; this.classList.remove('active'); tools.style.display = 'none'; }
     });
 
     const startBtn = document.getElementById('start-game-btn');
     if (startBtn) {
         startBtn.addEventListener('click', () => {
-            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'start_game' }));
+            if (ws) ws.send(JSON.stringify({ type: 'start_game' }));
         });
     }
 
@@ -2534,7 +2534,7 @@ function initEditorUI() {
             else if (currentMode === 'precise') currentMode = 'off';
             else currentMode = 'subalignments';
             rolelistBtn.innerText = 'Role List: ' + currentMode.charAt(0).toUpperCase() + currentMode.slice(1);
-            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
+            if (ws) ws.send(JSON.stringify({ type: 'set_rolelist_mode', mode: currentMode }));
         });
     }
 
@@ -2543,13 +2543,13 @@ function initEditorUI() {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#layer-toggles .layer-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            __xe70299.EDITOR.selectedLayer = btn.dataset.layer;
+            WORLD.EDITOR.selectedLayer = btn.dataset.layer;
         });
     });
 }
 
-function sendKick(targetId) { if(_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'kick', targetId })); }
-function sendBan(targetId) { if(_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'ban', targetId })); }
+function sendKick(targetId) { if(ws) ws.send(JSON.stringify({ type: 'kick', targetId })); }
+function sendBan(targetId) { if(ws) ws.send(JSON.stringify({ type: 'ban', targetId })); }
 
 function showAdminPanel(targetId, targetName, mouseX, mouseY) {
     const existing = document.getElementById('admin-panel');
@@ -2603,25 +2603,25 @@ function updateLeaderboard() {
     const selfDiv = document.createElement('div');
     selfDiv.className = 'leaderboard-entry';
     const selfSpan = document.createElement('span');
-    selfSpan.textContent = _0x8d6fc4 + (__xfc6336 ? ' [🗝️]' : '');
-    if (_ox33dcef.has(_Ox55f60b) && !_$xaf88e0.isDead) {
+    selfSpan.textContent = myName + (isOwner ? ' [🗝️]' : '');
+    if (revealedMayors.has(myId) && !ME.isDead) {
         selfSpan.style.color = '#cc88ff';
     }
     selfDiv.appendChild(selfSpan);
     list.appendChild(selfDiv);
 
-    for (const id in _ox1e7c52) {
+    for (const id in serverPlayers) {
         const div = document.createElement('div');
         div.className = 'leaderboard-entry';
         const span = document.createElement('span');
-        span.textContent = _ox1e7c52[id].name + (_ox1e7c52[id].isOwner ? ' [🗝️]' : '');
-        if (_ox33dcef.has(parseInt(id)) && !_ox1e7c52[id].isDead) {
+        span.textContent = serverPlayers[id].name + (serverPlayers[id].isOwner ? ' [🗝️]' : '');
+        if (revealedMayors.has(parseInt(id)) && !serverPlayers[id].isDead) {
             span.style.color = '#cc88ff';
         }
         div.appendChild(span);
-        if (__xfc6336 && !_ox1e7c52[id].isOwner) {
-            const pId = _ox1e7c52[id].id;
-            const pName = _ox1e7c52[id].name;
+        if (isOwner && !serverPlayers[id].isOwner) {
+            const pId = serverPlayers[id].id;
+            const pName = serverPlayers[id].name;
             div.style.cursor = 'context-menu';
             div.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -2637,9 +2637,9 @@ window.addEventListener('resize', resizeCanvas);
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    __xe70299.SYSTEM.viewScale = Math.max(canvas.width / _$x050b54, canvas.height / __x3c850d);
-    __xe70299.CAMERA.width = canvas.width / __xe70299.SYSTEM.viewScale;
-    __xe70299.CAMERA.height = canvas.height / __xe70299.SYSTEM.viewScale;
+    WORLD.SYSTEM.viewScale = Math.max(canvas.width / LOGICAL_WIDTH, canvas.height / LOGICAL_HEIGHT);
+    WORLD.CAMERA.width = canvas.width / WORLD.SYSTEM.viewScale;
+    WORLD.CAMERA.height = canvas.height / WORLD.SYSTEM.viewScale;
     ctx.imageSmoothingEnabled = false;
 }
 
@@ -2662,24 +2662,24 @@ window.addEventListener('keydown', e => {
         const willInput = document.getElementById('will-input');
         if (willUI.style.display === 'flex') {
             willUI.style.display = 'none';
-            if (_0xcd919b) _0xcd919b.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            if (ws) ws.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
             willInput.blur();
         } else {
             willUI.style.display = 'flex';
             willInput.focus();
-            for (let k in __xe70299.INPUTS.keys) __xe70299.INPUTS.keys[k] = false;
+            for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
         }
         return;
     }
 
     if (e.key === 'Enter') {
-        if (__x272470) {
+        if (inMainMenu) {
             const playBtn = document.getElementById('play-btn');
             if (playBtn) playBtn.click();
             return;
         }
 
-        if (!_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         const chatUI = document.getElementById('chat-ui');
         const chatInput = document.getElementById('chat-input');
@@ -2687,7 +2687,7 @@ window.addEventListener('keydown', e => {
         if (document.activeElement === chatInput) {
             const msg = chatInput.value.trim();
             if (msg.length > 0) {
-                _0xcd919b.send(JSON.stringify({ type: 'chat', text: msg }));
+                ws.send(JSON.stringify({ type: 'chat', text: msg }));
             }
             chatInput.value = '';
             chatUI.style.display = 'none';
@@ -2695,7 +2695,7 @@ window.addEventListener('keydown', e => {
         } else {
             chatUI.style.display = 'block';
             chatInput.focus();
-            for (let k in __xe70299.INPUTS.keys) __xe70299.INPUTS.keys[k] = false;
+            for (let k in WORLD.INPUTS.keys) WORLD.INPUTS.keys[k] = false;
         }
         e.preventDefault();
         return;
@@ -2739,9 +2739,9 @@ window.addEventListener('keydown', e => {
     }
 
     if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-        if (__xe70299.INPUTS.keys.hasOwnProperty(key)) __xe70299.INPUTS.keys[key] = true;
+        if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = true;
 
-        if (!_0xcd919b || _0xcd919b.readyState !== WebSocket.OPEN) return;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
         if (key === 'h' && !e.repeat) {
             const guideUI = document.getElementById('guide-ui');
@@ -2752,10 +2752,10 @@ window.addEventListener('keydown', e => {
         }
 
         if (key === 't' && !e.repeat) {
-            if (_$xaf88e0.isDead) return;
+            if (ME.isDead) return;
 
-            if (_$xc4e97d === 'Mayor') {
-                if (_ox33dcef.has(_Ox55f60b)) {
+            if (myRole === 'Mayor') {
+                if (revealedMayors.has(myId)) {
                     addChatLog("You have already revealed yourself as the Mayor.", true);
                     return;
                 }
@@ -2764,8 +2764,8 @@ window.addEventListener('keydown', e => {
                 return;
             }
 
-            if (__xe70299.GAME_STATE === 'NIGHT') {
-                if (!__xe70299.NIGHT_ABILITY_OPEN) {
+            if (WORLD.GAME_STATE === 'NIGHT') {
+                if (!WORLD.NIGHT_ABILITY_OPEN) {
                     addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
                     return;
                 }
@@ -2781,17 +2781,17 @@ window.addEventListener('keydown', e => {
                 return;
             }
 
-            if (__xe70299.GAME_STATE === 'DAY_DISCUSS' || __xe70299.GAME_STATE === 'DAY_VOTE') {
+            if (WORLD.GAME_STATE === 'DAY_DISCUSS' || WORLD.GAME_STATE === 'DAY_VOTE') {
                 addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
                 return;
             }
         }
 
-        if (key === 'e' && !_$xaf88e0.isDead) {
+        if (key === 'e' && !ME.isDead) {
             const _nowDoor = Date.now();
             if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
                 window._lastDoorSend = _nowDoor;
-                _0xcd919b.send(JSON.stringify({ type: 'interact' }));
+                ws.send(JSON.stringify({ type: 'interact' }));
             }
         }
     }
@@ -2800,15 +2800,15 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
     if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         const key = e.key.toLowerCase();
-        if (__xe70299.INPUTS.keys.hasOwnProperty(key)) __xe70299.INPUTS.keys[key] = false;
+        if (WORLD.INPUTS.keys.hasOwnProperty(key)) WORLD.INPUTS.keys[key] = false;
     }
 });
 
 window.addEventListener('mousemove', e => {
-    __xe70299.INPUTS.mouseX = e.clientX;
-    __xe70299.INPUTS.mouseY = e.clientY;
+    WORLD.INPUTS.mouseX = e.clientX;
+    WORLD.INPUTS.mouseY = e.clientY;
 
-    if (__xe70299.INPUTS.isMouseDown && __xe70299.EDITOR.enabled) {
+    if (WORLD.INPUTS.isMouseDown && WORLD.EDITOR.enabled) {
         handleMapEdit(e.clientX, e.clientY);
     }
 });
@@ -2816,13 +2816,13 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mousedown', e => {
     if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-action-bar') || e.target.closest('#mobile-top-bar') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui') || e.target.closest('#vote-tally-panel')) return;
     if (e.button === 0) {
-        __xe70299.INPUTS.isMouseDown = true;
-        if (__xe70299.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
+        WORLD.INPUTS.isMouseDown = true;
+        if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
     }
 });
 
 window.addEventListener('mouseup', e => {
-    __xe70299.INPUTS.isMouseDown = false;
+    WORLD.INPUTS.isMouseDown = false;
 });
 
 document.getElementById('leaderboard-header').addEventListener('click', (e) => {
@@ -2944,18 +2944,18 @@ function initMobileControls() {
     }
 
     const updateTouchAim = (clientX, clientY) => {
-        const smX = clientX / __xe70299.SYSTEM.viewScale;
-        const smY = clientY / __xe70299.SYSTEM.viewScale;
-        const psX = _$xaf88e0.x - __xe70299.CAMERA.x + _$xaf88e0.width / 2;
-        const psY = _$xaf88e0.y - __xe70299.CAMERA.y + _$xaf88e0.height / 2;
+        const smX = clientX / WORLD.SYSTEM.viewScale;
+        const smY = clientY / WORLD.SYSTEM.viewScale;
+        const psX = ME.x - WORLD.CAMERA.x + ME.width / 2;
+        const psY = ME.y - WORLD.CAMERA.y + ME.height / 2;
         touchAimAngle = Math.atan2(smY - psY, smX - psX);
         touchAimActive = true;
-        __xe70299.INPUTS.mouseX = clientX;
-        __xe70299.INPUTS.mouseY = clientY;
+        WORLD.INPUTS.mouseX = clientX;
+        WORLD.INPUTS.mouseY = clientY;
     };
 
     canvas.addEventListener('touchstart', (e) => {
-        if (__x272470) return;
+        if (inMainMenu) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             if (t.identifier !== joystickTouchId && touchAimId === null) {
@@ -2967,7 +2967,7 @@ function initMobileControls() {
     }, { passive: true });
 
     canvas.addEventListener('touchmove', (e) => {
-        if (__x272470) return;
+        if (inMainMenu) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
             if (t.identifier === touchAimId) {
@@ -3003,11 +3003,11 @@ function initMobileControls() {
     if (interactBtn) {
         interactBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (!_$xaf88e0.isDead) {
+            if (!ME.isDead) {
                 const _nowDoor = Date.now();
                 if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
                     window._lastDoorSend = _nowDoor;
-                    if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) _0xcd919b.send(JSON.stringify({ type: 'interact' }));
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'interact' }));
                 }
             }
         });
@@ -3017,10 +3017,10 @@ function initMobileControls() {
     if (abilityBtn) {
         abilityBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (_$xaf88e0.isDead) return;
+            if (ME.isDead) return;
 
-            if (_$xc4e97d === 'Mayor') {
-                if (_ox33dcef.has(_Ox55f60b)) {
+            if (myRole === 'Mayor') {
+                if (revealedMayors.has(myId)) {
                     addChatLog("You have already revealed yourself as the Mayor.", true);
                     return;
                 }
@@ -3029,8 +3029,8 @@ function initMobileControls() {
                 return;
             }
 
-            if (__xe70299.GAME_STATE === 'NIGHT') {
-                if (!__xe70299.NIGHT_ABILITY_OPEN) {
+            if (WORLD.GAME_STATE === 'NIGHT') {
+                if (!WORLD.NIGHT_ABILITY_OPEN) {
                     addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
                     return;
                 }
@@ -3046,7 +3046,7 @@ function initMobileControls() {
                 return;
             }
 
-            if (__xe70299.GAME_STATE === 'DAY_DISCUSS' || __xe70299.GAME_STATE === 'DAY_VOTE') {
+            if (WORLD.GAME_STATE === 'DAY_DISCUSS' || WORLD.GAME_STATE === 'DAY_VOTE') {
                 addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
                 return;
             }
@@ -3062,8 +3062,8 @@ function initMobileControls() {
         if (!willUI) return;
         if (willUI.style.display === 'flex') {
             willUI.style.display = 'none';
-            if (_0xcd919b && _0xcd919b.readyState === WebSocket.OPEN && willInput) {
-                _0xcd919b.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            if (ws && ws.readyState === WebSocket.OPEN && willInput) {
+                ws.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
             }
             if (willInput) willInput.blur();
         } else {
@@ -3097,8 +3097,8 @@ function initMobileControls() {
     const sendMobChat = () => {
         if (!mobChatInput) return;
         const msg = mobChatInput.value.trim();
-        if (msg.length > 0 && _0xcd919b && _0xcd919b.readyState === WebSocket.OPEN) {
-            _0xcd919b.send(JSON.stringify({ type: 'chat', text: msg }));
+        if (msg.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'chat', text: msg }));
         }
         mobChatInput.value = '';
         closeMobChat();
