@@ -108,14 +108,15 @@ const AudioManager = (() => {
     };
 
     let   _targetVol = parseFloat(localStorage.getItem('musicVolume') ?? '0.7');
-    const FADE_MS    = 800;
+    const FADE_MS    = 800;   
 
-    const _elems     = {};
-    const _fadeIds   = {};
-    let _current     = null;
-    let _muted       = _targetVol === 0;
-    let _unlocked    = false;
+    const _elems     = {};    
+    const _fadeIds   = {};    
+    let _current     = null;  
+    let _muted       = _targetVol === 0;   
+    let _unlocked    = false; 
 
+    
     for (const [key, src] of Object.entries(TRACKS)) {
         const a = new Audio(src);
         a.loop    = true;
@@ -125,8 +126,10 @@ const AudioManager = (() => {
         _fadeIds[key] = null;
     }
 
+    
     const _clamp = v => Math.min(1, Math.max(0, v));
 
+    
     function _cancelFade(key) {
         if (_fadeIds[key] !== null) {
             cancelAnimationFrame(_fadeIds[key]);
@@ -134,6 +137,8 @@ const AudioManager = (() => {
         }
     }
 
+    
+    
     function _fade(key, fromVol, toVol, durationMs, onDone) {
         _cancelFade(key);
         const el    = _elems[key];
@@ -156,10 +161,12 @@ const AudioManager = (() => {
         _fadeIds[key] = requestAnimationFrame(tick);
     }
 
+    
     function _tryPlay(el) {
         const p = el.play();
         if (p && p.catch) {
             p.catch(() => {
+                
                 if (!_unlocked) {
                     const unlock = () => {
                         _unlocked = true;
@@ -178,11 +185,12 @@ const AudioManager = (() => {
 
     function play(key) {
         if (!TRACKS[key]) return;
-        if (_current === key) return;
+        if (_current === key) return;   
 
         const prev = _current;
         _current   = key;
 
+        
         const nextEl = _elems[key];
         _cancelFade(key);
         nextEl.currentTime = 0;
@@ -190,6 +198,7 @@ const AudioManager = (() => {
         _tryPlay(nextEl);
         _fade(key, 0, _targetVol, FADE_MS);
 
+        
         if (prev && _elems[prev]) {
             const prevKey = prev;
             const prevEl  = _elems[prevKey];
@@ -202,8 +211,10 @@ const AudioManager = (() => {
     }
 
     function setVolume(vol) {
+        
         _targetVol = _clamp(vol);
         localStorage.setItem('musicVolume', String(_targetVol));
+        
         if (!_muted && _current && _fadeIds[_current] === null) {
             _elems[_current].volume = _targetVol;
         }
@@ -222,10 +233,11 @@ const AudioManager = (() => {
 
     function isMuted() { return _muted; }
 
+    
     function _trackForState(gameState) {
         if (gameState === 'DAY_DISCUSS') return 'discussion';
         if (gameState === 'DAY_VOTE')    return 'voting';
-        return 'wait';
+        return 'wait';   
     }
 
     function onStateChange(gameState) {
@@ -434,6 +446,7 @@ window.addEventListener('DOMContentLoaded', () => {
         usernameInput.value = savedName;
     }
 
+    
     const _menuMusicUnlock = () => {
         AudioManager.play('wait');
         document.removeEventListener('click', _menuMusicUnlock);
@@ -495,16 +508,19 @@ function initSettingsUI() {
         });
     }
 
+    
     const volSlider  = document.getElementById('setting-music-volume');
     const volDisplay = document.getElementById('setting-music-volume-display');
 
     function _updateSliderTrack(slider) {
+        
         const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
         slider.style.background = `linear-gradient(to right, #ffcc00 ${pct}%, #444 ${pct}%)`;
     }
 
     if (volSlider) {
-        const storedVol = AudioManager.getVolume();
+        
+        const storedVol = AudioManager.getVolume();        
         const sliderVal = Math.round(storedVol * 100);
         volSlider.value = sliderVal;
         if (volDisplay) volDisplay.textContent = sliderVal + '%';
@@ -515,6 +531,7 @@ function initSettingsUI() {
             if (volDisplay) volDisplay.textContent = pct + '%';
             _updateSliderTrack(volSlider);
             AudioManager.setVolume(pct / 100);
+            
             AudioManager.setMuted(pct === 0);
         });
     }
@@ -987,13 +1004,12 @@ function connectToServer() {
 
             if (isOwner) {
                 document.getElementById('editor-ui').style.display = 'flex';
-                document.getElementById('settings-btn-wrap').style.display = 'block';
                 initEditorUI();
             }
+            
+            document.getElementById('settings-btn-wrap').style.display = 'block';
             document.getElementById('leaderboard-ui').style.display = 'flex';
             document.getElementById('role-list-ui').style.display = 'flex';
-            const sw = document.getElementById('settings-btn-wrap');
-            if (sw && isOwner) sw.style.display = 'block';
             WORLD.SYSTEM.lastTime = performance.now();
             WORLD.SYSTEM.isReady = true;
             updateLeaderboard();
@@ -1066,6 +1082,7 @@ function connectToServer() {
                     }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
                     updateAbilityButtonVisibility();
+                    
                     AudioManager.onStateChange(WORLD.GAME_STATE, data.game.nightAbilityOpen);
                 }
 
@@ -1197,10 +1214,11 @@ function connectToServer() {
             WORLD.ROLE_LIST_RAW = data.list || [];
             updateRoleListUI(data.list, data.mode);
         } else if (data.type === 'sound_event') {
+            
             AudioManager.onSoundEvent(data.track);
 
         } else if (data.type === 'game_over') {
-            AudioManager.onStateChange('LOBBY', false);
+            AudioManager.onStateChange('LOBBY', false);   
             updateRoleListUI([], 'off');
             myRole = null;
             ME.isDead = false;
