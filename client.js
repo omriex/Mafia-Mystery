@@ -99,6 +99,92 @@ let touchAimId = null;
 
 let joystickAutoSprint = false;
 
+const AudioManager = (() => {
+    const TRACKS = {
+        discussion: 'audio/Mafia Mystery 1 Discussion.mp3',
+        voting:     'audio/Mafia Mystery 1 Voting.mp3',
+        wait:       'audio/Mafia Mystery 1 Wait.mp3',
+        execution:  'audio/Mafia Mystery 1 Execution.mp3',
+    };
+
+    const _elems = {};
+    let _current = null;
+    const FADE_MS = 600;
+
+    for (const [key, src] of Object.entries(TRACKS)) {
+        const a = new Audio(src);
+        a.loop = true;
+        a.volume = 0;
+        a.preload = 'auto';
+        _elems[key] = a;
+    }
+
+    function _fade(el, fromVol, toVol, durationMs, onDone) {
+        const start = performance.now();
+        const tick = (now) => {
+            const t = Math.min((now - start) / durationMs, 1);
+            el.volume = fromVol + (toVol - fromVol) * t;
+            if (t < 1) requestAnimationFrame(tick);
+            else { el.volume = toVol; if (onDone) onDone(); }
+        };
+        requestAnimationFrame(tick);
+    }
+
+    function play(key) {
+        if (!TRACKS[key]) return;
+        if (_current === key) return;
+
+        const prev = _current;
+        _current = key;
+
+        const nextEl = _elems[key];
+
+        nextEl.currentTime = 0;
+        nextEl.volume = 0;
+        nextEl.play().catch(() => {
+            const unlock = () => {
+                nextEl.play().catch(() => {});
+                document.removeEventListener('click', unlock);
+                document.removeEventListener('keydown', unlock);
+                document.removeEventListener('touchstart', unlock);
+            };
+            document.addEventListener('click', unlock, { once: true });
+            document.addEventListener('keydown', unlock, { once: true });
+            document.addEventListener('touchstart', unlock, { once: true });
+        });
+        _fade(nextEl, 0, 0.7, FADE_MS);
+
+        if (prev && _elems[prev]) {
+            const prevEl = _elems[prev];
+            const prevVol = prevEl.volume;
+            _fade(prevEl, prevVol, 0, FADE_MS, () => {
+                prevEl.pause();
+                prevEl.currentTime = 0;
+            });
+        }
+    }
+
+    function trackForState(gameState, nightAbilityOpen) {
+        if (gameState === 'DAY_DISCUSS') return 'discussion';
+        if (gameState === 'DAY_VOTE')    return 'voting';
+        if (gameState === 'NIGHT') {
+            return 'wait';
+        }
+        return 'wait';
+    }
+
+    function onStateChange(gameState, nightAbilityOpen) {
+        const t = trackForState(gameState, nightAbilityOpen);
+        play(t);
+    }
+
+    function onSoundEvent(trackKey) {
+        play(trackKey);
+    }
+
+    return { play, onStateChange, onSoundEvent };
+})();
+
 function updateAbilityButtonVisibility() {
     const btn = document.getElementById('mob-ability-btn');
     if (!btn) return;
@@ -293,6 +379,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (savedName && usernameInput) {
         usernameInput.value = savedName;
     }
+
+    const _menuMusicUnlock = () => {
+        AudioManager.play('wait');
+        document.removeEventListener('click', _menuMusicUnlock);
+        document.removeEventListener('keydown', _menuMusicUnlock);
+        document.removeEventListener('touchstart', _menuMusicUnlock);
+    };
+    document.addEventListener('click', _menuMusicUnlock, { once: true });
+    document.addEventListener('keydown', _menuMusicUnlock, { once: true });
+    document.addEventListener('touchstart', _menuMusicUnlock, { once: true });
 
     if (playBtn) {
         playBtn.addEventListener('click', () => {
@@ -892,6 +988,7 @@ function connectToServer() {
                     }
                     WORLD.LAST_STATE = WORLD.GAME_STATE;
                     updateAbilityButtonVisibility();
+                    AudioManager.onStateChange(WORLD.GAME_STATE, data.game.nightAbilityOpen);
                 }
 
                 const pUi = document.getElementById('phase-ui');
@@ -1021,7 +1118,11 @@ function connectToServer() {
         } else if (data.type === 'rolelist_update') {
             WORLD.ROLE_LIST_RAW = data.list || [];
             updateRoleListUI(data.list, data.mode);
+        } else if (data.type === 'sound_event') {
+            AudioManager.onSoundEvent(data.track);
+
         } else if (data.type === 'game_over') {
+            AudioManager.onStateChange('LOBBY', false);
             updateRoleListUI([], 'off');
             myRole = null;
             ME.isDead = false;
