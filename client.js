@@ -2864,7 +2864,7 @@ function initMobileControls() {
     const joyKnob = document.getElementById('mobile-joystick-knob');
 
     if (joyZone && joyBase && joyKnob) {
-        const maxRadius = 38;
+        const maxRadius = 62;
 
         const handleJoyMove = (clientX, clientY) => {
             const rect = joyBase.getBoundingClientRect();
