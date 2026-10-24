@@ -107,13 +107,13 @@ const AudioManager = (() => {
         execution:  'audio/Mafia Mystery 1 Execution.mp3',
     };
 
-    const TARGET_VOL = 0.7;
+    let   _targetVol = parseFloat(localStorage.getItem('musicVolume') ?? '0.7');
     const FADE_MS    = 800;
 
     const _elems     = {};
     const _fadeIds   = {};
     let _current     = null;
-    let _muted       = localStorage.getItem('musicMuted') === 'true';
+    let _muted       = _targetVol === 0;
     let _unlocked    = false;
 
     for (const [key, src] of Object.entries(TRACKS)) {
@@ -188,8 +188,8 @@ const AudioManager = (() => {
         nextEl.currentTime = 0;
         nextEl.volume      = 0;
         _tryPlay(nextEl);
-        _fade(key, 0, TARGET_VOL, FADE_MS);
-        
+        _fade(key, 0, _targetVol, FADE_MS);
+
         if (prev && _elems[prev]) {
             const prevKey = prev;
             const prevEl  = _elems[prevKey];
@@ -201,12 +201,21 @@ const AudioManager = (() => {
         }
     }
 
+    function setVolume(vol) {
+        _targetVol = _clamp(vol);
+        localStorage.setItem('musicVolume', String(_targetVol));
+        if (!_muted && _current && _fadeIds[_current] === null) {
+            _elems[_current].volume = _targetVol;
+        }
+    }
+
+    function getVolume() { return _targetVol; }
+
     function setMuted(muted) {
         _muted = muted;
-        localStorage.setItem('musicMuted', muted ? 'true' : 'false');
         for (const key of Object.keys(_elems)) {
             if (_fadeIds[key] === null) {
-                _elems[key].volume = (muted || key !== _current) ? 0 : TARGET_VOL;
+                _elems[key].volume = (muted || key !== _current) ? 0 : _targetVol;
             }
         }
     }
@@ -227,7 +236,7 @@ const AudioManager = (() => {
         play(trackKey);
     }
 
-    return { play, onStateChange, onSoundEvent, setMuted, isMuted };
+    return { play, onStateChange, onSoundEvent, setVolume, getVolume, setMuted, isMuted };
 })();
 
 function updateAbilityButtonVisibility() {
@@ -486,34 +495,27 @@ function initSettingsUI() {
         });
     }
 
-    const musicMuteId = 'setting-music-mute';
-    let musicMuteToggle = document.getElementById(musicMuteId);
-    if (!musicMuteToggle && settingsPanel) {
-        const row = document.createElement('div');
-        row.className = 'settings-row';
-        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
-        const lbl = document.createElement('label');
-        lbl.htmlFor = musicMuteId;
-        lbl.textContent = 'Mute Music';
-        lbl.style.cssText = 'color:#eee;font-size:13px;cursor:pointer;user-select:none;';
-        const toggle = document.createElement('input');
-        toggle.type = 'checkbox';
-        toggle.id   = musicMuteId;
-        toggle.style.cssText = 'cursor:pointer;width:16px;height:16px;accent-color:#e05;';
-        row.appendChild(lbl);
-        row.appendChild(toggle);
-        const closeBtn = settingsPanel.querySelector('#close-settings-btn') || settingsPanel.firstChild;
-        if (closeBtn && closeBtn.parentNode === settingsPanel) {
-            settingsPanel.insertBefore(row, closeBtn.nextSibling);
-        } else {
-            settingsPanel.appendChild(row);
-        }
-        musicMuteToggle = toggle;
+    const volSlider  = document.getElementById('setting-music-volume');
+    const volDisplay = document.getElementById('setting-music-volume-display');
+
+    function _updateSliderTrack(slider) {
+        const pct = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+        slider.style.background = `linear-gradient(to right, #ffcc00 ${pct}%, #444 ${pct}%)`;
     }
-    if (musicMuteToggle) {
-        musicMuteToggle.checked = AudioManager.isMuted();
-        musicMuteToggle.addEventListener('change', () => {
-            AudioManager.setMuted(musicMuteToggle.checked);
+
+    if (volSlider) {
+        const storedVol = AudioManager.getVolume();
+        const sliderVal = Math.round(storedVol * 100);
+        volSlider.value = sliderVal;
+        if (volDisplay) volDisplay.textContent = sliderVal + '%';
+        _updateSliderTrack(volSlider);
+
+        volSlider.addEventListener('input', () => {
+            const pct = parseInt(volSlider.value, 10);
+            if (volDisplay) volDisplay.textContent = pct + '%';
+            _updateSliderTrack(volSlider);
+            AudioManager.setVolume(pct / 100);
+            AudioManager.setMuted(pct === 0);
         });
     }
 
