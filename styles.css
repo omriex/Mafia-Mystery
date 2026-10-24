@@ -680,9 +680,22 @@ body, html {
 .vote-tally-entry {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     color: #eee;
     font-size: 12px;
     font-weight: bold;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background 0.12s;
+    user-select: none;
+}
+
+.vote-tally-entry:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.vote-tally-entry:active {
+    background: rgba(255, 255, 255, 0.28);
 }
 
 .vote-tally-entry .vote-count {
@@ -696,7 +709,19 @@ body, html {
     font-weight: bold;
     margin-top: 4px;
     border-top: 1px solid rgba(255,255,255,0.1);
-    padding-top: 4px;
+    padding: 5px 6px;
+    border-radius: 4px;
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+}
+
+.vote-tally-skip:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.vote-tally-skip:active {
+    background: rgba(255, 255, 255, 0.28);
 }
 
 #ability-ui {
