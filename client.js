@@ -625,7 +625,7 @@ function connectToServer() {
     if (_pageToken) _params.set('token', _pageToken);
 
     _params.set('ngrok-skip-browser-warning', 'true');
-    const _ngrokURL = 'wss://defence-tribunal-appeared-have.trycloudflare.com';
+    const _ngrokURL = 'wss://relating-worker-pipeline-enclosure.trycloudflare.com';
     const _wsHost = window.location.hostname === 'localhost'
         ? 'ws://localhost:8080'
         : _ngrokURL;
