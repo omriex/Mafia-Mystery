@@ -87,6 +87,28 @@ let myTeleportId = 0;
 let revealedMayors = new Set();
 let abilityUIOpenedThisNight = false;
 let mouseRelativeMovement = localStorage.getItem('mouseRelativeMovement') === 'true';
+let isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+let joystickActive = false;
+let joystickTouchId = null;
+let joystickX = 0;
+let joystickY = 0;
+let mobileSprintActive = false;
+let touchAimActive = false;
+let touchAimAngle = 0;
+let touchAimId = null;
+
+function updateMobileVisibility() {
+    const joy = document.getElementById('mobile-joystick-zone');
+    const btns = document.getElementById('mobile-buttons');
+    if (!joy || !btns) return;
+    if (!inMainMenu && isTouchDevice) {
+        joy.style.display = 'flex';
+        btns.style.display = 'grid';
+    } else {
+        joy.style.display = 'none';
+        btns.style.display = 'none';
+    }
+}
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -266,7 +288,16 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('main-menu-ui').style.display = 'none';
             document.getElementById('chat-log-ui').style.display = 'flex';
             const hint = document.getElementById('controls-hint');
-            if (hint) hint.style.display = 'block';
+            if (hint && !isTouchDevice) hint.style.display = 'block';
+            updateMobileVisibility();
+            if (isTouchDevice) {
+                const lbList = document.getElementById('leaderboard-list');
+                const lbToggle = document.getElementById('leaderboard-toggle');
+                if (lbList) { lbList.style.display = 'none'; if (lbToggle) lbToggle.style.transform = 'rotate(180deg)'; }
+                const rlList = document.getElementById('role-list-items');
+                const rlToggle = document.getElementById('role-list-toggle');
+                if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
+            }
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'join', name: myName, token: _pageToken, body: selectedBody, eyes: selectedEyes }));
             } else if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
@@ -279,6 +310,7 @@ window.addEventListener('DOMContentLoaded', () => {
     connectToServer();
     loadImages();
     initSettingsUI();
+    initMobileControls();
 });
 
 function initSettingsUI() {
@@ -369,7 +401,8 @@ function updateVoteTally(gameState) {
     }
 
     for (const id in counts) {
-        const pName = (parseInt(id) === myId) ? myName : (serverPlayers[id] ? serverPlayers[id].name : `Player ${id}`);
+        const pIdNum = parseInt(id);
+        const pName = (pIdNum === myId) ? myName : (serverPlayers[id] ? serverPlayers[id].name : `Player ${id}`);
         const row = document.createElement('div');
         row.className = 'vote-tally-entry';
         const nameSpan = document.createElement('span');
@@ -379,12 +412,30 @@ function updateVoteTally(gameState) {
         countSpan.textContent = `${counts[id]} vote${counts[id] === 1 ? '' : 's'}`;
         row.appendChild(nameSpan);
         row.appendChild(countSpan);
+        if (pIdNum !== myId && !ME.isDead) {
+            row.style.cursor = 'pointer';
+            row.title = `Vote for ${pName}`;
+            row.onclick = () => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'chat', text: '/vote ' + pName }));
+                }
+            };
+        }
         list.appendChild(row);
     }
 
     const skipRow = document.createElement('div');
     skipRow.className = 'vote-tally-skip';
     skipRow.innerHTML = `<span>Skips:</span> <span style="color:#ffcc00;float:right;">${totalSkips}</span>`;
+    if (!ME.isDead) {
+        skipRow.style.cursor = 'pointer';
+        skipRow.title = 'Click to skip vote';
+        skipRow.onclick = () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'chat', text: '/skip' }));
+            }
+        };
+    }
     list.appendChild(skipRow);
 }
 
@@ -684,6 +735,15 @@ function connectToServer() {
         if (data.type === 'init') {
             myId = data.id;
             inMainMenu = false;
+            updateMobileVisibility();
+            if (isTouchDevice) {
+                const lbList = document.getElementById('leaderboard-list');
+                const lbToggle = document.getElementById('leaderboard-toggle');
+                if (lbList) { lbList.style.display = 'none'; if (lbToggle) lbToggle.style.transform = 'rotate(180deg)'; }
+                const rlList = document.getElementById('role-list-items');
+                const rlToggle = document.getElementById('role-list-toggle');
+                if (rlList) { rlList.style.display = 'none'; if (rlToggle) rlToggle.style.transform = 'rotate(180deg)'; }
+            }
             isOwner = data.isOwner || false;
             myName = data.name || myName;
 
@@ -1475,7 +1535,10 @@ function update(dt) {
     const psY = ME.y - WORLD.CAMERA.y + ME.height / 2;
     const mouseAngle = Math.atan2(smY - psY, smX - psX);
 
-    if (mouseRelativeMovement) {
+    if (joystickX !== 0 || joystickY !== 0) {
+        inputX = joystickX;
+        inputY = joystickY;
+    } else if (mouseRelativeMovement) {
         let forward = 0, strafe = 0;
         if (WORLD.INPUTS.keys.w || WORLD.INPUTS.keys.arrowup) forward += 1;
         if (WORLD.INPUTS.keys.s || WORLD.INPUTS.keys.arrowdown) forward -= 1;
@@ -1512,7 +1575,7 @@ function update(dt) {
     }
 
     const isMoving = inputX !== 0 || inputY !== 0;
-    const intentSprint = WORLD.INPUTS.keys.shift && isMoving;
+    const intentSprint = (WORLD.INPUTS.keys.shift || mobileSprintActive) && isMoving;
     ME.bopTimer = intentSprint ? ME.bopTimer + dt : 0;
     ME.scale = 1 + (ME.bopTimer > 0 ? Math.sin(ME.bopTimer * 15) * 0.05 : 0);
 
@@ -1535,7 +1598,13 @@ function update(dt) {
     if (ME.x + ME.width > WORLD.MAP.columns * WORLD.MAP.tileSize) ME.x = WORLD.MAP.columns * WORLD.MAP.tileSize - ME.width;
     if (ME.y + ME.height > WORLD.MAP.rows * WORLD.MAP.tileSize) ME.y = WORLD.MAP.rows * WORLD.MAP.tileSize - ME.height;
 
-    ME.angle = mouseAngle + (Math.PI / 2);
+    if (touchAimActive) {
+        ME.angle = touchAimAngle + (Math.PI / 2);
+    } else if (joystickX !== 0 || joystickY !== 0) {
+        ME.angle = Math.atan2(joystickY, joystickX) + (Math.PI / 2);
+    } else if (!isTouchDevice) {
+        ME.angle = mouseAngle + (Math.PI / 2);
+    }
 
     const targetCamX = ME.x + ME.width / 2 - WORLD.CAMERA.width / 2;
     const targetCamY = ME.y + ME.height / 2 - WORLD.CAMERA.height / 2;
@@ -2439,7 +2508,7 @@ window.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog')) return;
+    if (e.target.closest('#editor-ui') || e.target.closest('#leaderboard-ui') || e.target.closest('#chat-log-ui') || e.target.closest('#target-chooser-ui') || e.target.closest('#guide-ui') || e.target.closest('#role-list-ui') || e.target.closest('#ability-ui') || e.target.closest('#settings-panel') || e.target.closest('#mayor-confirm-dialog') || e.target.closest('#mobile-buttons') || e.target.closest('#mobile-joystick-zone') || e.target.closest('#mobile-chat-overlay') || e.target.closest('#will-ui')) return;
     if (e.button === 0) {
         WORLD.INPUTS.isMouseDown = true;
         if (WORLD.EDITOR.enabled) handleMapEdit(e.clientX, e.clientY);
@@ -2485,4 +2554,276 @@ if (roleListHeader) {
             toggle.style.transform = 'rotate(180deg)';
         }
     });
+}
+
+function initMobileControls() {
+    const joyZone = document.getElementById('mobile-joystick-zone');
+    const joyBase = document.getElementById('mobile-joystick-base');
+    const joyKnob = document.getElementById('mobile-joystick-knob');
+
+    if (joyZone && joyBase && joyKnob) {
+        const maxRadius = 38;
+
+        const handleJoyMove = (clientX, clientY) => {
+            const rect = joyBase.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = clientX - centerX;
+            const dy = clientY - centerY;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist === 0) {
+                joystickX = 0;
+                joystickY = 0;
+                joyKnob.style.transform = 'translate(0px, 0px)';
+                return;
+            }
+
+            const clampedDist = Math.min(dist, maxRadius);
+            const clampedX = (dx / dist) * clampedDist;
+            const clampedY = (dy / dist) * clampedDist;
+
+            joystickX = clampedX / maxRadius;
+            joystickY = clampedY / maxRadius;
+            joyKnob.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+        };
+
+        const onTouchStart = (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (joystickTouchId === null) {
+                    joystickTouchId = t.identifier;
+                    joystickActive = true;
+                    handleJoyMove(t.clientX, t.clientY);
+                    break;
+                }
+            }
+        };
+
+        const onTouchMove = (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.identifier === joystickTouchId) {
+                    handleJoyMove(t.clientX, t.clientY);
+                    break;
+                }
+            }
+        };
+
+        const onTouchEnd = (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.identifier === joystickTouchId) {
+                    joystickTouchId = null;
+                    joystickActive = false;
+                    joystickX = 0;
+                    joystickY = 0;
+                    joyKnob.style.transform = 'translate(0px, 0px)';
+                    break;
+                }
+            }
+        };
+
+        joyZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            onTouchStart(e);
+        }, { passive: false });
+
+        window.addEventListener('touchmove', onTouchMove, { passive: true });
+        window.addEventListener('touchend', onTouchEnd, { passive: true });
+        window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    }
+
+    const updateTouchAim = (clientX, clientY) => {
+        const smX = clientX / WORLD.SYSTEM.viewScale;
+        const smY = clientY / WORLD.SYSTEM.viewScale;
+        const psX = ME.x - WORLD.CAMERA.x + ME.width / 2;
+        const psY = ME.y - WORLD.CAMERA.y + ME.height / 2;
+        touchAimAngle = Math.atan2(smY - psY, smX - psX);
+        touchAimActive = true;
+        WORLD.INPUTS.mouseX = clientX;
+        WORLD.INPUTS.mouseY = clientY;
+    };
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (inMainMenu) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier !== joystickTouchId && touchAimId === null) {
+                touchAimId = t.identifier;
+                updateTouchAim(t.clientX, t.clientY);
+                break;
+            }
+        }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (inMainMenu) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === touchAimId) {
+                updateTouchAim(t.clientX, t.clientY);
+                break;
+            }
+        }
+    }, { passive: true });
+
+    const endTouchAim = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === touchAimId) {
+                touchAimId = null;
+                touchAimActive = false;
+                break;
+            }
+        }
+    };
+    canvas.addEventListener('touchend', endTouchAim, { passive: true });
+    canvas.addEventListener('touchcancel', endTouchAim, { passive: true });
+
+    const sprintBtn = document.getElementById('mob-sprint-btn');
+    if (sprintBtn) {
+        sprintBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mobileSprintActive = !mobileSprintActive;
+            sprintBtn.classList.toggle('active', mobileSprintActive);
+        });
+    }
+
+    const interactBtn = document.getElementById('mob-interact-btn');
+    if (interactBtn) {
+        interactBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!ME.isDead) {
+                const _nowDoor = Date.now();
+                if (!window._lastDoorSend || _nowDoor - window._lastDoorSend >= 500) {
+                    window._lastDoorSend = _nowDoor;
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'interact' }));
+                }
+            }
+        });
+    }
+
+    const abilityBtn = document.getElementById('mob-ability-btn');
+    if (abilityBtn) {
+        abilityBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (ME.isDead) return;
+
+            if (myRole === 'Mayor') {
+                if (revealedMayors.has(myId)) {
+                    addChatLog("You have already revealed yourself as the Mayor.", true);
+                    return;
+                }
+                const dialog = document.getElementById('mayor-confirm-dialog');
+                if (dialog) dialog.style.display = 'flex';
+                return;
+            }
+
+            if (WORLD.GAME_STATE === 'NIGHT') {
+                if (!WORLD.NIGHT_ABILITY_OPEN) {
+                    addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
+                    return;
+                }
+                const abilityUI = document.getElementById('ability-ui');
+                if (abilityUI) {
+                    if (abilityUI.style.display === 'block') {
+                        abilityUI.style.display = 'none';
+                    } else {
+                        populateAbilityUI();
+                        abilityUI.style.display = 'block';
+                    }
+                }
+                return;
+            }
+
+            if (WORLD.GAME_STATE === 'DAY_DISCUSS' || WORLD.GAME_STATE === 'DAY_VOTE') {
+                addChatLog("Abilities can only be used during the first 15 seconds of night.", true);
+                return;
+            }
+        });
+    }
+
+    const willBtn = document.getElementById('mob-will-btn');
+    const willUI = document.getElementById('will-ui');
+    const willInput = document.getElementById('will-input');
+    const closeWillBtn = document.getElementById('close-will-btn');
+
+    const toggleWill = () => {
+        if (!willUI) return;
+        if (willUI.style.display === 'flex') {
+            willUI.style.display = 'none';
+            if (ws && ws.readyState === WebSocket.OPEN && willInput) {
+                ws.send(JSON.stringify({ type: 'update_will', text: willInput.value }));
+            }
+            if (willInput) willInput.blur();
+        } else {
+            willUI.style.display = 'flex';
+            if (willInput) willInput.focus();
+        }
+    };
+
+    if (willBtn) willBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleWill(); });
+    if (closeWillBtn) closeWillBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleWill(); });
+
+    const mobChatBtn = document.getElementById('mob-chat-btn');
+    const mobChatOverlay = document.getElementById('mobile-chat-overlay');
+    const mobChatInput = document.getElementById('mobile-chat-input');
+    const mobChatSend = document.getElementById('mobile-chat-send');
+    const mobChatCancel = document.getElementById('mobile-chat-cancel');
+
+    const openMobChat = () => {
+        if (!mobChatOverlay || !mobChatInput) return;
+        mobChatOverlay.style.display = 'flex';
+        mobChatInput.value = '';
+        mobChatInput.focus();
+    };
+
+    const closeMobChat = () => {
+        if (!mobChatOverlay || !mobChatInput) return;
+        mobChatOverlay.style.display = 'none';
+        mobChatInput.blur();
+    };
+
+    const sendMobChat = () => {
+        if (!mobChatInput) return;
+        const msg = mobChatInput.value.trim();
+        if (msg.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'chat', text: msg }));
+        }
+        mobChatInput.value = '';
+        closeMobChat();
+    };
+
+    if (mobChatBtn) mobChatBtn.addEventListener('click', (e) => { e.stopPropagation(); openMobChat(); });
+    if (mobChatSend) mobChatSend.addEventListener('click', (e) => { e.stopPropagation(); sendMobChat(); });
+    if (mobChatCancel) mobChatCancel.addEventListener('click', (e) => { e.stopPropagation(); closeMobChat(); });
+    if (mobChatInput) {
+        mobChatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMobChat();
+            } else if (e.key === 'Escape') {
+                closeMobChat();
+            }
+        });
+    }
+
+    const helpBtn = document.getElementById('mob-help-btn');
+    if (helpBtn) {
+        helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const guideUI = document.getElementById('guide-ui');
+            if (guideUI) {
+                guideUI.style.display = guideUI.style.display === 'flex' ? 'none' : 'flex';
+            }
+        });
+    }
+
+    window.addEventListener('touchstart', () => {
+        if (!isTouchDevice) {
+            isTouchDevice = true;
+            updateMobileVisibility();
+        }
+    }, { passive: true, once: true });
 }
