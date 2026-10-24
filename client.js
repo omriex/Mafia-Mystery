@@ -1919,7 +1919,7 @@ function update(dt) {
     for (const id in _ox1e7c52) {
         const p = _ox1e7c52[id];
         if (p.renderX === undefined) { p.renderX = p.x; p.renderY = p.y; p.renderAngle = p.angle || 0; }
-        const _lerpF = 0.12;
+        const _lerpF = 0.25;
         const _rdx = p.x - p.renderX, _rdy = p.y - p.renderY;
         const _rdist = Math.sqrt(_rdx*_rdx + _rdy*_rdy);
         const _maxStep = 180;
