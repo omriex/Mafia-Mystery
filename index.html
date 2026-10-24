@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Mafia Mystery</title>
 
     <meta property="og:title" content="Mafia Mystery">
@@ -189,10 +192,69 @@
 <div id="will-ui">
     <div id="will-header">Will</div>
     <textarea id="will-input" maxlength="400" placeholder="I am the Doctor..."></textarea>
+    <div style="padding: 8px 12px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;">
+        <button id="close-will-btn" class="layer-btn danger-btn" style="width: 100%;">Save &amp; Close</button>
+    </div>
 </div>
 
 <div id="chat-ui">
     <input type="text" id="chat-input" maxlength="80" placeholder="Chat" autocomplete="off">
+</div>
+
+<div id="mobile-joystick-zone" style="display:none;">
+    <div id="mobile-joystick-base">
+        <div id="mobile-joystick-knob"></div>
+    </div>
+</div>
+
+<div id="mobile-buttons" style="display:none;">
+    <button class="mob-btn" id="mob-sprint-btn" title="Sprint">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M7 2v11h3v9l7-12h-4l3-8z"/>
+        </svg>
+        <span class="mob-lbl">RUN</span>
+    </button>
+    <button class="mob-btn" id="mob-interact-btn" title="Interact / Door">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M19 19V5c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v14H3v2h18v-2h-2zm-4-7c0-.55.45-1 1-1s1 .45 1 1-.45 1-1 1-1-.45-1-1z"/>
+        </svg>
+        <span class="mob-lbl">DOOR</span>
+    </button>
+    <button class="mob-btn" id="mob-ability-btn" title="Night Ability / Mayor">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l.64-.64C7.93 20.26 9.88 21 12 21c4.97 0 9-4.03 9-9 0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+        </svg>
+        <span class="mob-lbl">ACTION</span>
+    </button>
+    <button class="mob-btn" id="mob-will-btn" title="Last Will">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+        </svg>
+        <span class="mob-lbl">WILL</span>
+    </button>
+    <button class="mob-btn" id="mob-chat-btn" title="Chat">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 10H6v-2h12v2zm0-3H6V7h12v2z"/>
+        </svg>
+        <span class="mob-lbl">CHAT</span>
+    </button>
+    <button class="mob-btn" id="mob-help-btn" title="Controls / Guide">
+        <svg class="mob-svg" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/>
+        </svg>
+        <span class="mob-lbl">HELP</span>
+    </button>
+</div>
+
+<div id="mobile-chat-overlay" style="display:none;">
+    <div id="mobile-chat-box">
+        <div id="mobile-chat-header">CHAT</div>
+        <input type="text" id="mobile-chat-input" maxlength="80" placeholder="Type message..." autocomplete="off">
+        <div id="mobile-chat-actions">
+            <button class="layer-btn danger-btn" id="mobile-chat-cancel">Cancel</button>
+            <button class="layer-btn" id="mobile-chat-send">Send</button>
+        </div>
+    </div>
 </div>
 
 <script src="client.js"></script>
