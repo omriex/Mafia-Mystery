@@ -1085,7 +1085,7 @@ function connectToServer() {
                 if (existing) {
                     const dx = incoming.x - existing.renderX;
                     const dy = incoming.y - existing.renderY;
-                    const jumped = (dx * dx + dy * dy) > (200 * 200);
+                    const jumped = (dx * dx + dy * dy) > (120 * 120);
                     Object.assign(existing, incoming);
                     if (jumped) {
                         existing.renderX = incoming.x;
@@ -1409,8 +1409,7 @@ function resolveCircleVsWalls(p) {
     const wallLayer = WORLD.MAP.layers.find(l => l.name === 'walls');
     if (!wallLayer) return;
 
-    const scale = p.scale || 1;
-    const radius = (p.width * scale) / 2;
+    const radius = p.width / 2;
 
     for (let iter = 0; iter < 2; iter++) {
         let pX = p.x + p.width / 2;
@@ -1462,8 +1461,7 @@ function resolveCircleVsWalls(p) {
 }
 
 function resolveCircleVsEntities(p) {
-    const scale = p.scale || 1;
-    const radius = (p.width * scale) / 2;
+    const radius = p.width / 2;
     for (let iter = 0; iter < 2; iter++) {
         let pX = p.x + p.width / 2;
         let pY = p.y + p.height / 2;
@@ -1499,7 +1497,7 @@ function resolveCircleVsEntities(p) {
 function resolvePlayerCollisionsLocal() {
     if (ME.isDead) return;
 
-    const meR = (ME.width * ME.scale) / 2;
+    const meR = ME.width / 2;
     const mecx = ME.x + ME.width / 2;
     const mecy = ME.y + ME.height / 2;
 
@@ -1507,7 +1505,7 @@ function resolvePlayerCollisionsLocal() {
         const p = serverPlayers[id];
         if (p.isDead) continue;
 
-        const pR = (p.width * (p.scale || 1)) / 2;
+        const pR = p.width / 2;
         const minDist = meR + pR;
 
         const pcx = (p.renderX ?? p.x) + p.width / 2;
@@ -1921,8 +1919,13 @@ function update(dt) {
     for (const id in serverPlayers) {
         const p = serverPlayers[id];
         if (p.renderX === undefined) { p.renderX = p.x; p.renderY = p.y; p.renderAngle = p.angle || 0; }
-        p.renderX += (p.x - p.renderX) * 0.3;
-        p.renderY += (p.y - p.renderY) * 0.3;
+        const _lerpF = 0.12;
+        const _rdx = p.x - p.renderX, _rdy = p.y - p.renderY;
+        const _rdist = Math.sqrt(_rdx*_rdx + _rdy*_rdy);
+        const _maxStep = 180;
+        if (_rdist > _maxStep) { p.renderX = p.x - (_rdx/_rdist)*_maxStep; p.renderY = p.y - (_rdy/_rdist)*_maxStep; }
+        p.renderX += (p.x - p.renderX) * _lerpF;
+        p.renderY += (p.y - p.renderY) * _lerpF;
         let diff = (p.angle || 0) - p.renderAngle;
         while (diff < -Math.PI) diff += Math.PI * 2;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -2065,8 +2068,9 @@ function render() {
         if (p.isDead) continue;
         const pRX = (p.renderX ?? p.x) - camX + p.width / 2;
         const pRY = (p.renderY ?? p.y) - camY + p.height / 2;
-        const sW = p.width * (p.scale || 1) * 1.3;
-        const sH = p.height * (p.scale || 1) * 1.3;
+        const _ps = Math.min(2, Math.max(0.3, p.scale || 1));
+        const sW = p.width * _ps * 1.3;
+        const sH = p.height * _ps * 1.3;
         ctx.save();
         try {
             ctx.translate(pRX, pRY);
