@@ -107,27 +107,73 @@ const AudioManager = (() => {
         execution:  'audio/Mafia Mystery 1 Execution.mp3',
     };
 
-    const _elems = {};
-    let _current = null;
-    const FADE_MS = 600;
+    const TARGET_VOL = 0.7;
+    const FADE_MS    = 800;
+
+    const _elems     = {};
+    const _fadeIds   = {};
+    let _current     = null;
+    let _muted       = localStorage.getItem('musicMuted') === 'true';
+    let _unlocked    = false;
 
     for (const [key, src] of Object.entries(TRACKS)) {
         const a = new Audio(src);
-        a.loop = true;
-        a.volume = 0;
+        a.loop    = true;
+        a.volume  = 0;
         a.preload = 'auto';
         _elems[key] = a;
+        _fadeIds[key] = null;
     }
 
-    function _fade(el, fromVol, toVol, durationMs, onDone) {
+    const _clamp = v => Math.min(1, Math.max(0, v));
+
+    function _cancelFade(key) {
+        if (_fadeIds[key] !== null) {
+            cancelAnimationFrame(_fadeIds[key]);
+            _fadeIds[key] = null;
+        }
+    }
+
+    function _fade(key, fromVol, toVol, durationMs, onDone) {
+        _cancelFade(key);
+        const el    = _elems[key];
         const start = performance.now();
+
         const tick = (now) => {
-            const t = Math.min((now - start) / durationMs, 1);
-            el.volume = fromVol + (toVol - fromVol) * t;
-            if (t < 1) requestAnimationFrame(tick);
-            else { el.volume = toVol; if (onDone) onDone(); }
+            const t = _clamp((now - start) / durationMs);
+            const vol = _clamp(fromVol + (toVol - fromVol) * t);
+            el.volume = _muted ? 0 : vol;
+
+            if (t < 1) {
+                _fadeIds[key] = requestAnimationFrame(tick);
+            } else {
+                _fadeIds[key] = null;
+                el.volume = _muted ? 0 : _clamp(toVol);
+                if (onDone) onDone();
+            }
         };
-        requestAnimationFrame(tick);
+
+        _fadeIds[key] = requestAnimationFrame(tick);
+    }
+
+    function _tryPlay(el) {
+        const p = el.play();
+        if (p && p.catch) {
+            p.catch(() => {
+                if (!_unlocked) {
+                    const unlock = () => {
+                        _unlocked = true;
+                        el.play().catch(() => {});
+                        document.removeEventListener('click',      unlock);
+                        document.removeEventListener('keydown',    unlock);
+                        document.removeEventListener('touchstart', unlock);
+                    };
+                    document.addEventListener('click',      unlock, { once: true });
+                    document.addEventListener('keydown',    unlock, { once: true });
+                    document.addEventListener('touchstart', unlock, { once: true });
+                }
+            });
+        }
     }
 
     function play(key) {
@@ -135,54 +181,53 @@ const AudioManager = (() => {
         if (_current === key) return;
 
         const prev = _current;
-        _current = key;
+        _current   = key;
 
         const nextEl = _elems[key];
-
+        _cancelFade(key);
         nextEl.currentTime = 0;
-        nextEl.volume = 0;
-        nextEl.play().catch(() => {
-            const unlock = () => {
-                nextEl.play().catch(() => {});
-                document.removeEventListener('click', unlock);
-                document.removeEventListener('keydown', unlock);
-                document.removeEventListener('touchstart', unlock);
-            };
-            document.addEventListener('click', unlock, { once: true });
-            document.addEventListener('keydown', unlock, { once: true });
-            document.addEventListener('touchstart', unlock, { once: true });
-        });
-        _fade(nextEl, 0, 0.7, FADE_MS);
-
+        nextEl.volume      = 0;
+        _tryPlay(nextEl);
+        _fade(key, 0, TARGET_VOL, FADE_MS);
+        
         if (prev && _elems[prev]) {
-            const prevEl = _elems[prev];
-            const prevVol = prevEl.volume;
-            _fade(prevEl, prevVol, 0, FADE_MS, () => {
+            const prevKey = prev;
+            const prevEl  = _elems[prevKey];
+            const fromVol = _clamp(prevEl.volume);
+            _fade(prevKey, fromVol, 0, FADE_MS, () => {
                 prevEl.pause();
                 prevEl.currentTime = 0;
             });
         }
     }
 
-    function trackForState(gameState, nightAbilityOpen) {
+    function setMuted(muted) {
+        _muted = muted;
+        localStorage.setItem('musicMuted', muted ? 'true' : 'false');
+        for (const key of Object.keys(_elems)) {
+            if (_fadeIds[key] === null) {
+                _elems[key].volume = (muted || key !== _current) ? 0 : TARGET_VOL;
+            }
+        }
+    }
+
+    function isMuted() { return _muted; }
+
+    function _trackForState(gameState) {
         if (gameState === 'DAY_DISCUSS') return 'discussion';
         if (gameState === 'DAY_VOTE')    return 'voting';
-        if (gameState === 'NIGHT') {
-            return 'wait';
-        }
         return 'wait';
     }
 
-    function onStateChange(gameState, nightAbilityOpen) {
-        const t = trackForState(gameState, nightAbilityOpen);
-        play(t);
+    function onStateChange(gameState) {
+        play(_trackForState(gameState));
     }
 
     function onSoundEvent(trackKey) {
         play(trackKey);
     }
 
-    return { play, onStateChange, onSoundEvent };
+    return { play, onStateChange, onSoundEvent, setMuted, isMuted };
 })();
 
 function updateAbilityButtonVisibility() {
@@ -438,6 +483,37 @@ function initSettingsUI() {
         mouseRelToggle.addEventListener('change', () => {
             mouseRelativeMovement = mouseRelToggle.checked;
             localStorage.setItem('mouseRelativeMovement', mouseRelativeMovement ? 'true' : 'false');
+        });
+    }
+
+    const musicMuteId = 'setting-music-mute';
+    let musicMuteToggle = document.getElementById(musicMuteId);
+    if (!musicMuteToggle && settingsPanel) {
+        const row = document.createElement('div');
+        row.className = 'settings-row';
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin:8px 0;';
+        const lbl = document.createElement('label');
+        lbl.htmlFor = musicMuteId;
+        lbl.textContent = 'Mute Music';
+        lbl.style.cssText = 'color:#eee;font-size:13px;cursor:pointer;user-select:none;';
+        const toggle = document.createElement('input');
+        toggle.type = 'checkbox';
+        toggle.id   = musicMuteId;
+        toggle.style.cssText = 'cursor:pointer;width:16px;height:16px;accent-color:#e05;';
+        row.appendChild(lbl);
+        row.appendChild(toggle);
+        const closeBtn = settingsPanel.querySelector('#close-settings-btn') || settingsPanel.firstChild;
+        if (closeBtn && closeBtn.parentNode === settingsPanel) {
+            settingsPanel.insertBefore(row, closeBtn.nextSibling);
+        } else {
+            settingsPanel.appendChild(row);
+        }
+        musicMuteToggle = toggle;
+    }
+    if (musicMuteToggle) {
+        musicMuteToggle.checked = AudioManager.isMuted();
+        musicMuteToggle.addEventListener('change', () => {
+            AudioManager.setMuted(musicMuteToggle.checked);
         });
     }
 
