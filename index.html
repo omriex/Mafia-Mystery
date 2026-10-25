@@ -21,6 +21,188 @@
 
     <link rel="icon" type="image/png" href="assets/mafia icon.png">
     <link rel="stylesheet" href="styles.css">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBknVMvPv3EXKVOkLpwK3NCKB5Xl3isHg4",
+            authDomain: "mafia-mystery-6623e.firebaseapp.com",
+            projectId: "mafia-mystery-6623e",
+            storageBucket: "mafia-mystery-6623e.firebasestorage.app",
+            messagingSenderId: "805691569639",
+            appId: "1:805691569639:web:9983b5686b28d529bb3942"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+        const provider = new GoogleAuthProvider();
+
+        window._FB = { auth, db, storage, provider, signInWithPopup, signOut, GoogleAuthProvider, doc, getDoc, setDoc, updateDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, onAuthStateChanged };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                const snap = await getDoc(userDocRef);
+                if (!snap.exists()) {
+                    window._FB._pendingUser = user;
+                    showFirstTimeSetup(user);
+                } else {
+                    const data = snap.data();
+                    window._FB._userData = data;
+                    window._FB._currentUser = user;
+                    applyLoggedInState(user, data);
+                }
+            } else {
+                window._FB._currentUser = null;
+                window._FB._userData = null;
+                applyGuestState();
+            }
+        });
+
+        async function showFirstTimeSetup(user) {
+            const modal = document.getElementById('first-time-modal');
+            if (modal) modal.style.display = 'flex';
+            const nameInput = document.getElementById('first-time-name-input');
+            if (nameInput && user.displayName) {
+                nameInput.value = user.displayName.replace(/[^\x20-\x7E]/g, '').substring(0, 14);
+            }
+            const confirmBtn = document.getElementById('first-time-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.onclick = async () => {
+                    const raw = (nameInput ? nameInput.value : '').replace(/<[^>]*>/g, '').replace(/[^\x20-\x7E]/g, '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().substring(0, 14);
+                    if (!raw) { alert('Please enter a valid name.'); return; }
+                    const userDocRef = doc(db, 'users', user.uid);
+                    const nameCheck = await (async () => {
+                        const { collection, query, where, getDocs } = await import("https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js");
+                        const q = query(collection(db, 'users'), where('username', '==', raw));
+                        const qs = await getDocs(q);
+                        return !qs.empty;
+                    })();
+                    if (nameCheck) { alert('That name is already taken. Choose another.'); return; }
+                    const data = { username: raw, photoURL: user.photoURL || '', townWins: 0, mafiaWins: 0, deaths: 0, townLosses: 0, mafiaLosses: 0, createdAt: serverTimestamp() };
+                    await setDoc(userDocRef, data);
+                    window._FB._userData = data;
+                    window._FB._currentUser = user;
+                    if (modal) modal.style.display = 'none';
+                    applyLoggedInState(user, data);
+                };
+            }
+        }
+
+        window._showFirstTimeSetup = showFirstTimeSetup;
+
+        function applyLoggedInState(user, data) {
+            const inp = document.getElementById('username-input');
+            if (inp) { inp.value = data.username; inp.disabled = true; inp.style.opacity = '0.6'; inp.style.cursor = 'not-allowed'; }
+            const loginBtn = document.getElementById('auth-login-btn');
+            const logoutBtn = document.getElementById('auth-logout-btn');
+            const pfpBtn = document.getElementById('auth-pfp-btn');
+            const pfpImg = document.getElementById('auth-pfp-img');
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'flex';
+            if (pfpBtn) pfpBtn.style.display = 'flex';
+            if (pfpImg && (data.photoURL || user.photoURL)) pfpImg.src = data.photoURL || user.photoURL;
+            const customBox = document.getElementById('customization-box');
+            if (customBox) customBox.style.display = 'flex';
+            const menuUi = document.getElementById('main-menu-ui');
+            if (menuUi) {
+                menuUi.classList.remove('no-customization');
+            }
+            if (window._applyLoggedInStateCallback) window._applyLoggedInStateCallback(user, data);
+        }
+
+        function applyGuestState() {
+            const inp = document.getElementById('username-input');
+            if (inp) { inp.value = ''; inp.disabled = true; inp.style.opacity = '0.6'; inp.style.cursor = 'not-allowed'; inp.placeholder = 'Guest (auto-assigned)'; }
+            const loginBtn = document.getElementById('auth-login-btn');
+            const logoutBtn = document.getElementById('auth-logout-btn');
+            const pfpBtn = document.getElementById('auth-pfp-btn');
+            if (loginBtn) loginBtn.style.display = 'flex';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (pfpBtn) pfpBtn.style.display = 'none';
+            const customBox = document.getElementById('customization-box');
+            if (customBox) customBox.style.display = 'none';
+            const menuUi = document.getElementById('main-menu-ui');
+            if (menuUi) menuUi.classList.add('no-customization');
+            if (window._applyGuestStateCallback) window._applyGuestStateCallback();
+        }
+
+        window._applyLoggedInState = applyLoggedInState;
+        window._applyGuestState = applyGuestState;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginBtn = document.getElementById('auth-login-btn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', async () => {
+                    try { await signInWithPopup(auth, provider); } catch(e) { console.error(e); }
+                });
+            }
+            const logoutBtn = document.getElementById('auth-logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async () => {
+                    await signOut(auth);
+                });
+            }
+            const pfpBtn = document.getElementById('auth-pfp-btn');
+            if (pfpBtn) {
+                pfpBtn.addEventListener('click', () => {
+                    const user = window._FB._currentUser;
+                    const data = window._FB._userData;
+                    if (!user || !data) return;
+                    const modal = document.getElementById('account-info-modal');
+                    if (modal) {
+                        document.getElementById('ai-username').textContent = data.username || '';
+                        document.getElementById('ai-email').textContent = user.email || '';
+                        document.getElementById('ai-pfp').src = data.photoURL || user.photoURL || '';
+                        document.getElementById('ai-town-wins').textContent = data.townWins || 0;
+                        document.getElementById('ai-mafia-wins').textContent = data.mafiaWins || 0;
+                        document.getElementById('ai-deaths').textContent = data.deaths || 0;
+                        document.getElementById('ai-town-losses').textContent = data.townLosses || 0;
+                        document.getElementById('ai-mafia-losses').textContent = data.mafiaLosses || 0;
+                        modal.style.display = 'flex';
+                    }
+                });
+            }
+            const pfpUpload = document.getElementById('pfp-upload-input');
+            if (pfpUpload) {
+                pfpUpload.addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const user = window._FB._currentUser;
+                    if (!user) return;
+                    const storageRef = window._FB.ref(window._FB.storage, `pfp/${user.uid}`);
+                    await window._FB.uploadBytes(storageRef, file);
+                    const url = await window._FB.getDownloadURL(storageRef);
+                    const userDocRef = window._FB.doc(window._FB.db, 'users', user.uid);
+                    await window._FB.updateDoc(userDocRef, { photoURL: url });
+                    window._FB._userData.photoURL = url;
+                    const pfpImg = document.getElementById('auth-pfp-img');
+                    if (pfpImg) pfpImg.src = url;
+                    const aiPfp = document.getElementById('ai-pfp');
+                    if (aiPfp) aiPfp.src = url;
+                    if (window._updateChatProfilePics) window._updateChatProfilePics();
+                });
+            }
+            const closeAiBtn = document.getElementById('close-account-info-btn');
+            if (closeAiBtn) {
+                closeAiBtn.addEventListener('click', () => {
+                    document.getElementById('account-info-modal').style.display = 'none';
+                });
+            }
+            const changePfpBtn = document.getElementById('ai-change-pfp-btn');
+            if (changePfpBtn) {
+                changePfpBtn.addEventListener('click', () => {
+                    document.getElementById('pfp-upload-input').click();
+                });
+            }
+        });
+    </script>
 </head>
 <body>
 
@@ -30,21 +212,84 @@
     <div id="loading-text" style="font-size: 16px; color: #888;">LOADING ASSETS...</div>
 </div>
 
-<div id="main-menu-ui">
+<div id="main-menu-ui" class="no-customization">
     <div class="menu-box" id="main-menu-box">
         <img src="assets/mafia icon.png" style="width: 80px; height: 80px; margin-bottom: 10px; image-rendering: pixelated;">
-        <div style="font-size: 32px; margin-bottom: 20px; color: white; font-weight: bold; text-shadow: 0px 4px 6px rgba(0,0,0,0.5);">Mafia Mystery</div>
-        <input type="text" id="username-input" maxlength="16" placeholder="Nickname" autocomplete="off">
+        <div style="font-size: 32px; margin-bottom: 20px; color: white; font-weight: bold;">Mafia Mystery</div>
+        <input type="text" id="username-input" maxlength="16" placeholder="Guest (auto-assigned)" autocomplete="off" disabled style="opacity:0.6;cursor:not-allowed;">
         <button id="play-btn">PLAY</button>
     </div>
 
-    <div class="menu-box" id="customization-box">
+    <div class="menu-box" id="customization-box" style="display: none;">
         <div class="menu-box-header">CUSTOMIZATION</div>
         <div class="customization-content">
             <div class="skin-section-title">BODY</div>
             <div class="skin-grid" id="body-skin-grid"></div>
             <div class="skin-section-title" style="margin-top: 14px;">EYES</div>
             <div class="skin-grid" id="eyes-skin-grid"></div>
+        </div>
+    </div>
+</div>
+
+<div id="auth-top-right">
+    <button id="auth-login-btn" class="auth-icon-btn" title="Sign in with Google" style="display:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span>Sign In</span>
+    </button>
+    <button id="auth-logout-btn" class="auth-icon-btn" title="Sign out" style="display:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" fill="#ffffff"/>
+        </svg>
+        <span>Sign Out</span>
+    </button>
+    <button id="auth-pfp-btn" class="auth-pfp-btn" title="Account Info" style="display:none;">
+        <img id="auth-pfp-img" src="" alt="PFP">
+    </button>
+</div>
+
+<input type="file" id="pfp-upload-input" accept="image/*" style="display:none;">
+
+<div id="first-time-modal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-header">WELCOME — CHOOSE YOUR NAME</div>
+        <div class="modal-body">
+            <p style="color:#ddd;font-size:13px;line-height:1.5;margin-bottom:14px;">
+                Choose your account username. This will be your player name in every game.<br>
+                <span style="color:#ff8800;font-weight:bold;">⚠ Once set, your name is permanent and no one else can use it.</span>
+            </p>
+            <input type="text" id="first-time-name-input" maxlength="14" placeholder="Your permanent username" autocomplete="off" class="modal-input">
+        </div>
+        <div class="modal-footer">
+            <button id="first-time-confirm-btn" class="layer-btn" style="width:100%;background:#ff8800;">Confirm Name Forever</button>
+        </div>
+    </div>
+</div>
+
+<div id="account-info-modal" style="display:none;">
+    <div class="modal-box">
+        <div class="modal-header">MY ACCOUNT</div>
+        <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+            <div style="position:relative;">
+                <img id="ai-pfp" src="" alt="PFP" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);">
+                <button id="ai-change-pfp-btn" class="layer-btn" style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font-size:10px;padding:3px 8px;white-space:nowrap;">Change</button>
+            </div>
+            <div style="color:white;font-weight:bold;font-size:18px;" id="ai-username"></div>
+            <div style="color:#aaa;font-size:12px;" id="ai-email"></div>
+            <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:6px;padding:12px 14px;box-sizing:border-box;">
+                <div class="stat-row"><span style="color:#55ee77;">Town Wins</span><span id="ai-town-wins">0</span></div>
+                <div class="stat-row"><span style="color:#ff5555;">Mafia Wins</span><span id="ai-mafia-wins">0</span></div>
+                <div class="stat-row"><span style="color:#aaa;">Deaths</span><span id="ai-deaths">0</span></div>
+                <div class="stat-row"><span style="color:#6688aa;">Town Losses</span><span id="ai-town-losses">0</span></div>
+                <div class="stat-row"><span style="color:#aa4444;">Mafia Losses</span><span id="ai-mafia-losses">0</span></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="close-account-info-btn" class="layer-btn danger-btn" style="width:100%;">Close</button>
         </div>
     </div>
 </div>
@@ -190,10 +435,13 @@
     </div>
 </div>
 
-<div id="controls-hint" style="display: none; position: fixed; bottom: 270px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: bold; text-shadow: 1px 1px 2px #000; pointer-events: none; z-index: 1000;">Press [H] for Controls</div>
+<div id="controls-hint" style="display: none; position: fixed; bottom: 270px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: bold; pointer-events: none; z-index: 1000;">Press [H] for Controls</div>
 
-<div id="chat-log-ui" style="display: none;">
-    <div id="chat-log-messages"></div>
+<div id="chat-log-wrap">
+    <div id="chat-profile-panel"></div>
+    <div id="chat-log-ui" style="display: none;">
+        <div id="chat-log-messages"></div>
+    </div>
 </div>
 
 <div id="will-ui">
