@@ -169,16 +169,21 @@
                     }
                 });
             }
-            const pfpUpload = document.getElementById('pfp-upload-input');
-            if (pfpUpload) {
-                pfpUpload.addEventListener('change', async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+            const closeAiBtn = document.getElementById('close-account-info-btn');
+            if (closeAiBtn) {
+                closeAiBtn.addEventListener('click', () => {
+                    document.getElementById('account-info-modal').style.display = 'none';
+                });
+            }
+            const setPfpUrlBtn = document.getElementById('ai-set-pfp-url-btn');
+            if (setPfpUrlBtn) {
+                setPfpUrlBtn.addEventListener('click', async () => {
+                    const input = document.getElementById('ai-pfp-url-input');
+                    if (!input) return;
+                    const url = input.value.trim();
+                    if (!url) return;
                     const user = window._FB._currentUser;
                     if (!user) return;
-                    const storageRef = window._FB.ref(window._FB.storage, `pfp/${user.uid}`);
-                    await window._FB.uploadBytes(storageRef, file);
-                    const url = await window._FB.getDownloadURL(storageRef);
                     const userDocRef = window._FB.doc(window._FB.db, 'users', user.uid);
                     await window._FB.updateDoc(userDocRef, { photoURL: url });
                     window._FB._userData.photoURL = url;
@@ -186,20 +191,15 @@
                     if (pfpImg) pfpImg.src = url;
                     const aiPfp = document.getElementById('ai-pfp');
                     if (aiPfp) aiPfp.src = url;
+                    input.value = '';
                     if (window._updateChatProfilePics) window._updateChatProfilePics();
                 });
-            }
-            const closeAiBtn = document.getElementById('close-account-info-btn');
-            if (closeAiBtn) {
-                closeAiBtn.addEventListener('click', () => {
-                    document.getElementById('account-info-modal').style.display = 'none';
-                });
-            }
-            const changePfpBtn = document.getElementById('ai-change-pfp-btn');
-            if (changePfpBtn) {
-                changePfpBtn.addEventListener('click', () => {
-                    document.getElementById('pfp-upload-input').click();
-                });
+                const pfpUrlInput = document.getElementById('ai-pfp-url-input');
+                if (pfpUrlInput) {
+                    pfpUrlInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); setPfpUrlBtn.click(); }
+                    });
+                }
             }
         });
     </script>
@@ -252,7 +252,7 @@
     </button>
 </div>
 
-<input type="file" id="pfp-upload-input" accept="image/*" style="display:none;">
+
 
 <div id="first-time-modal" style="display:none;">
     <div class="modal-box">
@@ -276,10 +276,13 @@
         <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
             <div style="position:relative;">
                 <img id="ai-pfp" src="" alt="PFP" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);">
-                <button id="ai-change-pfp-btn" class="layer-btn" style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font-size:10px;padding:3px 8px;white-space:nowrap;">Change</button>
             </div>
             <div style="color:white;font-weight:bold;font-size:18px;" id="ai-username"></div>
             <div style="color:#aaa;font-size:12px;" id="ai-email"></div>
+            <div style="width:100%;display:flex;gap:6px;align-items:center;box-sizing:border-box;">
+                <input type="text" id="ai-pfp-url-input" placeholder="Paste image URL for profile pic..." autocomplete="off" style="flex:1;background:rgba(0,0,0,0.6);color:#fff;border:2px solid rgba(255,255,255,0.15);border-radius:4px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;min-width:0;">
+                <button id="ai-set-pfp-url-btn" class="layer-btn" style="font-size:11px;padding:7px 10px;white-space:nowrap;flex-shrink:0;">Set</button>
+            </div>
             <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:6px;padding:12px 14px;box-sizing:border-box;">
                 <div class="stat-row"><span style="color:#55ee77;">Town Wins</span><span id="ai-town-wins">0</span></div>
                 <div class="stat-row"><span style="color:#ff5555;">Mafia Wins</span><span id="ai-mafia-wins">0</span></div>
