@@ -445,8 +445,7 @@ body, html {
     border-radius: 50%;
     background: #ffcc00;
     cursor: pointer;
-    box-shadow: 0 0 4px rgba(0,0,0,0.6);
-    transition: transform 0.1s;
+    transition: none;
 }
 
 .settings-slider::-moz-range-thumb {
@@ -456,11 +455,16 @@ body, html {
     border-radius: 50%;
     background: #ffcc00;
     cursor: pointer;
-    box-shadow: 0 0 4px rgba(0,0,0,0.6);
 }
 
 .settings-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.25);
+    transition: none;
+}
+
+.settings-slider::-webkit-slider-thumb:active {
+    transform: scale(0.9);
+    transition: none;
 }
 
 .settings-slider::-webkit-slider-runnable-track {
@@ -1420,11 +1424,19 @@ body, html {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     min-width: 170px;
     line-height: 1.7;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
 }
 
 .chat-pfp-entry:hover .chat-pfp-tooltip {
     display: block;
+}
+
+.chat-pfp-entry::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 32px;
+    width: 12px;
+    height: 100%;
 }
 
 #chat-log-ui {
