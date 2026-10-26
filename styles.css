@@ -615,7 +615,7 @@ body, html {
     position: fixed;
     bottom: 20px;
     left: 20px;
-    width: 316px;
+    width: 360px;
     height: 240px;
     display: flex;
     flex-direction: column;
@@ -1366,7 +1366,7 @@ body, html {
     padding: 6px 0;
     gap: 6px;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     min-height: 240px;
 }
 
@@ -1393,6 +1393,8 @@ body, html {
     border: 1.5px solid rgba(255,255,255,0.2);
     display: block;
     cursor: pointer;
+    image-rendering: pixelated;
+    background: rgba(0,0,0,0.4);
 }
 
 .chat-pfp-entry img:hover {
@@ -1401,10 +1403,10 @@ body, html {
 
 .chat-pfp-tooltip {
     position: absolute;
-    left: 40px;
+    left: 42px;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(0,0,0,0.92);
+    background: rgba(0,0,0,0.94);
     border: 2px solid rgba(255,255,255,0.15);
     border-radius: 8px;
     padding: 8px 12px;
@@ -1413,11 +1415,12 @@ body, html {
     font-weight: bold;
     pointer-events: none;
     white-space: nowrap;
-    z-index: 3000;
+    z-index: 3100;
     display: none;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    min-width: 160px;
-    line-height: 1.6;
+    min-width: 170px;
+    line-height: 1.7;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.7);
 }
 
 .chat-pfp-entry:hover .chat-pfp-tooltip {
