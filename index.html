@@ -345,24 +345,35 @@
     </div>
 </div>
 
-<div id="leaderboard-ui" style="display: none;">
-    <div id="leaderboard-header">
-        <span>LEADERBOARD</span>
-        <span id="leaderboard-toggle">▼</span>
-    </div>
-    <div id="leaderboard-list">
-        <div class="leaderboard-entry">
-            <span style="color: #ffffff;">player</span>
+<div id="right-sidebar">
+    <div id="leaderboard-ui" style="display: none;">
+        <div id="leaderboard-header">
+            <span>LEADERBOARD</span>
+            <span id="leaderboard-toggle">▼</span>
+        </div>
+        <div id="leaderboard-list">
+            <div class="leaderboard-entry">
+                <span style="color: #ffffff;">player</span>
+            </div>
         </div>
     </div>
-</div>
 
-<div id="role-list-ui" style="display: none;">
-    <div id="role-list-header">
-        <span>ROLE LIST</span>
-        <span id="role-list-toggle">▼</span>
+    <div id="role-index-btn-wrap" style="display: none;">
+        <button id="role-index-btn" title="Role Index">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z" fill="#ffffff"/>
+            </svg>
+            <span>ROLE INDEX</span>
+        </button>
     </div>
-    <div id="role-list-items"></div>
+
+    <div id="role-list-ui" style="display: none;">
+        <div id="role-list-header">
+            <span>ROLE LIST</span>
+            <span id="role-list-toggle">▼</span>
+        </div>
+        <div id="role-list-items"></div>
+    </div>
 </div>
 
 <div id="role-tooltip"></div>
@@ -410,6 +421,17 @@
     </div>
 </div>
 
+<div id="role-index-modal" style="display: none;">
+    <div id="role-index-header">
+        <span>ROLE INDEX</span>
+    </div>
+    <div id="role-index-tabs"></div>
+    <div id="role-index-body"></div>
+    <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <button id="close-role-index-btn" class="layer-btn danger-btn" style="width: 100%;">Close</button>
+    </div>
+</div>
+
 <div id="target-chooser-ui" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; z-index: 2500; flex-direction: column; gap: 10px; min-width: 250px;">
     <div style="color: white; font-weight: bold; text-align: center; font-size: 16px; margin-bottom: 5px;">Select Target</div>
     <div id="target-list" style="display: flex; flex-direction: column; gap: 5px; max-height: 300px; overflow-y: auto;"></div>
@@ -430,7 +452,7 @@
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/skip</span><span>Skip vote (Voting phase)</span></div>
         <div style="display: flex; justify-content: space-between;"><span style="color: #ffcc00;">/forcerole [Role]</span><span>Host: force role (Testing)</span></div>
         <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 8px; font-size: 12px; color: #aaa; font-weight: normal; line-height: 1.4;">
-            Town must eliminate all Mafia. Mafia kills at night. Use the Ability UI at night start (auto-opens for 15s). Write your will (Tab) before night falls!
+            Town must eliminate all Mafia. Mafia kills at night. Use the Ability UI at night start (auto-opens for 10s). Write your will (Tab) before night falls!
         </div>
     </div>
     <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;">
@@ -465,6 +487,9 @@
     </button>
     <button class="mob-top-btn" id="mob-top-will" title="Will">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+    </button>
+    <button class="mob-top-btn" id="mob-top-index" title="Role Index">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/></svg>
     </button>
     <button class="mob-top-btn" id="mob-top-roles" title="Role List">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
