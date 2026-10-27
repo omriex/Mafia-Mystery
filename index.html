@@ -20,6 +20,9 @@
     <meta name="twitter:image" content="http://mafiamystery.duckdns.org/assets/mafia icon.png">
 
     <link rel="icon" type="image/png" href="assets/mafia icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Viga&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 
     <script type="module">
@@ -252,15 +255,13 @@
     </button>
 </div>
 
-
-
 <div id="first-time-modal" style="display:none;">
     <div class="modal-box">
         <div class="modal-header">WELCOME, CHOOSE YOUR NAME</div>
         <div class="modal-body">
             <p style="color:#ddd;font-size:13px;line-height:1.5;margin-bottom:14px;">
                 Choose your account username. This will be your player name in every game.<br>
-                <span style="color:#ff8800;font-weight:bold;">⚠ Once set, your name is permanent and no one else can use it.</span>
+                <span style="color:#ff8800;font-weight:bold;">Once set, your name is permanent and no one else can use it.</span>
             </p>
             <input type="text" id="first-time-name-input" maxlength="14" placeholder="Your permanent username" autocomplete="off" class="modal-input">
         </div>
@@ -425,6 +426,7 @@
     <div id="role-index-header">
         <span>ROLE INDEX</span>
     </div>
+    <div id="role-index-main-tabs"></div>
     <div id="role-index-tabs"></div>
     <div id="role-index-body"></div>
     <div style="padding: 12px 20px; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; border-top: 1px solid rgba(255, 255, 255, 0.1);">
