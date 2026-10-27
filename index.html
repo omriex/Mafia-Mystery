@@ -8,23 +8,19 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Mafia Mystery</title>
 
-    <meta name="description" content="Multiplayer Mafia Mystery game with real-time roles, abilities, day/night cycles, and custom mechanics.">
     <meta property="og:title" content="Mafia Mystery">
-    <meta property="og:description" content="Multiplayer Mafia Mystery game with real-time roles, abilities, day/night cycles, and custom mechanics.">
-    <meta property="og:image" content="/assets/mafia icon.png">
+    <meta property="og:description" content="Multiplayer version of EPIKMAFIA">
+    <meta property="og:image" content="http://mafiamystery.duckdns.org/assets/mafia icon.png">
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#FFCC00">
     
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="Mafia Mystery">
-    <meta name="twitter:description" content="Multiplayer Mafia Mystery game with real-time roles, abilities, day/night cycles, and custom mechanics.">
-    <meta name="twitter:image" content="/assets/mafia icon.png">
+    <meta name="twitter:description" content="multiplayer version of epikmafia">
+    <meta name="twitter:image" content="http://mafiamystery.duckdns.org/assets/mafia icon.png">
 
-    <link rel="icon" type="image/png" href="/assets/mafia icon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Viga&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/src/styles.css">
+    <link rel="icon" type="image/png" href="assets/mafia icon.png">
+    <link rel="stylesheet" href="styles.css">
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -211,14 +207,14 @@
 <body>
 
 <div id="loading-screen">
-    <img src="/assets/mafia icon.png" style="width: 128px; height: 128px; margin-bottom: 20px; image-rendering: pixelated;">
+    <img src="assets/mafia icon.png" style="width: 128px; height: 128px; margin-bottom: 20px; image-rendering: pixelated;">
     <div style="font-size: 32px; margin-bottom: 10px;">Mafia Mystery</div>
     <div id="loading-text" style="font-size: 16px; color: #888;">LOADING ASSETS...</div>
 </div>
 
 <div id="main-menu-ui" class="no-customization">
     <div class="menu-box" id="main-menu-box">
-        <img src="/assets/mafia icon.png" style="width: 80px; height: 80px; margin-bottom: 10px; image-rendering: pixelated;">
+        <img src="assets/mafia icon.png" style="width: 80px; height: 80px; margin-bottom: 10px; image-rendering: pixelated;">
         <div style="font-size: 32px; margin-bottom: 20px; color: white; font-weight: bold;">Mafia Mystery</div>
         <input type="text" id="username-input" maxlength="16" placeholder="Guest (auto-assigned)" autocomplete="off" disabled style="opacity:0.6;cursor:not-allowed;">
         <button id="play-btn">PLAY</button>
@@ -256,13 +252,15 @@
     </button>
 </div>
 
+
+
 <div id="first-time-modal" style="display:none;">
     <div class="modal-box">
         <div class="modal-header">WELCOME, CHOOSE YOUR NAME</div>
         <div class="modal-body">
             <p style="color:#ddd;font-size:13px;line-height:1.5;margin-bottom:14px;">
                 Choose your account username. This will be your player name in every game.<br>
-                <span style="color:#ff8800;font-weight:bold;">Once set, your name is permanent and no one else can use it.</span>
+                <span style="color:#ff8800;font-weight:bold;">⚠ Once set, your name is permanent and no one else can use it.</span>
             </p>
             <input type="text" id="first-time-name-input" maxlength="14" placeholder="Your permanent username" autocomplete="off" class="modal-input">
         </div>
@@ -282,7 +280,7 @@
             <div style="color:white;font-weight:bold;font-size:18px;" id="ai-username"></div>
             <div style="color:#aaa;font-size:12px;" id="ai-email"></div>
             <div style="width:100%;display:flex;gap:6px;align-items:center;box-sizing:border-box;">
-                <input type="text" id="ai-pfp-url-input" placeholder="Paste image URL for profile pic..." autocomplete="off" style="flex:1;background:rgba(0,0,0,0.6);color:#fff;border:2px solid rgba(255,255,255,0.15);border-radius:4px;padding:7px 10px;font-size:12px;outline:none;min-width:0;">
+                <input type="text" id="ai-pfp-url-input" placeholder="Paste image URL for profile pic..." autocomplete="off" style="flex:1;background:rgba(0,0,0,0.6);color:#fff;border:2px solid rgba(255,255,255,0.15);border-radius:4px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;min-width:0;">
                 <button id="ai-set-pfp-url-btn" class="layer-btn" style="font-size:11px;padding:7px 10px;white-space:nowrap;flex-shrink:0;">Set</button>
             </div>
             <div style="width:100%;background:rgba(255,255,255,0.06);border-radius:6px;padding:12px 14px;box-sizing:border-box;">
@@ -351,7 +349,7 @@
     <div id="leaderboard-ui" style="display: none;">
         <div id="leaderboard-header">
             <span>LEADERBOARD</span>
-            <span id="leaderboard-toggle">&#9660;</span>
+            <span id="leaderboard-toggle">▼</span>
         </div>
         <div id="leaderboard-list">
             <div class="leaderboard-entry">
@@ -372,7 +370,7 @@
     <div id="role-list-ui" style="display: none;">
         <div id="role-list-header">
             <span>ROLE LIST</span>
-            <span id="role-list-toggle">&#9660;</span>
+            <span id="role-list-toggle">▼</span>
         </div>
         <div id="role-list-items"></div>
     </div>
@@ -426,10 +424,6 @@
 <div id="role-index-modal" style="display: none;">
     <div id="role-index-header">
         <span>ROLE INDEX</span>
-    </div>
-    <div id="role-index-main-tabs">
-        <button id="main-tab-town" class="role-index-main-tab-btn main-tab-town active">TOWN</button>
-        <button id="main-tab-mafia" class="role-index-main-tab-btn main-tab-mafia">MAFIA</button>
     </div>
     <div id="role-index-tabs"></div>
     <div id="role-index-body"></div>
@@ -537,6 +531,6 @@
     </div>
 </div>
 
-<script type="module" src="/src/client.ts"></script>
+<script src="client.js"></script>
 </body>
 </html>
