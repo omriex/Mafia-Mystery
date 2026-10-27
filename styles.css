@@ -241,14 +241,54 @@ body, html {
     background-color: rgba(0, 0, 0, 0.6);
 }
 
-#leaderboard-ui {
+#right-sidebar {
     position: fixed;
     top: 50px;
     right: 10px;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+#leaderboard-ui {
+    position: static;
+    display: flex;
     flex-direction: column;
     gap: 4px;
-    z-index: 1000;
-    width: 220px;
+    width: 100%;
+    pointer-events: auto;
+}
+
+#role-index-btn-wrap {
+    width: 100%;
+    pointer-events: auto;
+}
+
+#role-index-btn {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    user-select: none;
+}
+
+#role-index-btn:hover {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.8);
 }
 
 #leaderboard-header {
@@ -472,13 +512,11 @@ body, html {
 }
 
 #role-list-ui {
-    position: fixed;
-    top: 240px;
-    right: 10px;
+    position: static;
     flex-direction: column;
     gap: 4px;
-    z-index: 1000;
-    width: 220px;
+    width: 100%;
+    pointer-events: auto;
 }
 
 #role-list-header {
@@ -668,6 +706,10 @@ body, html {
     text-shadow: 1px 1px 0 #000;
 }
 
+.chat-log-line.host-msg {
+    color: #ffd700;
+}
+
 .sys-msg { 
     color: #ffeb3b; 
 }
@@ -711,11 +753,11 @@ body, html {
 #vote-tally-panel {
     position: fixed;
     bottom: 20px;
-    left: 390px;
+    left: 440px;
     background: rgba(0,0,0,0.92);
     border: 2px solid rgba(255,255,255,0.15);
     border-radius: 8px;
-    z-index: 1200;
+    z-index: 1500;
     width: 220px;
     max-height: 280px;
     box-sizing: border-box;
@@ -858,6 +900,154 @@ body, html {
     overflow: hidden;
     display: none;
     flex-direction: column;
+}
+
+#role-index-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    z-index: 2500;
+    width: 580px;
+    max-width: 95vw;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+}
+
+#role-index-header {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 12px 20px;
+    font-weight: bold;
+    font-size: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#role-index-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.role-index-tab-btn {
+    background: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.role-index-tab-btn:hover {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.role-index-tab-btn.active {
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+.role-index-tab-btn.tab-mafia {
+    color: #ff5555;
+}
+
+.role-index-tab-btn.tab-town {
+    color: #55ee77;
+}
+
+#role-index-body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 380px;
+    overflow-y: auto;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#role-index-body::-webkit-scrollbar {
+    width: 6px;
+}
+#role-index-body::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+#role-index-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+#role-index-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.role-index-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.role-index-name {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.role-index-name.role-mafia {
+    color: #ff5555;
+}
+
+.role-index-name.role-town {
+    color: #55ee77;
+}
+
+.role-index-faction-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.faction-mafia {
+    background: rgba(255, 85, 85, 0.15);
+    border: 1px solid rgba(255, 85, 85, 0.4);
+    color: #ff5555;
+}
+
+.faction-town {
+    background: rgba(85, 238, 119, 0.15);
+    border: 1px solid rgba(85, 238, 119, 0.4);
+    color: #55ee77;
+}
+
+.role-index-desc-paragraph {
+    color: #dddddd;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0;
 }
 
 .name-mayor {
@@ -1140,7 +1330,7 @@ body, html {
         display: none !important;
     }
 
-    #leaderboard-ui {
+    #right-sidebar {
         width: 180px;
         top: 46px;
         right: 8px;
@@ -1157,13 +1347,6 @@ body, html {
         font-size: 11px;
     }
 
-    #role-list-ui {
-        width: 180px;
-        top: 46px;
-        right: 8px;
-        z-index: 2300;
-    }
-
     #role-list-header {
         padding: 6px 10px;
         font-size: 11px;
@@ -1173,6 +1356,15 @@ body, html {
         padding: 6px 10px;
         font-size: 11px;
         max-height: 150px;
+    }
+
+    #role-index-modal {
+        width: 92vw;
+        max-height: 82vh;
+    }
+
+    #role-index-tabs {
+        grid-template-columns: repeat(3, 1fr);
     }
 
     #vote-tally-panel {
