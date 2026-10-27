@@ -704,7 +704,7 @@ body, html {
     text-shadow: 1px 1px 0 #000;
 }
 
-.chat-log-line.host-msg {
+.chat-host-name {
     color: #ffd700;
 }
 
